@@ -1,0 +1,32 @@
+services:
+  renagro-etl-db:
+    image: postgres:16-alpine
+    container_name: renagro-etl-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: renagro
+    ports:
+      - "5532:5432"
+    volumes:
+      - ./docker/data-db:/var/lib/postgresql/data
+
+  renagro-etl-queue:
+    image: rabbitmq:4.0.7-management-alpine
+    container_name: renagro-etl-queue
+    ports:
+      - "5672:5672"  # Puerto para AMQP (conexión de clientes)
+      - "15672:15672"  # Puerto para la interfaz de gestión (management UI)
+    volumes:
+      - ./docker/queue/data:/var/lib/rabbitmq  # Persistencia de datos en el host
+      - ./docker/queue/config:/etc/rabbitmq  # Persistencia de configuraciones en el host
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+
+  renagro-etl-redis:
+    image: redis:7.4.0-alpine
+    container_name: renagro-etl-redis
+    ports:
+      - "6379:6379"
+

@@ -99,3 +99,6 @@ errors/
 # Backup files
 *.bak
 *.backup
+
+# Backup files
+docker/
