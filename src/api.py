@@ -10,8 +10,9 @@ from pydantic import BaseModel
 
 from .config import config
 from .models import EstadoETLEnum
-from .process_json import save_to_control_table, process_transformations, execute_transaction, update_control_status
 from .logger import etl_logger
+from .mapping_loader import mapping_loader
+from .rabbitmq_client import rabbitmq_client
 
 # Inicializar FastAPI
 app = FastAPI(
@@ -19,6 +20,40 @@ app = FastAPI(
     description="API para procesar formularios KoboToolbox y ejecutar transformaciones ETL",
     version="1.0.0"
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Evento de inicio: Cargar mapeos YAML a Redis cache
+    Se ejecuta una sola vez al iniciar el servidor
+    """
+    etl_logger.info("Iniciando servidor RENAGRO ETL API...")
+    
+    try:
+        # Cargar mapeos master y YAML
+        etl_logger.info("Cargando mapeos YAML...")
+        mapping_loader.load_master()
+        mapping_loader.load_all_mappings(force_reload=False)
+        
+        etl_logger.info(f"Mapeos cargados: {len(mapping_loader.entity_mappings)} entidades")
+        
+        if config.DEBUG_CLI:
+            from rich.console import Console
+            console = Console()
+            console.print(f"\n[green]✅ Servidor iniciado - {len(mapping_loader.entity_mappings)} mapeos YAML cargados[/green]")
+            console.print(f"[cyan]Redis cache: {'Habilitado' if config.REDIS_ENABLED else 'Deshabilitado'}[/cyan]\n")
+    
+    except Exception as e:
+        etl_logger.error(f"Error cargando mapeos en startup: {e}", exc_info=True)
+        raise
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Evento de cierre del servidor"""
+    etl_logger.info("Cerrando servidor RENAGRO ETL API...")
+
 
 # Seguridad HTTP Basic
 security = HTTPBasic()
@@ -40,16 +75,12 @@ def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):
     return credentials.username
 
 
-class ProcessResponse(BaseModel):
-    """Modelo de respuesta del procesamiento"""
+class AcceptedResponse(BaseModel):
+    """Modelo de respuesta para procesamiento asíncrono"""
     success: bool
     message: str
     _id: int
-    estado_etl: str
-    entities_processed: int
-    total_rows_inserted: int
-    execution_time: float
-    errors: list = []
+    status: str
 
 
 @app.get("/")
@@ -59,8 +90,10 @@ async def root():
         "service": "RENAGRO ETL API",
         "version": "1.0.0",
         "status": "running",
+        "mode": "async",
         "endpoints": {
-            "POST /boletas": "Procesar formulario KoboToolbox"
+            "POST /boletas": "Recibir formulario KoboToolbox (procesamiento asíncrono)",
+            "GET /boletas/{_id}": "Consultar estado de procesamiento"
         }
     }
 
@@ -74,29 +107,29 @@ async def health():
     }
 
 
-@app.post("/boletas", response_model=ProcessResponse, status_code=status.HTTP_200_OK)
+@app.post("/boletas", response_model=AcceptedResponse, status_code=status.HTTP_202_ACCEPTED)
 async def process_boleta(
     json_data: Dict[str, Any],
     username: str = Depends(verify_credentials)
 ):
     """
-    Procesa un JSON de KoboToolbox
+    Recibe un JSON de KoboToolbox para procesamiento asíncrono
     
-    Flujo:
-    1. Guarda JSON en control_envios_boletas
-    2. Realiza transformaciones según mapeos YAML
-    3. Ejecuta transacción en PostgreSQL
-    4. Retorna resultado del procesamiento
+    Flujo asíncrono (pipeline de colas RabbitMQ):
+    1. API valida JSON y publica a cola json_save
+    2. Worker json_save guarda en BD y publica a etl_transform
+    3. Worker etl_transform procesa transformaciones y publica a db_insert
+    4. Worker db_insert ejecuta transacción y actualiza estado final
     
     Args:
         json_data: JSON completo del formulario KoboToolbox
         
     Returns:
-        ProcessResponse con el resultado del procesamiento
+        AcceptedResponse con confirmación de recepción (202 Accepted)
         
     Raises:
         HTTPException 400: Si el JSON es inválido
-        HTTPException 500: Si falla el procesamiento
+        HTTPException 503: Si RabbitMQ no está disponible
     """
     _id = None
     
@@ -110,113 +143,86 @@ async def process_boleta(
                 detail="El JSON no contiene el campo '_id'"
             )
         
-        # PASO 1: Guardar en tabla de control
-        try:
-            _id = save_to_control_table(json_data, allow_duplicates=False)
-            etl_logger.info(f"API - _id={_id} recibido desde {username}")
-        except ValueError as e:
-            # Error de duplicado o validación
-            if "duplicado" in str(e).lower():
-                etl_logger.warning(f"API - Rechazo de duplicado: {str(e)}")
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=str(e)
-                )
-            else:
-                etl_logger.error(f"API - Error de validación: {str(e)}")
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=str(e)
-                )
-        except Exception as e:
-            etl_logger.error(f"API - Error guardando en BD: {str(e)}", exc_info=True)
+        etl_logger.info(f"API - _id={_id} recibido desde {username}")
+        
+        # Publicar a cola json_save
+        success = await rabbitmq_client.publish_message(
+            queue_name=config.QUEUE_JSON_SAVE,
+            message=json_data,
+            priority=5
+        )
+        
+        if not success:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Error guardando en base de datos: {str(e)}"
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No se pudo publicar mensaje a cola de procesamiento"
             )
         
-        # PASO 2: Procesar transformaciones
-        try:
-            transformation_result = process_transformations(json_data)
-            transformations = transformation_result['transformations']
-            processing_order = transformation_result['processing_order']
-        except Exception as e:
-            error_msg = f"Error en transformaciones: {str(e)}"
-            update_control_status(_id, success=False, error_message=error_msg)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=error_msg
-            )
+        etl_logger.info(f"API - _id={_id} publicado a cola {config.QUEUE_JSON_SAVE}")
         
-        # PASO 3 y 4: Ejecutar transacción
-        if not transformations:
-            update_control_status(_id, success=True)
-            return ProcessResponse(
-                success=True,
-                message="Procesamiento completado (sin datos para insertar)",
-                _id=_id,
-                estado_etl=EstadoETLEnum.PROCESADO.value,
-                entities_processed=0,
-                total_rows_inserted=0,
-                execution_time=0.0,
-                errors=[]
-            )
-        
-        try:
-            results = execute_transaction(
-                transformations=transformations,
-                processing_order=processing_order,
-                debug=config.DEBUG,
-                _id=_id
-            )
-            
-            if results['success']:
-                # Actualizar estado a PROCESADO
-                update_control_status(_id, success=True)
-                
-                return ProcessResponse(
-                    success=True,
-                    message="Procesamiento completado exitosamente",
-                    _id=_id,
-                    estado_etl=EstadoETLEnum.PROCESADO.value,
-                    entities_processed=results['entities_processed'],
-                    total_rows_inserted=results['total_rows_inserted'],
-                    execution_time=results['execution_time'],
-                    errors=[]
-                )
-            else:
-                # Hubo errores en la transacción
-                error_msg = '; '.join(results['errors']) if results['errors'] else 'Error desconocido'
-                update_control_status(_id, success=False, error_message=error_msg)
-                
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Error ejecutando transacción: {error_msg}"
-                )
-                
-        except HTTPException:
-            raise
-        except Exception as e:
-            error_msg = f"Error ejecutando transacción: {str(e)}"
-            update_control_status(_id, success=False, error_message=error_msg)
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=error_msg
-            )
+        # Retornar inmediatamente (procesamiento asíncrono)
+        return AcceptedResponse(
+            success=True,
+            message="JSON recibido y enviado a procesamiento asíncrono",
+            _id=_id,
+            status="ENCOLADO"
+        )
     
     except HTTPException:
         raise
     except Exception as e:
-        # Error inesperado
         error_msg = f"Error inesperado: {str(e)}"
         etl_logger.error(f"API - _id={_id} - {error_msg}", exc_info=True)
-        
-        if _id:
-            update_control_status(_id, success=False, error_message=error_msg)
         
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=error_msg
+        )
+
+
+@app.get("/boletas/{_id}")
+async def get_boleta_status(
+    _id: int,
+    username: str = Depends(verify_credentials)
+):
+    """
+    Consulta el estado de procesamiento de un JSON
+    
+    Args:
+        _id: ID del formulario
+        
+    Returns:
+        Estado actual del procesamiento
+    """
+    try:
+        from .database import db
+        from .models import ControlEnviosBoletas
+        
+        with db.get_session() as session:
+            control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+            
+            if not control:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"No se encontró registro con _id={_id}"
+                )
+            
+            return {
+                "_id": control._id,
+                "estado_etl": control.estado_etl.value,
+                "envio_datos_procesados": control.envio_datos_procesados.value,
+                "fecha_recepcion": control.fecha_recepcion.isoformat(),
+                "procesado_at": control.procesado_at.isoformat() if control.procesado_at else None,
+                "error_message": control.error_message
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        etl_logger.error(f"Error consultando estado _id={_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
         )
 
 
