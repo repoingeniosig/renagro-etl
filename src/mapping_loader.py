@@ -125,20 +125,20 @@ class MappingLoader:
             try:
                 from .redis_client import redis_client
                 
+                print("🔍 Intentando cargar mapeos desde Redis cache...")
                 cached_mappings = redis_client.get_cached_mappings()
                 if cached_mappings:
                     self.entity_mappings = cached_mappings
-                    logger.info(f"✅ Mapeos cargados desde Redis cache ({len(cached_mappings)} entidades)")
                     return self.entity_mappings
                     
-            except ImportError:
-                logger.debug("Redis client no disponible, cargando desde disco")
+            except ImportError as e:
+                print(f"Redis client no disponible: {e}")
             except Exception as e:
-                logger.warning(f"⚠️  Error accediendo a Redis cache: {e}")
-                logger.warning("Fallback: cargando mapeos desde disco")
+                print(f"⚠️  Error accediendo a Redis cache: {e}")
+                print("Fallback: cargando mapeos desde disco")
         
         # Fallback: Cargar desde disco
-        logger.info("📂 Cargando mapeos desde archivos YAML...")
+        print("📂 Cargando mapeos desde archivos YAML...")
         
         if not self.master_config:
             self.load_master()
@@ -146,20 +146,21 @@ class MappingLoader:
         for entity_name, yaml_file in self.master_config.items():
             self.entity_mappings[entity_name] = self.load_entity_mapping(yaml_file)
         
-        logger.info(f"✅ {len(self.entity_mappings)} mapeos cargados desde disco")
+        print(f"✅ {len(self.entity_mappings)} mapeos cargados desde disco")
         
         # Intentar guardar en Redis cache para futuras ejecuciones
         if not force_reload:
             try:
                 from .redis_client import redis_client
+                print("💾 Guardando mapeos en Redis cache...")
                 success = redis_client.set_cached_mappings(self.entity_mappings)
-                if success:
-                    logger.info("✅ Mapeos guardados en Redis cache")
+                if not success:
+                    print("⚠️  No se pudo guardar en cache, pero el proceso continúa")
             except ImportError:
-                pass
+                print("Redis client no disponible para guardar cache")
             except Exception as e:
-                logger.warning(f"⚠️  No se pudo guardar en cache: {e}")
-                logger.warning("El proceso continuará normalmente")
+                print(f"⚠️  No se pudo guardar en cache: {e}")
+                print("El proceso continuará normalmente")
         
         return self.entity_mappings
     

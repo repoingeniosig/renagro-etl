@@ -29,7 +29,7 @@ class RedisClient:
     def _initialize(self):
         """Inicializa la conexión a Redis"""
         if not config.REDIS_ENABLED:
-            logger.info("Redis cache deshabilitado en configuración")
+            print("Redis cache deshabilitado en configuración")
             self._enabled = False
             return
         
@@ -53,15 +53,15 @@ class RedisClient:
             # Verificar conexión
             self._redis_client.ping()
             self._enabled = True
-            logger.info(f"✅ Conexión a Redis establecida: {config.REDIS_HOST}:{config.REDIS_PORT}")
+            print(f"✅ Conexión a Redis establecida: {config.REDIS_HOST}:{config.REDIS_PORT}")
             
         except (RedisError, ConnectionError) as e:
-            logger.warning(f"⚠️  No se pudo conectar a Redis: {e}")
-            logger.warning("Se usará lectura directa desde disco como fallback")
+            print(f"⚠️  No se pudo conectar a Redis: {e}")
+            print("Se usará lectura directa desde disco como fallback")
             self._enabled = False
             self._redis_client = None
         except Exception as e:
-            logger.error(f"❌ Error inesperado inicializando Redis: {e}")
+            print(f"❌ Error inesperado inicializando Redis: {e}")
             self._enabled = False
             self._redis_client = None
     
@@ -77,6 +77,7 @@ class RedisClient:
             Diccionario con los mapeos o None si no existen/falló
         """
         if not self.is_enabled():
+            print("Redis no está habilitado, omitiendo cache")
             return None
         
         try:
@@ -86,17 +87,17 @@ class RedisClient:
             if cached_data:
                 # Deserializar con pickle
                 mappings = pickle.loads(cached_data)
-                logger.info(f"✅ Mapeos cargados desde Redis cache ({len(mappings)} entidades)")
+                print(f"✅ Mapeos cargados desde Redis cache ({len(mappings)} entidades)")
                 return mappings
             else:
-                logger.info("ℹ️  No hay mapeos en cache, se cargarán desde disco")
+                print("ℹ️  No hay mapeos en cache, se cargarán desde disco")
                 return None
                 
         except (RedisError, pickle.PickleError) as e:
-            logger.warning(f"⚠️  Error leyendo cache de Redis: {e}")
+            print(f"⚠️  Error leyendo cache de Redis: {e}")
             return None
         except Exception as e:
-            logger.error(f"❌ Error inesperado leyendo cache: {e}")
+            print(f"❌ Error inesperado leyendo cache: {e}")
             return None
     
     def set_cached_mappings(self, mappings: Dict[str, Any]) -> bool:
@@ -110,7 +111,7 @@ class RedisClient:
             True si se guardó exitosamente, False en caso contrario
         """
         if not self.is_enabled():
-            logger.debug("Redis no disponible, omitiendo cache")
+            print("Redis no disponible, omitiendo guardado en cache")
             return False
         
         try:
@@ -126,15 +127,15 @@ class RedisClient:
                 value=serialized_data
             )
             
-            logger.info(f"✅ Mapeos guardados en Redis cache ({len(mappings)} entidades, TTL={config.REDIS_TTL}s)")
+            print(f"✅ Mapeos guardados en Redis cache ({len(mappings)} entidades, TTL={config.REDIS_TTL}s)")
             return True
             
         except (RedisError, pickle.PickleError) as e:
-            logger.warning(f"⚠️  Error guardando en cache de Redis: {e}")
-            logger.warning("El proceso continuará normalmente usando disco")
+            print(f"⚠️  Error guardando en cache de Redis: {e}")
+            print("El proceso continuará normalmente usando disco")
             return False
         except Exception as e:
-            logger.error(f"❌ Error inesperado guardando cache: {e}")
+            print(f"❌ Error inesperado guardando cache: {e}")
             return False
     
     def invalidate_cache(self) -> bool:
