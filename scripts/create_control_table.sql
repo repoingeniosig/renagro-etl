@@ -13,7 +13,6 @@ CREATE TYPE "sc_renagro_mag"."estado_envio_enum" AS ENUM ('ERROR', 'PENDIENTE', 
 DROP TABLE IF EXISTS "sc_renagro_mag"."control_envios_boletas" CASCADE;
 CREATE TABLE "sc_renagro_mag"."control_envios_boletas" (
   "_id" INTEGER NOT NULL,
-  "formhub_uuid" VARCHAR(255) NOT NULL,
   "json_data" JSONB NOT NULL,
   "fecha_recepcion" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "estado_etl" "sc_renagro_mag"."estado_etl_enum" NOT NULL DEFAULT 'PENDIENTE',
@@ -22,8 +21,7 @@ CREATE TABLE "sc_renagro_mag"."control_envios_boletas" (
   "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "error_message" TEXT,
   "procesado_at" TIMESTAMP WITH TIME ZONE,
-  CONSTRAINT "pk_control_envios_boletas" PRIMARY KEY ("_id"),
-  CONSTRAINT "uk_formhub_uuid" UNIQUE ("formhub_uuid")
+  CONSTRAINT "pk_control_envios_boletas" PRIMARY KEY ("_id")
 );
 
 -- Crear índices para mejorar el rendimiento
@@ -35,7 +33,6 @@ CREATE INDEX "idx_control_envios_json_data" ON "sc_renagro_mag"."control_envios_
 -- Comentarios para documentación
 COMMENT ON TABLE "sc_renagro_mag"."control_envios_boletas" IS 'Tabla de control para almacenar los JSONs recibidos de KoboToolbox y controlar su procesamiento ETL';
 COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."_id" IS 'ID único del envío proveniente del campo _id del JSON de KoboToolbox (Primary Key)';
-COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."formhub_uuid" IS 'UUID único del formulario proveniente del campo formhub/uuid del JSON';
 COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."json_data" IS 'JSON completo del envío de KoboToolbox almacenado en formato JSONB';
 COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."fecha_recepcion" IS 'Fecha y hora exacta de recepción del JSON en el servidor externo';
 COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."estado_etl" IS 'Estado del procesamiento ETL: PENDIENTE, PROCESADO, ERROR';
@@ -65,7 +62,7 @@ CREATE TRIGGER "trigger_update_control_envios_updated_at"
 -- SELECT * FROM "sc_renagro_mag"."control_envios_boletas" WHERE estado_etl = 'PENDIENTE';
 --
 -- Ver todos los errores:
--- SELECT _id, formhub_uuid, estado_etl, error_message, fecha_recepcion 
+-- SELECT _id, estado_etl, error_message, fecha_recepcion 
 -- FROM "sc_renagro_mag"."control_envios_boletas" WHERE estado_etl = 'ERROR';
 --
 -- Contar envíos por estado:

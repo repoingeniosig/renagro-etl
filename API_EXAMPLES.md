@@ -49,7 +49,6 @@ ReDoc: http://localhost:8000/redoc
   "success": true,
   "message": "Procesamiento completado exitosamente",
   "_id": 220,
-  "formhub_uuid": "uuid-here",
   "estado_etl": "PROCESADO",
   "entities_processed": 8,
   "total_rows_inserted": 42,

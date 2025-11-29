@@ -171,7 +171,6 @@ El script realiza las siguientes acciones:
 1. **Carga el archivo JSON** y muestra información básica
 2. **Guarda en `control_envios_boletas`** el JSON completo con:
    - `_id` del formulario
-   - `formhub_uuid` único
    - `json_data` completo en JSONB
    - `estado_etl` = 'PENDIENTE'
    - `envio_datos_procesados` = 'PENDIENTE'
@@ -194,7 +193,6 @@ RENAGRO ETL PROCESS - Procesador de formularios KoboToolbox
 💾 Guardando en base de datos...
 ✅ JSON guardado en control_envios_boletas
    _id: 12345
-   formhub_uuid: a1b2c3d4-e5f6-7890-abcd-ef1234567890
    estado_etl: PENDIENTE
 
 ================================================================================
@@ -336,7 +334,6 @@ La tabla `control_envios_boletas` almacena:
 ```sql
 CREATE TABLE "sc_renagro_mag"."control_envios_boletas" (
   "_id" INTEGER PRIMARY KEY,
-  "formhub_uuid" VARCHAR(255) UNIQUE NOT NULL,
   "json_data" JSONB NOT NULL,
   "fecha_recepcion" TIMESTAMP WITH TIME ZONE NOT NULL,
   "estado_etl" estado_etl_enum NOT NULL DEFAULT 'PENDIENTE',

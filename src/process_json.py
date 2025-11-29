@@ -67,18 +67,13 @@ def save_to_control_table(json_data: Dict[str, Any], allow_duplicates: bool = Tr
     
     # Extraer campos requeridos del JSON
     _id = json_data.get('_id')
-    formhub_uuid = json_data.get('formhub/uuid') or json_data.get('formhub', {}).get('uuid')
     
     if not _id:
         raise ValueError("El JSON no contiene el campo '_id'")
     
-    if not formhub_uuid:
-        raise ValueError("El JSON no contiene el campo 'formhub/uuid'")
-    
     # Crear el registro
     registro = ControlEnviosBoletas(
         _id=_id,
-        formhub_uuid=formhub_uuid,
         json_data=json_data,
         estado_etl=EstadoETLEnum.PENDIENTE,
         envio_datos_procesados=EstadoEnvioEnum.PENDIENTE
@@ -94,7 +89,6 @@ def save_to_control_table(json_data: Dict[str, Any], allow_duplicates: bool = Tr
                 raise ValueError(f"Registro duplicado: _id={_id} ya existe en la base de datos")
             
             console.print(f"[yellow]⚠️  Ya existe registro con _id={_id}[/yellow]")
-            console.print(f"   formhub_uuid: {existing.formhub_uuid}")
             console.print(f"   estado_etl: {existing.estado_etl.value}")
             console.print(f"   Actualizando JSON y reseteando estado...")
             
@@ -110,7 +104,6 @@ def save_to_control_table(json_data: Dict[str, Any], allow_duplicates: bool = Tr
             console.print(f"[green]✅ Nuevo registro guardado[/green]")
         
         console.print(f"   _id: {_id}")
-        console.print(f"   formhub_uuid: {formhub_uuid}")
     
     return _id
 

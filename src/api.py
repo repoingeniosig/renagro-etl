@@ -44,7 +44,6 @@ class ProcessResponse(BaseModel):
     success: bool
     message: str
     _id: int
-    formhub_uuid: str
     estado_etl: str
     entities_processed: int
     total_rows_inserted: int
@@ -103,18 +102,11 @@ async def process_boleta(
     try:
         # Validar campos requeridos
         _id = json_data.get('_id')
-        formhub_uuid = json_data.get('formhub/uuid') or json_data.get('formhub', {}).get('uuid')
         
         if not _id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El JSON no contiene el campo '_id'"
-            )
-        
-        if not formhub_uuid:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El JSON no contiene el campo 'formhub/uuid'"
             )
         
         # PASO 1: Guardar en tabla de control
@@ -158,7 +150,6 @@ async def process_boleta(
                 success=True,
                 message="Procesamiento completado (sin datos para insertar)",
                 _id=_id,
-                formhub_uuid=formhub_uuid,
                 estado_etl=EstadoETLEnum.PROCESADO.value,
                 entities_processed=0,
                 total_rows_inserted=0,
@@ -181,7 +172,6 @@ async def process_boleta(
                     success=True,
                     message="Procesamiento completado exitosamente",
                     _id=_id,
-                    formhub_uuid=formhub_uuid,
                     estado_etl=EstadoETLEnum.PROCESADO.value,
                     entities_processed=results['entities_processed'],
                     total_rows_inserted=results['total_rows_inserted'],
