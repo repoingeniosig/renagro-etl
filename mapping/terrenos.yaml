@@ -1,0 +1,99 @@
+version: 1.0
+entity: terrenos
+table: terrenos
+
+repeat:
+  source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat"
+
+# id de boleta
+parent_key:
+  field: bol_id
+
+fields:
+  ter_cobertura_tierra:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cobertura_uso"
+    type: string
+    default: null
+
+  ter_is_cultivo_en_terreno:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/tiene_cultivos"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  ter_is_infraestructura:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/medios_produccion"
+    type: boolean
+    convert:
+      contains_option: "infraestructura_agropecuaria"
+    default: false
+
+  ter_is_mano_de_obra:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/medios_produccion"
+    type: boolean
+    convert:
+      contains_option: "mano_de_obra"
+    default: false
+
+  ter_is_maquinaria_implemento:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/medios_produccion"
+    type: boolean
+    convert:
+      contains_option: "maquinaria_pos_implementos"
+    default: false
+
+  ter_is_terreno_principal:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/terreno_principal"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  ter_superficie:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/superficie_valor"
+    type: float
+    default: null
+
+  ter_superficie_unidad:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/superficie_unidad"
+    type: string
+    default: null
+
+  ter_tenencia:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/tenencia_tierra"
+    type: string
+    default: null
+
+  ter_terreno_numero:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/terreno_numero"
+    type: integer
+    default: null
+
+  ter_poligono_terreno:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/poligono_terreno"
+    type: string
+    default: null
+
+  ter_reg_usu:
+    source: ""
+    type: integer
+    default: 999
+
+  ter_reg_fecha:
+    source: "_submission_time"
+    type: datetime
+    default: null
+
+  ter_estado:
+    source: ""
+    type: integer
+    default: 11
+
+conversions:
+  yes_no_to_bool:
+    yes: true
+    no: false
+
+contains_option:
+  type: contains

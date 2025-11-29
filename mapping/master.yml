@@ -1,0 +1,12 @@
+bovinos: "mapping/bovinos.yml"
+pecuario_otros: "mapping/pecuarios_otros.yml"
+pollos: "mapping/pollos.yml"
+porcinos: "mapping/porcinos.yml"
+personas: "mapping/personas.yml"
+
+boletas: "mapping/boletas.yml"
+miembros_hogar: "mapping/miembros_hogar.yml"
+terrenos: "mapping/terrenos.yml"
+
+cultivos: "mapping/cultivos.yml"
+forestales: "mapping/forestales.yml"

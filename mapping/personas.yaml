@@ -1,0 +1,64 @@
+version: 1.0
+entity: personas
+table: personas
+
+fields:
+  per_identificacion:
+    source: "capitulos_1_10_wrapper/datos_pp_group/identificacion_group/cedula_numero"
+    type: string
+    default: null
+
+  per_persona_natural:
+    source: "capitulos_1_10_wrapper/datos_pp_group/nombre_pp_group/tipo_persona"
+    type: boolean
+    convert:
+      contains_option: "natural"
+    default: false
+
+  per_primer_apellido:
+    source: "capitulos_1_10_wrapper/datos_pp_group/nombre_pp_group/primer_apellido"
+    type: string
+    default: null
+
+  per_primer_nombre:
+    source: "capitulos_1_10_wrapper/datos_pp_group/nombre_pp_group/primer_nombre"
+    type: string
+    default: null
+
+  per_razon_social:
+    source: "capitulos_1_10_wrapper/datos_pp_group/nombre_pp_group/razon_social"
+    type: string
+    default: null
+
+  per_segundo_apellido:
+    source: "capitulos_1_10_wrapper/datos_pp_group/nombre_pp_group/segundo_apellido"
+    type: string
+    default: null
+
+  per_segundo_nombre:
+    source: "capitulos_1_10_wrapper/datos_pp_group/nombre_pp_group/segundo_nombre"
+    type: string
+    default: null
+
+  per_tipo_identificacion:
+    source: "capitulos_1_10_wrapper/datos_pp_group/identificacion_group/tipo_documento"
+    type: string
+    default: null
+
+  per_reg_usu:
+    source: ""
+    type: integer
+    default: 999
+
+  per_reg_fecha:
+    source: "_submission_time"
+    type: datetime
+    default: null
+
+  per_estado:
+    source: ""
+    type: integer
+    default: 11
+
+contains_option:
+  type: contains
