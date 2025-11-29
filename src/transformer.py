@@ -108,6 +108,12 @@ class JSONTransformer:
                         return False
                 return bool(value) if value is not None else field_mapping.default
             
+            elif field_mapping.type == 'datetime':
+                # Mantener como string para PostgreSQL, el motor lo parseará
+                if value is not None:
+                    return str(value)
+                return field_mapping.default
+            
             elif field_mapping.type == 'string':
                 return str(value) if value is not None else field_mapping.default
             
@@ -134,8 +140,11 @@ class JSONTransformer:
         for column_name, field_mapping in entity_mapping.fields.items():
             value = None
             
+            # Si source está vacío, usar directamente el default
+            if not field_mapping.source or field_mapping.source.strip() == "":
+                value = None  # convert_value usará el default
             # Manejar repeat_filter
-            if field_mapping.repeat_filter and field_mapping.extract:
+            elif field_mapping.repeat_filter and field_mapping.extract:
                 # Obtener el array de elementos
                 repeat_items = JSONTransformer.get_value_by_path(json_data, field_mapping.source)
                 
@@ -160,13 +169,14 @@ class JSONTransformer:
                 # Obtener el valor del JSON normalmente
                 value = JSONTransformer.get_value_by_path(json_data, field_mapping.source)
             
-            # Convertir el valor
+            # Convertir el valor (siempre se agrega al row, incluso si es None/default)
             converted_value = JSONTransformer.convert_value(
                 value,
                 field_mapping,
                 entity_mapping.conversions
             )
             
+            # IMPORTANTE: Siempre agregar el campo, incluso si el valor es None o default
             row[column_name] = converted_value
         
         return row
