@@ -60,7 +60,6 @@ def save_to_control_table(json_data: Dict[str, Any]) -> int:
         _id=_id,
         formhub_uuid=formhub_uuid,
         json_data=json_data,
-        fecha_recepcion=datetime.now(),
         estado_etl=EstadoETLEnum.PENDIENTE,
         envio_datos_procesados=EstadoEnvioEnum.PENDIENTE
     )
@@ -253,12 +252,43 @@ def main():
             print(f"\n⏭️  Omitiendo guardado en base de datos (--skip-db)")
         
         # Procesar transformaciones
-        sql_statements = process_transformations(json_data)
-        
-        # Imprimir las sentencias SQL
-        print_sql_statements(sql_statements)
-        
-        print(f"\n✅ Proceso completado exitosamente")
+        try:
+            sql_statements = process_transformations(json_data)
+            
+            # Imprimir las sentencias SQL
+            print_sql_statements(sql_statements)
+            
+            # Actualizar estado a PROCESADO si se guardó en BD
+            if not args.skip_db:
+                try:
+                    with db.get_session() as session:
+                        _id = json_data.get('_id')
+                        control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                        if control:
+                            control.estado_etl = EstadoETLEnum.PROCESADO
+                            control.procesado_at = datetime.now()
+                            session.commit()
+                            print(f"\n✅ Estado actualizado a PROCESADO en la base de datos")
+                except Exception as e:
+                    print(f"\n⚠️  Advertencia: No se pudo actualizar el estado: {e}")
+            
+            print(f"\n✅ Proceso completado exitosamente")
+            
+        except Exception as e:
+            # Guardar error en la BD si es posible
+            if not args.skip_db:
+                try:
+                    with db.get_session() as session:
+                        _id = json_data.get('_id')
+                        control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                        if control:
+                            control.estado_etl = EstadoETLEnum.ERROR
+                            control.error_message = str(e)
+                            session.commit()
+                            print(f"\n⚠️  Error guardado en la base de datos")
+                except Exception:
+                    pass
+            raise
         
     except FileNotFoundError as e:
         print(f"\n❌ Error: {e}")
