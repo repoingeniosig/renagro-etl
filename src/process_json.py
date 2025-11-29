@@ -143,18 +143,10 @@ def process_transformations(json_data: Dict[str, Any]) -> Dict[str, Any]:
     
     etl_logger.info(f"Iniciando transformaciones para _id={_id}")
     
-    # Cargar todos los mapeos
-    if config.DEBUG_CLI:
-        console.print("\n📋 Cargando archivos de mapeo YAML...")
-    
-    mapping_loader.load_master()
-    mapping_loader.load_all_mappings()
-    
-    # Obtener el orden de procesamiento
+    # Obtener el orden de procesamiento (los mapeos ya están cargados en Redis desde api.py)
     processing_order = mapping_loader.get_processing_order()
     
     if config.DEBUG_CLI:
-        console.print(f"[green]✅ Mapeos cargados: {len(mapping_loader.entity_mappings)} entidades[/green]")
         console.print(f"\n📊 Orden de procesamiento en {len(processing_order)} grupos:")
         for i, group in enumerate(processing_order, 1):
             console.print(f"   Grupo {i}: {', '.join(group)}")

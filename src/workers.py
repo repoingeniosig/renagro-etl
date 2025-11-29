@@ -119,8 +119,10 @@ class EtlTransformWorker:
         try:
             etl_logger.info(f"[etl_transform] Procesando _id={_id}")
             
-            # Cargar mapeos (deberían estar en cache)
+            # Verificar si los mapeos están cargados en memoria
+            # Si no están, cargarlos desde Redis/disco (fallback para workers independientes)
             if not mapping_loader.entity_mappings:
+                etl_logger.warning("[etl_transform] Mapeos no encontrados en memoria, cargando desde Redis/disco...")
                 mapping_loader.load_master()
                 mapping_loader.load_all_mappings(force_reload=False)
             
