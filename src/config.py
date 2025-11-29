@@ -46,6 +46,7 @@ class Config:
     # Aplicación
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
+    DEBUG = os.getenv('DEBUG', 'false').lower() in ('true', '1', 'yes')
     
     # Rutas del proyecto
     BASE_DIR = Path(__file__).parent.parent

@@ -1,6 +1,13 @@
 """
 Script principal para procesar JSONs de KoboToolbox
 Uso: python -m src.process_json <ruta_al_archivo.json>
+
+Flujo de procesamiento:
+1. Guardar JSON en control_envios_boletas
+2. Realizar transformaciones y mapeos
+3. Generar transacción SQL con SQLAlchemy
+4. Ejecutar transacción en la base de datos
+5. Mostrar resultados de la ejecución
 """
 import sys
 import json
@@ -8,12 +15,19 @@ import argparse
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich import print as rprint
 
 from .config import config
 from .database import db
 from .models import ControlEnviosBoletas, EstadoETLEnum, EstadoEnvioEnum
 from .mapping_loader import mapping_loader
-from .transformer import JSONTransformer, SQLGenerator
+from .transformer import JSONTransformer
+from .executor import TransactionExecutor
+
+console = Console()
 
 
 def load_json_file(file_path: str) -> Dict[str, Any]:
@@ -37,7 +51,7 @@ def load_json_file(file_path: str) -> Dict[str, Any]:
 
 def save_to_control_table(json_data: Dict[str, Any]) -> int:
     """
-    Guarda el JSON completo en la tabla de control
+    PASO 1: Guarda el JSON completo en la tabla de control
     
     Args:
         json_data: Datos JSON del formulario
@@ -45,6 +59,8 @@ def save_to_control_table(json_data: Dict[str, Any]) -> int:
     Returns:
         El _id del registro insertado
     """
+    console.print("\n[bold cyan]PASO 1: Guardando en tabla de control[/bold cyan]")
+    
     # Extraer campos requeridos del JSON
     _id = json_data.get('_id')
     formhub_uuid = json_data.get('formhub/uuid') or json_data.get('formhub', {}).get('uuid')
@@ -70,147 +86,155 @@ def save_to_control_table(json_data: Dict[str, Any]) -> int:
         existing = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
         
         if existing:
-            print(f"⚠️  Advertencia: Ya existe un registro con _id={_id}")
-            print(f"   formhub_uuid: {existing.formhub_uuid}")
-            print(f"   fecha_recepcion: {existing.fecha_recepcion}")
-            print(f"   estado_etl: {existing.estado_etl}")
-            return _id
+            console.print(f"[yellow]⚠️  Ya existe registro con _id={_id}[/yellow]")
+            console.print(f"   formhub_uuid: {existing.formhub_uuid}")
+            console.print(f"   estado_etl: {existing.estado_etl.value}")
+            console.print(f"   Actualizando JSON y reseteando estado...")
+            
+            # Actualizar el JSON y resetear estado
+            existing.json_data = json_data
+            existing.estado_etl = EstadoETLEnum.PENDIENTE
+            existing.updated_at = datetime.now()
+            session.commit()
+            console.print(f"[green]✅ Registro actualizado[/green]")
+        else:
+            session.add(registro)
+            session.commit()
+            console.print(f"[green]✅ Nuevo registro guardado[/green]")
         
-        session.add(registro)
-        session.commit()
-        
-        print(f"✅ JSON guardado en control_envios_boletas")
-        print(f"   _id: {_id}")
-        print(f"   formhub_uuid: {formhub_uuid}")
-        print(f"   estado_etl: {registro.estado_etl.value}")
+        console.print(f"   _id: {_id}")
+        console.print(f"   formhub_uuid: {formhub_uuid}")
     
     return _id
 
 
-def process_transformations(json_data: Dict[str, Any]) -> Dict[str, str]:
+def process_transformations(json_data: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Procesa las transformaciones según los mapeos YAML
+    PASO 2: Procesa las transformaciones según los mapeos YAML
     
     Args:
         json_data: Datos JSON del formulario
     
     Returns:
-        Diccionario con las sentencias SQL por tabla
+        Diccionario con las transformaciones por entidad y el orden de procesamiento
     """
-    print("\n" + "="*80)
-    print("INICIANDO PROCESO DE TRANSFORMACIÓN")
-    print("="*80)
+    console.print("\n[bold cyan]PASO 2: Realizando transformaciones y mapeos[/bold cyan]")
     
     # Cargar todos los mapeos
-    print("\n📋 Cargando archivos de mapeo YAML...")
+    console.print("\n📋 Cargando archivos de mapeo YAML...")
     mapping_loader.load_master()
     mapping_loader.load_all_mappings()
     
     # Obtener el orden de procesamiento
     processing_order = mapping_loader.get_processing_order()
     
-    print(f"✅ Mapeos cargados: {len(mapping_loader.entity_mappings)} entidades")
-    print(f"\n📊 Orden de procesamiento en {len(processing_order)} grupos:")
+    console.print(f"[green]✅ Mapeos cargados: {len(mapping_loader.entity_mappings)} entidades[/green]")
+    console.print(f"\n📊 Orden de procesamiento en {len(processing_order)} grupos:")
     for i, group in enumerate(processing_order, 1):
-        print(f"   Grupo {i}: {', '.join(group)}")
+        console.print(f"   Grupo {i}: {', '.join(group)}")
     
-    # Diccionario para almacenar las sentencias SQL
-    sql_statements = {}
-    # Diccionario para almacenar los IDs generados (simulados)
-    generated_ids = {}
+    # Diccionario para almacenar las transformaciones
+    transformations = {}
     
     # Procesar cada grupo en orden
     for group_num, group in enumerate(processing_order, 1):
-        print(f"\n{'='*80}")
-        print(f"PROCESANDO GRUPO {group_num}: {', '.join(group)}")
-        print(f"{'='*80}")
+        console.print(f"\n[bold]Grupo {group_num}:[/bold] {', '.join(group)}")
         
         for entity_name in group:
             if entity_name not in mapping_loader.entity_mappings:
-                print(f"⚠️  Advertencia: No se encontró mapeo para '{entity_name}'")
+                console.print(f"   [yellow]⚠️  {entity_name}: Sin mapeo[/yellow]")
                 continue
             
             entity_mapping = mapping_loader.entity_mappings[entity_name]
-            
-            print(f"\n🔄 Procesando entidad: {entity_name}")
-            print(f"   Tabla destino: {entity_mapping.table}")
-            print(f"   Campos a mapear: {len(entity_mapping.fields)}")
-            
-            # Determinar el parent_id si es necesario
-            parent_id = None
-            if entity_mapping.parent_key:
-                parent_field = entity_mapping.parent_key.get('field')
-                # El parent_id se obtendría de generated_ids, por ahora usamos NULL
-                # En una implementación real con BD, aquí iría el ID retornado por el INSERT anterior
-                print(f"   ⚠️  Requiere FK: {parent_field} (se usará NULL en esta versión)")
-            
-            # Verificar si tiene repeat
-            has_repeat = entity_mapping.repeat is not None
-            if has_repeat:
-                print(f"   📦 Tiene grupo repetido: {entity_mapping.repeat}")
             
             # Transformar los datos
             rows = JSONTransformer.transform_entity_with_repeats(
                 json_data,
                 entity_mapping,
-                parent_id=parent_id
+                parent_id=None  # Por ahora sin parent_id
             )
             
             if rows:
-                print(f"   ✅ Registros generados: {len(rows)}")
-                
-                # Generar la sentencia INSERT
-                insert_stmt = SQLGenerator.generate_insert(
-                    table_name=entity_mapping.table,
-                    rows=rows,
-                    schema=config.DB_SCHEMA
-                )
-                
-                if insert_stmt:
-                    sql_statements[entity_name] = insert_stmt
-                    print(f"   ✅ Sentencia SQL generada ({len(insert_stmt)} caracteres)")
-                    
-                    # Simular generación de ID para esta entidad
-                    # En una implementación real, esto vendría del RETURNING del INSERT
-                    generated_ids[entity_name] = len(rows)  # Simulado
+                transformations[entity_name] = rows
+                console.print(f"   [green]✅ {entity_name}: {len(rows)} registro(s)[/green]")
             else:
-                print(f"   ℹ️  No se generaron registros para esta entidad")
+                console.print(f"   [dim]⏭️  {entity_name}: Sin datos[/dim]")
     
-    return sql_statements
+    return {
+        'transformations': transformations,
+        'processing_order': processing_order
+    }
 
 
-def print_sql_statements(sql_statements: Dict[str, str]):
+def execute_transaction(
+    transformations: Dict[str, Any],
+    processing_order: list,
+    debug: bool = False
+) -> Dict[str, Any]:
     """
-    Imprime las sentencias SQL generadas de forma legible
+    PASO 3 y 4: Genera y ejecuta la transacción SQL con SQLAlchemy
     
     Args:
-        sql_statements: Diccionario con las sentencias SQL por entidad
+        transformations: Diccionario {entity_name: [rows]}
+        processing_order: Orden de procesamiento de entidades
+        debug: Si True, imprime detalles de ejecución
+        
+    Returns:
+        Resultados de la ejecución
     """
-    print("\n" + "="*80)
-    print("SENTENCIAS SQL GENERADAS")
-    print("="*80)
+    console.print("\n[bold cyan]PASO 3 y 4: Ejecutando transacción en la base de datos[/bold cyan]")
     
-    if not sql_statements:
-        print("\n⚠️  No se generaron sentencias SQL")
-        return
+    results = TransactionExecutor.execute_inserts(
+        transformations=transformations,
+        processing_order=processing_order,
+        debug=debug
+    )
     
-    print(f"\n✅ Total de sentencias generadas: {len(sql_statements)}")
+    return results
+
+
+def update_control_status(
+    _id: int,
+    success: bool,
+    error_message: str = None
+):
+    """
+    Actualiza el estado del registro en control_envios_boletas
     
-    for entity_name, sql in sql_statements.items():
-        print(f"\n{'─'*80}")
-        print(f"ENTIDAD: {entity_name.upper()}")
-        print(f"{'─'*80}")
-        print(sql)
-    
-    print(f"\n{'='*80}")
-    print("FIN DE SENTENCIAS SQL")
-    print("="*80)
+    Args:
+        _id: ID del registro
+        success: Si el procesamiento fue exitoso
+        error_message: Mensaje de error si falló
+    """
+    try:
+        with db.get_session() as session:
+            control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+            if control:
+                if success:
+                    control.estado_etl = EstadoETLEnum.PROCESADO
+                    control.procesado_at = datetime.now()
+                    control.error_message = None
+                else:
+                    control.estado_etl = EstadoETLEnum.ERROR
+                    control.error_message = error_message
+                
+                session.commit()
+                console.print(f"\n[green]✅ Estado actualizado en control_envios_boletas[/green]")
+    except Exception as e:
+        console.print(f"[yellow]⚠️  No se pudo actualizar el estado: {e}[/yellow]")
 
 
 def main():
     """Función principal del script"""
     parser = argparse.ArgumentParser(
-        description='Procesa un archivo JSON de KoboToolbox y genera sentencias SQL'
+        description='Procesa un archivo JSON de KoboToolbox y ejecuta la transacción en la base de datos',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Ejemplos de uso:
+  python -m src.process_json archivo.json
+  python -m src.process_json --skip-db archivo.json
+  python -m src.process_json --debug archivo.json
+        """
     )
     parser.add_argument(
         'json_file',
@@ -220,86 +244,110 @@ def main():
     parser.add_argument(
         '--skip-db',
         action='store_true',
-        help='Omitir guardado en base de datos (solo generar SQL)'
+        help='Omitir guardado en base de datos (solo mostrar transformaciones)'
+    )
+    parser.add_argument(
+        '--debug',
+        action='store_true',
+        help='Modo debug: mostrar SQL generado y detalles de ejecución'
     )
     
     args = parser.parse_args()
     
+    # Usar DEBUG del .env si no se especifica en argumentos
+    debug = args.debug or config.DEBUG
+    
     try:
-        print("="*80)
-        print("RENAGRO ETL PROCESS - Procesador de formularios KoboToolbox")
-        print("="*80)
+        # Banner inicial
+        console.print(Panel.fit(
+            "[bold cyan]RENAGRO ETL PROCESS[/bold cyan]\n"
+            "Procesador de formularios KoboToolbox",
+            border_style="cyan"
+        ))
         
         # Cargar el archivo JSON
-        print(f"\n📂 Cargando archivo JSON: {args.json_file}")
+        console.print(f"\n📂 Cargando archivo: [bold]{args.json_file}[/bold]")
         json_data = load_json_file(args.json_file)
         
-        # Obtener información básica
         file_size = Path(args.json_file).stat().st_size
-        print(f"✅ Archivo cargado exitosamente")
-        print(f"   Tamaño: {file_size:,} bytes ({file_size/1024:.2f} KB)")
-        print(f"   Claves principales: {len(json_data)} campos")
+        console.print(f"[green]✅ Archivo cargado exitosamente[/green]")
+        console.print(f"   Tamaño: {file_size:,} bytes ({file_size/1024:.2f} KB)")
         
-        # Guardar en la tabla de control (si no se omite)
+        _id = None
+        
+        # PASO 1: Guardar en la tabla de control
         if not args.skip_db:
-            print(f"\n💾 Guardando en base de datos...")
-            try:
-                _id = save_to_control_table(json_data)
-            except Exception as e:
-                print(f"❌ Error al guardar en base de datos: {e}")
-                print("   Continuando con la generación de SQL...")
+            _id = save_to_control_table(json_data)
         else:
-            print(f"\n⏭️  Omitiendo guardado en base de datos (--skip-db)")
+            console.print("\n[yellow]⏭️  Omitiendo guardado en base de datos (--skip-db)[/yellow]")
+            _id = json_data.get('_id')
         
-        # Procesar transformaciones
-        try:
-            sql_statements = process_transformations(json_data)
-            
-            # Imprimir las sentencias SQL
-            print_sql_statements(sql_statements)
-            
-            # Actualizar estado a PROCESADO si se guardó en BD
-            if not args.skip_db:
-                try:
-                    with db.get_session() as session:
-                        _id = json_data.get('_id')
-                        control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
-                        if control:
-                            control.estado_etl = EstadoETLEnum.PROCESADO
-                            control.procesado_at = datetime.now()
-                            session.commit()
-                            print(f"\n✅ Estado actualizado a PROCESADO en la base de datos")
-                except Exception as e:
-                    print(f"\n⚠️  Advertencia: No se pudo actualizar el estado: {e}")
-            
-            print(f"\n✅ Proceso completado exitosamente")
-            
-        except Exception as e:
-            # Guardar error en la BD si es posible
-            if not args.skip_db:
-                try:
-                    with db.get_session() as session:
-                        _id = json_data.get('_id')
-                        control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
-                        if control:
-                            control.estado_etl = EstadoETLEnum.ERROR
-                            control.error_message = str(e)
-                            session.commit()
-                            print(f"\n⚠️  Error guardado en la base de datos")
-                except Exception:
-                    pass
-            raise
+        # PASO 2: Procesar transformaciones
+        transformation_result = process_transformations(json_data)
+        transformations = transformation_result['transformations']
+        processing_order = transformation_result['processing_order']
+        
+        # Mostrar resumen de transformaciones
+        total_rows = sum(len(rows) for rows in transformations.values())
+        console.print(f"\n[bold green]✅ Transformaciones completadas:[/bold green]")
+        console.print(f"   Entidades con datos: {len(transformations)}")
+        console.print(f"   Total registros a insertar: {total_rows}")
+        
+        # PASO 3 y 4: Ejecutar transacción
+        if not args.skip_db and transformations:
+            try:
+                results = execute_transaction(
+                    transformations=transformations,
+                    processing_order=processing_order,
+                    debug=debug
+                )
+                
+                # PASO 5: Mostrar resultados
+                console.print("\n[bold cyan]PASO 5: Resultados de la ejecución[/bold cyan]")
+                TransactionExecutor.print_execution_summary(results)
+                
+                # Actualizar estado a PROCESADO
+                if results['success']:
+                    update_control_status(_id, success=True)
+                    console.print("\n[bold green]🎉 ¡Proceso completado exitosamente![/bold green]")
+                else:
+                    error_msg = '; '.join(results['errors']) if results['errors'] else 'Error desconocido'
+                    update_control_status(_id, success=False, error_message=error_msg)
+                    console.print("\n[bold red]❌ El proceso finalizó con errores[/bold red]")
+                    sys.exit(1)
+                    
+            except Exception as e:
+                error_msg = str(e)
+                console.print(f"\n[bold red]❌ Error ejecutando transacción: {error_msg}[/bold red]")
+                
+                # Actualizar estado a ERROR
+                if _id:
+                    update_control_status(_id, success=False, error_message=error_msg)
+                
+                if debug:
+                    import traceback
+                    traceback.print_exc()
+                
+                sys.exit(1)
+        
+        elif args.skip_db:
+            console.print("\n[yellow]⏭️  Omitiendo ejecución en base de datos (--skip-db)[/yellow]")
+            console.print("[dim]Para ejecutar en BD, ejecute sin --skip-db[/dim]")
+        
+        elif not transformations:
+            console.print("\n[yellow]⚠️  No hay datos para insertar[/yellow]")
         
     except FileNotFoundError as e:
-        print(f"\n❌ Error: {e}")
+        console.print(f"\n[bold red]❌ Error: {e}[/bold red]")
         sys.exit(1)
     except ValueError as e:
-        print(f"\n❌ Error de validación: {e}")
+        console.print(f"\n[bold red]❌ Error de validación: {e}[/bold red]")
         sys.exit(1)
     except Exception as e:
-        print(f"\n❌ Error inesperado: {e}")
-        import traceback
-        traceback.print_exc()
+        console.print(f"\n[bold red]❌ Error inesperado: {e}[/bold red]")
+        if debug or config.DEBUG:
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
 
 
