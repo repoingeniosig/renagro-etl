@@ -201,6 +201,18 @@ class JSONTransformer:
             else:
                 # Obtener el valor del JSON normalmente
                 value = JSONTransformer.get_value_by_path(json_data, field_mapping.source)
+                
+                # Si hay un extract sin repeat_filter, extraer el subcampo del valor obtenido
+                # Caso: source="group[0]" obtiene un objeto, extract="campo" obtiene el valor del campo
+                if field_mapping.extract and value is not None:
+                    if isinstance(value, dict):
+                        # El valor es un objeto, extraer el campo especificado
+                        value = value.get(field_mapping.extract)
+                    elif isinstance(value, list) and len(value) > 0:
+                        # Si es una lista, intentar extraer del primer elemento
+                        first_item = value[0]
+                        if isinstance(first_item, dict):
+                            value = first_item.get(field_mapping.extract)
             
             # Convertir el valor (siempre se agrega al row, incluso si es None/default)
             converted_value = JSONTransformer.convert_value(
