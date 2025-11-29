@@ -16,6 +16,9 @@ class FieldMapping:
     type: str  # integer, decimal, boolean, string
     default: Any = None
     convert: Optional[Dict[str, Any]] = None
+    repeat_filter: Optional[Dict[str, Any]] = None  # Filtro para repeat groups
+    extract: Optional[str] = None  # Campo a extraer del repeat filtrado
+    parent_key: Optional[str] = None  # Clave del padre para FKs
     
 
 @dataclass
@@ -26,6 +29,10 @@ class EntityMapping:
     table: str
     fields: Dict[str, FieldMapping]
     conversions: Optional[Dict[str, Dict[str, Any]]] = None
+    repeat: Optional[str] = None  # Ruta al grupo repetido
+    parent_key: Optional[str] = None  # Nombre del campo FK al padre
+    repeat: Optional[Dict[str, str]] = None  # {source: "ruta.al.array"}
+    parent_key: Optional[Dict[str, str]] = None  # {field: "nombre_campo_fk"}
 
 
 class MappingLoader:
@@ -80,7 +87,10 @@ class MappingLoader:
                 source=field_config['source'],
                 type=field_config['type'],
                 default=field_config.get('default'),
-                convert=field_config.get('convert')
+                convert=field_config.get('convert'),
+                repeat_filter=field_config.get('repeat_filter'),
+                extract=field_config.get('extract'),
+                parent_key=field_config.get('parent_key')
             )
         
         entity_mapping = EntityMapping(
@@ -88,7 +98,9 @@ class MappingLoader:
             entity=data.get('entity'),
             table=data.get('table'),
             fields=fields,
-            conversions=data.get('conversions')
+            conversions=data.get('conversions'),
+            repeat=data.get('repeat'),
+            parent_key=data.get('parent_key')
         )
         
         return entity_mapping

@@ -117,6 +117,8 @@ def process_transformations(json_data: Dict[str, Any]) -> Dict[str, str]:
     
     # Diccionario para almacenar las sentencias SQL
     sql_statements = {}
+    # Diccionario para almacenar los IDs generados (simulados)
+    generated_ids = {}
     
     # Procesar cada grupo en orden
     for group_num, group in enumerate(processing_order, 1):
@@ -135,12 +137,24 @@ def process_transformations(json_data: Dict[str, Any]) -> Dict[str, str]:
             print(f"   Tabla destino: {entity_mapping.table}")
             print(f"   Campos a mapear: {len(entity_mapping.fields)}")
             
+            # Determinar el parent_id si es necesario
+            parent_id = None
+            if entity_mapping.parent_key:
+                parent_field = entity_mapping.parent_key.get('field')
+                # El parent_id se obtendría de generated_ids, por ahora usamos NULL
+                # En una implementación real con BD, aquí iría el ID retornado por el INSERT anterior
+                print(f"   ⚠️  Requiere FK: {parent_field} (se usará NULL en esta versión)")
+            
+            # Verificar si tiene repeat
+            has_repeat = entity_mapping.repeat is not None
+            if has_repeat:
+                print(f"   📦 Tiene grupo repetido: {entity_mapping.repeat}")
+            
             # Transformar los datos
-            # Por ahora, asumimos que no hay repeats (los manejaremos después)
             rows = JSONTransformer.transform_entity_with_repeats(
                 json_data,
                 entity_mapping,
-                repeat_path=None  # TODO: Detectar automáticamente si hay repeats
+                parent_id=parent_id
             )
             
             if rows:
@@ -156,6 +170,10 @@ def process_transformations(json_data: Dict[str, Any]) -> Dict[str, str]:
                 if insert_stmt:
                     sql_statements[entity_name] = insert_stmt
                     print(f"   ✅ Sentencia SQL generada ({len(insert_stmt)} caracteres)")
+                    
+                    # Simular generación de ID para esta entidad
+                    # En una implementación real, esto vendría del RETURNING del INSERT
+                    generated_ids[entity_name] = len(rows)  # Simulado
             else:
                 print(f"   ℹ️  No se generaron registros para esta entidad")
     

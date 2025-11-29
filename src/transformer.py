@@ -60,11 +60,26 @@ class JSONTransformer:
         
         # Aplicar conversión personalizada si existe
         if field_mapping.convert and conversions:
-            for conversion_name, conversion_enabled in field_mapping.convert.items():
-                if conversion_enabled and conversion_name in conversions:
+            for conversion_name, conversion_param in field_mapping.convert.items():
+                if conversion_name in conversions:
                     conversion_map = conversions[conversion_name]
                     if value in conversion_map:
                         value = conversion_map[value]
+                # Conversión especial: contains_option
+                elif conversion_name == 'contains_option':
+                    option_to_check = conversion_param
+                    if isinstance(value, str):
+                        # Verificar si la opción está en el string (puede ser espacio o multi-select)
+                        return option_to_check in value.split()
+                    return False
+                # Conversión especial: yes_no_to_bool
+                elif conversion_name == 'yes_no_to_bool' and conversion_param:
+                    if isinstance(value, str):
+                        value_lower = value.lower().strip()
+                        if value_lower in ('si', 'sí', 'yes', 'true', '1'):
+                            value = True
+                        elif value_lower in ('no', 'false', '0'):
+                            value = False
         
         # Convertir según el tipo
         try:
@@ -117,8 +132,33 @@ class JSONTransformer:
         row = {}
         
         for column_name, field_mapping in entity_mapping.fields.items():
-            # Obtener el valor del JSON
-            value = JSONTransformer.get_value_by_path(json_data, field_mapping.source)
+            value = None
+            
+            # Manejar repeat_filter
+            if field_mapping.repeat_filter and field_mapping.extract:
+                # Obtener el array de elementos
+                repeat_items = JSONTransformer.get_value_by_path(json_data, field_mapping.source)
+                
+                if repeat_items and isinstance(repeat_items, list):
+                    # Aplicar filtro
+                    where_conditions = field_mapping.repeat_filter.get('where', {})
+                    
+                    for item in repeat_items:
+                        # Verificar si el item cumple todas las condiciones
+                        match = True
+                        for field_path, expected_value in where_conditions.items():
+                            item_value = JSONTransformer.get_value_by_path(item, field_path)
+                            if str(item_value) != str(expected_value):
+                                match = False
+                                break
+                        
+                        if match:
+                            # Extraer el valor del campo especificado
+                            value = JSONTransformer.get_value_by_path(item, field_mapping.extract)
+                            break
+            else:
+                # Obtener el valor del JSON normalmente
+                value = JSONTransformer.get_value_by_path(json_data, field_mapping.source)
             
             # Convertir el valor
             converted_value = JSONTransformer.convert_value(
@@ -135,7 +175,7 @@ class JSONTransformer:
     def transform_entity_with_repeats(
         json_data: Dict[str, Any],
         entity_mapping: EntityMapping,
-        repeat_path: Optional[str] = None
+        parent_id: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
         Transforma datos JSON que pueden tener grupos repetidos
@@ -143,31 +183,80 @@ class JSONTransformer:
         Args:
             json_data: Datos JSON del formulario
             entity_mapping: Mapeo de la entidad
-            repeat_path: Ruta al grupo repetido (ej: "capitulo_4.seccion4_1.bovinos_repeat")
+            parent_id: ID del registro padre (para FK)
         
         Returns:
             Lista de diccionarios con los valores transformados
         """
-        if not repeat_path:
-            # Si no hay repeat, retornar un solo registro
-            return [JSONTransformer.transform_entity(json_data, entity_mapping)]
-        
-        # Obtener el array de elementos repetidos
-        repeat_items = JSONTransformer.get_value_by_path(json_data, repeat_path)
-        
-        if not repeat_items or not isinstance(repeat_items, list):
-            return []
-        
-        # Transformar cada elemento del repeat
-        rows = []
-        for item in repeat_items:
-            # Crear un contexto temporal que incluye el item actual y el JSON completo
-            # para permitir acceso a campos fuera del repeat
-            context = {**json_data, **item}
-            row = JSONTransformer.transform_entity(context, entity_mapping)
+        # Si la entidad tiene repeat configurado
+        if entity_mapping.repeat:
+            # Obtener la ruta del repeat
+            if isinstance(entity_mapping.repeat, dict):
+                repeat_path = entity_mapping.repeat.get('source')
+            else:
+                repeat_path = entity_mapping.repeat
+            
+            repeat_items = JSONTransformer.get_value_by_path(json_data, repeat_path)
+            
+            if not repeat_items or not isinstance(repeat_items, list):
+                return []
+            
+            rows = []
+            for item in repeat_items:
+                # Combinar el contexto global con el item actual
+                context = {**json_data, **item}
+                row = JSONTransformer.transform_entity(context, entity_mapping)
+                
+                # Agregar parent_id si existe
+                if parent_id is not None and entity_mapping.parent_key:
+                    if isinstance(entity_mapping.parent_key, dict):
+                        parent_field = entity_mapping.parent_key.get('field')
+                    else:
+                        parent_field = entity_mapping.parent_key
+                    
+                    if parent_field:
+                        row[parent_field] = parent_id
+                
+                rows.append(row)
+            
+            return rows
+        else:
+            # Sin repeat, generar un solo registro
+            row = JSONTransformer.transform_entity(json_data, entity_mapping)
+            
+            # Agregar parent_id si existe
+            if parent_id is not None and entity_mapping.parent_key:
+                if isinstance(entity_mapping.parent_key, dict):
+                    parent_field = entity_mapping.parent_key.get('field')
+                else:
+                    parent_field = entity_mapping.parent_key
+                
+                if parent_field:
+                    row[parent_field] = parent_id
+            
+            return [row] if row else []
+            
             rows.append(row)
         
         return rows
+    
+    @staticmethod
+    def _merge_item_to_context(context: Dict[str, Any], repeat_path: str, item: Dict[str, Any]):
+        """
+        Fusiona un item del repeat en el contexto para que sus campos sean accesibles
+        """
+        # Navegar hasta el repeat y reemplazar con el item
+        keys = repeat_path.split('/')
+        current = context
+        
+        for i, key in enumerate(keys[:-1]):
+            if key not in current:
+                current[key] = {}
+            current = current[key]
+        
+        # Reemplazar el último nivel con el item
+        if keys:
+            current[keys[-1]] = item
 
 
 class SQLGenerator:
