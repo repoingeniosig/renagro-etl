@@ -6,9 +6,13 @@ from typing import Dict, List, Any, Optional
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
+from rich.console import Console
 
 from .database import db
 from .config import config
+from .logger import etl_logger
+
+console = Console()
 
 
 class TransactionExecutor:
@@ -50,21 +54,21 @@ class TransactionExecutor:
                 
                 # Procesar cada grupo en orden
                 for group_num, group in enumerate(processing_order, 1):
-                    if debug:
-                        print(f"\n{'='*80}")
-                        print(f"EJECUTANDO GRUPO {group_num}: {', '.join(group)}")
-                        print(f"{'='*80}")
+                    if config.DEBUG_CLI:
+                        console.print(f"\n{'='*80}")
+                        console.print(f"EJECUTANDO GRUPO {group_num}: {', '.join(group)}")
+                        console.print(f"{'='*80}")
                     
                     for entity_name in group:
                         if entity_name not in transformations:
-                            if debug:
-                                print(f"⏭️  {entity_name}: Sin datos para insertar")
+                            if config.DEBUG_CLI:
+                                console.print(f"⏭️  {entity_name}: Sin datos para insertar")
                             continue
                         
                         rows = transformations[entity_name]
                         if not rows:
-                            if debug:
-                                print(f"⏭️  {entity_name}: Lista vacía")
+                            if config.DEBUG_CLI:
+                                console.print(f"⏭️  {entity_name}: Lista vacía")
                             continue
                         
                         # Ejecutar INSERT y obtener IDs generados
@@ -87,16 +91,20 @@ class TransactionExecutor:
                                 'ids_generated': inserted_ids
                             }
                             
-                            if debug:
-                                print(f"✅ {entity_name}: {len(rows)} filas insertadas")
+                            etl_logger.debug(f"{entity_name}: {len(rows)} filas insertadas")
+                            
+                            if config.DEBUG_CLI:
+                                console.print(f"✅ {entity_name}: {len(rows)} filas insertadas")
                                 if inserted_ids:
-                                    print(f"   IDs generados: {inserted_ids[:5]}{'...' if len(inserted_ids) > 5 else ''}")
+                                    console.print(f"   IDs generados: {inserted_ids[:5]}{'...' if len(inserted_ids) > 5 else ''}")
                         
                         except Exception as e:
                             error_msg = f"Error insertando {entity_name}: {str(e)}"
                             results['errors'].append(error_msg)
-                            if debug:
-                                print(f"❌ {error_msg}")
+                            etl_logger.error(error_msg, exc_info=True)
+                            
+                            if config.DEBUG_CLI:
+                                console.print(f"❌ {error_msg}")
                             raise
                     
                     results['groups_processed'] += 1
@@ -105,25 +113,31 @@ class TransactionExecutor:
                 session.commit()
                 results['success'] = True
                 
-                if debug:
-                    print(f"\n{'='*80}")
-                    print("✅ TRANSACCIÓN COMPLETADA EXITOSAMENTE")
-                    print(f"{'='*80}")
+                etl_logger.info(f"Transacción completada: {results['total_rows_inserted']} filas insertadas")
+                
+                if config.DEBUG_CLI:
+                    console.print(f"\n{'='*80}")
+                    console.print("✅ TRANSACCIÓN COMPLETADA EXITOSAMENTE")
+                    console.print(f"{'='*80}")
         
         except SQLAlchemyError as e:
             results['errors'].append(f"Error de SQLAlchemy: {str(e)}")
-            if debug:
-                print(f"\n{'='*80}")
-                print(f"❌ ERROR EN LA TRANSACCIÓN: {str(e)}")
-                print(f"{'='*80}")
+            etl_logger.error(f"Error de SQLAlchemy: {str(e)}", exc_info=True)
+            
+            if config.DEBUG_CLI:
+                console.print(f"\n{'='*80}")
+                console.print(f"❌ ERROR EN LA TRANSACCIÓN: {str(e)}")
+                console.print(f"{'='*80}")
             raise
         
         except Exception as e:
             results['errors'].append(f"Error inesperado: {str(e)}")
-            if debug:
-                print(f"\n{'='*80}")
-                print(f"❌ ERROR INESPERADO: {str(e)}")
-                print(f"{'='*80}")
+            etl_logger.error(f"Error inesperado en transacción: {str(e)}", exc_info=True)
+            
+            if config.DEBUG_CLI:
+                console.print(f"\n{'='*80}")
+                console.print(f"❌ ERROR INESPERADO: {str(e)}")
+                console.print(f"{'='*80}")
             raise
         
         finally:
@@ -199,10 +213,10 @@ VALUES
     {values_str}{returning_clause};
         '''.strip()
         
-        if debug:
-            print(f"\n--- SQL para {entity_name} ---")
-            print(sql[:500] + "..." if len(sql) > 500 else sql)
-            print(f"Parámetros: {len(all_params)} valores")
+        if config.DEBUG_CLI:
+            console.print(f"\n--- SQL para {entity_name} ---")
+            console.print(sql[:500] + "..." if len(sql) > 500 else sql)
+            console.print(f"Parámetros: {len(all_params)} valores")
         
         # Ejecutar el INSERT
         result = session.execute(text(sql), all_params)
@@ -222,29 +236,32 @@ VALUES
         Args:
             results: Diccionario con los resultados de la ejecución
         """
-        print(f"\n{'='*80}")
-        print("RESUMEN DE EJECUCIÓN")
-        print(f"{'='*80}")
+        if not config.DEBUG_CLI:
+            return
+        
+        console.print(f"\n{'='*80}")
+        console.print("RESUMEN DE EJECUCIÓN")
+        console.print(f"{'='*80}")
         
         if results['success']:
-            print(f"✅ Estado: EXITOSO")
+            console.print(f"✅ Estado: EXITOSO")
         else:
-            print(f"❌ Estado: FALLIDO")
+            console.print(f"❌ Estado: FALLIDO")
         
-        print(f"\n📊 Estadísticas:")
-        print(f"   Grupos procesados: {results['groups_processed']}")
-        print(f"   Entidades procesadas: {results['entities_processed']}")
-        print(f"   Total filas insertadas: {results['total_rows_inserted']}")
-        print(f"   Tiempo de ejecución: {results['execution_time']:.2f}s")
+        console.print(f"\n📊 Estadísticas:")
+        console.print(f"   Grupos procesados: {results['groups_processed']}")
+        console.print(f"   Entidades procesadas: {results['entities_processed']}")
+        console.print(f"   Total filas insertadas: {results['total_rows_inserted']}")
+        console.print(f"   Tiempo de ejecución: {results['execution_time']:.2f}s")
         
         if results['entity_details']:
-            print(f"\n📋 Detalle por entidad:")
+            console.print(f"\n📋 Detalle por entidad:")
             for entity_name, details in results['entity_details'].items():
-                print(f"   {entity_name}: {details['rows_inserted']} filas")
+                console.print(f"   {entity_name}: {details['rows_inserted']} filas")
         
         if results['errors']:
-            print(f"\n❌ Errores ({len(results['errors'])}):")
+            console.print(f"\n❌ Errores ({len(results['errors'])}):")
             for error in results['errors']:
-                print(f"   - {error}")
+                console.print(f"   - {error}")
         
-        print(f"{'='*80}\n")
+        console.print(f"{'='*80}\n")

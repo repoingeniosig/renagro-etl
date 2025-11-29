@@ -7,9 +7,12 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
+from rich.console import Console
 
 from .config import config
+from .logger import etl_logger
 
+console = Console()
 logger = logging.getLogger(__name__)
 
 
@@ -125,20 +128,31 @@ class MappingLoader:
             try:
                 from .redis_client import redis_client
                 
-                print("🔍 Intentando cargar mapeos desde Redis cache...")
+                if config.DEBUG_CLI:
+                    console.print("🔍 Intentando cargar mapeos desde Redis cache...")
+                
                 cached_mappings = redis_client.get_cached_mappings()
                 if cached_mappings:
                     self.entity_mappings = cached_mappings
                     return self.entity_mappings
                     
             except ImportError as e:
-                print(f"Redis client no disponible: {e}")
+                etl_logger.debug(f"Redis client no disponible: {e}")
+                
+                if config.DEBUG_CLI:
+                    console.print(f"Redis client no disponible: {e}")
             except Exception as e:
-                print(f"⚠️  Error accediendo a Redis cache: {e}")
-                print("Fallback: cargando mapeos desde disco")
+                etl_logger.warning(f"Error accediendo a Redis cache: {e}")
+                
+                if config.DEBUG_CLI:
+                    console.print(f"⚠️  Error accediendo a Redis cache: {e}")
+                    console.print("Fallback: cargando mapeos desde disco")
         
         # Fallback: Cargar desde disco
-        print("📂 Cargando mapeos desde archivos YAML...")
+        etl_logger.debug("Cargando mapeos desde archivos YAML...")
+        
+        if config.DEBUG_CLI:
+            console.print("📂 Cargando mapeos desde archivos YAML...")
         
         if not self.master_config:
             self.load_master()
@@ -146,21 +160,32 @@ class MappingLoader:
         for entity_name, yaml_file in self.master_config.items():
             self.entity_mappings[entity_name] = self.load_entity_mapping(yaml_file)
         
-        print(f"✅ {len(self.entity_mappings)} mapeos cargados desde disco")
+        etl_logger.info(f"{len(self.entity_mappings)} mapeos cargados desde disco")
+        
+        if config.DEBUG_CLI:
+            console.print(f"✅ {len(self.entity_mappings)} mapeos cargados desde disco")
         
         # Intentar guardar en Redis cache para futuras ejecuciones
         if not force_reload:
             try:
                 from .redis_client import redis_client
-                print("💾 Guardando mapeos en Redis cache...")
+                
+                if config.DEBUG_CLI:
+                    console.print("💾 Guardando mapeos en Redis cache...")
+                
                 success = redis_client.set_cached_mappings(self.entity_mappings)
                 if not success:
-                    print("⚠️  No se pudo guardar en cache, pero el proceso continúa")
+                    if config.DEBUG_CLI:
+                        console.print("⚠️  No se pudo guardar en cache, pero el proceso continúa")
             except ImportError:
-                print("Redis client no disponible para guardar cache")
+                if config.DEBUG_CLI:
+                    console.print("Redis client no disponible para guardar cache")
             except Exception as e:
-                print(f"⚠️  No se pudo guardar en cache: {e}")
-                print("El proceso continuará normalmente")
+                etl_logger.warning(f"No se pudo guardar en cache: {e}")
+                
+                if config.DEBUG_CLI:
+                    console.print(f"⚠️  No se pudo guardar en cache: {e}")
+                    console.print("El proceso continuará normalmente")
         
         return self.entity_mappings
     

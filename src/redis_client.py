@@ -7,9 +7,12 @@ import logging
 from typing import Dict, Optional, Any
 import redis
 from redis.exceptions import RedisError, ConnectionError
+from rich.console import Console
 
 from .config import config
+from .logger import etl_logger
 
+console = Console()
 logger = logging.getLogger(__name__)
 
 
@@ -29,7 +32,9 @@ class RedisClient:
     def _initialize(self):
         """Inicializa la conexión a Redis"""
         if not config.REDIS_ENABLED:
-            print("Redis cache deshabilitado en configuración")
+            if config.DEBUG_CLI:
+                console.print("Redis cache deshabilitado en configuración")
+            etl_logger.info("Redis cache deshabilitado")
             self._enabled = False
             return
         
@@ -53,15 +58,27 @@ class RedisClient:
             # Verificar conexión
             self._redis_client.ping()
             self._enabled = True
-            print(f"✅ Conexión a Redis establecida: {config.REDIS_HOST}:{config.REDIS_PORT}")
+            
+            etl_logger.info(f"Redis conectado: {config.REDIS_HOST}:{config.REDIS_PORT}")
+            
+            if config.DEBUG_CLI:
+                console.print(f"✅ Conexión a Redis establecida: {config.REDIS_HOST}:{config.REDIS_PORT}")
             
         except (RedisError, ConnectionError) as e:
-            print(f"⚠️  No se pudo conectar a Redis: {e}")
-            print("Se usará lectura directa desde disco como fallback")
+            etl_logger.warning(f"No se pudo conectar a Redis: {e}")
+            
+            if config.DEBUG_CLI:
+                console.print(f"⚠️  No se pudo conectar a Redis: {e}")
+                console.print("Se usará lectura directa desde disco como fallback")
+            
             self._enabled = False
             self._redis_client = None
         except Exception as e:
-            print(f"❌ Error inesperado inicializando Redis: {e}")
+            etl_logger.error(f"Error inesperado inicializando Redis: {e}", exc_info=True)
+            
+            if config.DEBUG_CLI:
+                console.print(f"❌ Error inesperado inicializando Redis: {e}")
+            
             self._enabled = False
             self._redis_client = None
     
@@ -76,8 +93,9 @@ class RedisClient:
         Returns:
             Diccionario con los mapeos o None si no existen/falló
         """
-        if not self.is_enabled():
-            print("Redis no está habilitado, omitiendo cache")
+        if not self._enabled or not self._redis_client:
+            if config.DEBUG_CLI:
+                console.print("Redis no está habilitado, omitiendo cache")
             return None
         
         try:
@@ -87,17 +105,31 @@ class RedisClient:
             if cached_data:
                 # Deserializar con pickle
                 mappings = pickle.loads(cached_data)
-                print(f"✅ Mapeos cargados desde Redis cache ({len(mappings)} entidades)")
+                
+                etl_logger.debug(f"Mapeos cargados desde Redis cache ({len(mappings)} entidades)")
+                
+                if config.DEBUG_CLI:
+                    console.print(f"✅ Mapeos cargados desde Redis cache ({len(mappings)} entidades)")
+                
                 return mappings
             else:
-                print("ℹ️  No hay mapeos en cache, se cargarán desde disco")
+                if config.DEBUG_CLI:
+                    console.print("ℹ️  No hay mapeos en cache, se cargarán desde disco")
                 return None
-                
-        except (RedisError, pickle.PickleError) as e:
-            print(f"⚠️  Error leyendo cache de Redis: {e}")
+        
+        except (RedisError, ConnectionError) as e:
+            etl_logger.warning(f"Error leyendo cache de Redis: {e}")
+            
+            if config.DEBUG_CLI:
+                console.print(f"⚠️  Error leyendo cache de Redis: {e}")
+            
             return None
         except Exception as e:
-            print(f"❌ Error inesperado leyendo cache: {e}")
+            etl_logger.error(f"Error inesperado leyendo cache: {e}", exc_info=True)
+            
+            if config.DEBUG_CLI:
+                console.print(f"❌ Error inesperado leyendo cache: {e}")
+            
             return None
     
     def set_cached_mappings(self, mappings: Dict[str, Any]) -> bool:
@@ -111,7 +143,8 @@ class RedisClient:
             True si se guardó exitosamente, False en caso contrario
         """
         if not self.is_enabled():
-            print("Redis no disponible, omitiendo guardado en cache")
+            if config.DEBUG_CLI:
+                console.print("Redis no disponible, omitiendo guardado en cache")
             return False
         
         try:
@@ -127,15 +160,27 @@ class RedisClient:
                 value=serialized_data
             )
             
-            print(f"✅ Mapeos guardados en Redis cache ({len(mappings)} entidades, TTL={config.REDIS_TTL}s)")
+            etl_logger.debug(f"Mapeos guardados en Redis cache ({len(mappings)} entidades, TTL={config.REDIS_TTL}s)")
+            
+            if config.DEBUG_CLI:
+                console.print(f"✅ Mapeos guardados en Redis cache ({len(mappings)} entidades, TTL={config.REDIS_TTL}s)")
+            
             return True
             
         except (RedisError, pickle.PickleError) as e:
-            print(f"⚠️  Error guardando en cache de Redis: {e}")
-            print("El proceso continuará normalmente usando disco")
+            etl_logger.warning(f"Error guardando en cache de Redis: {e}")
+            
+            if config.DEBUG_CLI:
+                console.print(f"⚠️  Error guardando en cache de Redis: {e}")
+                console.print("El proceso continuará normalmente usando disco")
+            
             return False
         except Exception as e:
-            print(f"❌ Error inesperado guardando cache: {e}")
+            etl_logger.error(f"Error inesperado guardando cache: {e}", exc_info=True)
+            
+            if config.DEBUG_CLI:
+                console.print(f"❌ Error inesperado guardando cache: {e}")
+            
             return False
     
     def invalidate_cache(self) -> bool:
@@ -147,7 +192,7 @@ class RedisClient:
             True si se invalidó exitosamente
         """
         if not self.is_enabled():
-            logger.debug("Redis no disponible")
+            etl_logger.debug("Redis no disponible")
             return False
         
         try:
@@ -155,7 +200,7 @@ class RedisClient:
             result = self._redis_client.delete(key)
             
             if result > 0:
-                logger.info("✅ Cache de mapeos invalidado")
+                etl_logger.info("Cache de mapeos invalidado")
                 return True
             else:
                 logger.info("ℹ️  No había cache para invalidar")
