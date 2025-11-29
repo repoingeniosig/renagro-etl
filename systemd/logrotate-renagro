@@ -1,0 +1,26 @@
+/opt/renagro-etl-process/logs/*.log {
+    # Rotar diariamente
+    daily
+    
+    # Mantener 30 días de logs
+    rotate 30
+    
+    # Comprimir logs antiguos
+    compress
+    delaycompress
+    
+    # No fallar si el archivo no existe
+    missingok
+    
+    # No rotar si está vacío
+    notifempty
+    
+    # Crear nuevo archivo con permisos correctos
+    create 0644 renagro renagro
+    
+    # Ejecutar solo una vez para todos los archivos
+    sharedscripts
+    
+    # No es necesario recargar servicios
+    # Los logs se manejan con TimedRotatingFileHandler
+}

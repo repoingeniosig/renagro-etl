@@ -1,0 +1,39 @@
+[Unit]
+Description=RENAGRO ETL API (FastAPI)
+After=network.target postgresql.service redis.service rabbitmq-server.service
+Wants=postgresql.service redis.service rabbitmq-server.service
+
+[Service]
+Type=notify
+User=renagro
+Group=renagro
+WorkingDirectory=/opt/renagro-etl-process
+Environment="PATH=/opt/renagro-etl-process/venv/bin"
+EnvironmentFile=/opt/renagro-etl-process/.env
+
+# Cargar variables de entorno
+ExecStart=/opt/renagro-etl-process/venv/bin/uvicorn src.api:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers 4 \
+    --log-level info \
+    --no-access-log
+
+# Reintentos automáticos
+Restart=always
+RestartSec=10
+StartLimitBurst=5
+StartLimitIntervalSec=300
+
+# Límites de recursos
+LimitNOFILE=65536
+MemoryLimit=2G
+CPUQuota=200%
+
+# Logging (systemd maneja los logs)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=renagro-api
+
+[Install]
+WantedBy=multi-user.target

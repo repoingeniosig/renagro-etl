@@ -9,13 +9,18 @@ Este proyecto procesa formularios recibidos desde KoboToolbox, almacena los dato
 ### Características principales:
 
 - ✅ Recepción y almacenamiento de JSONs de KoboToolbox
+- ✅ API REST con FastAPI y autenticación básica
+- ✅ Pipeline asíncrono con RabbitMQ (3 colas)
 - ✅ Mapeo declarativo mediante archivos YAML
+- ✅ Cache Redis para mapeos YAML
 - ✅ Transformación de datos con conversión de tipos
 - ✅ Generación de sentencias SQL INSERT optimizadas
 - ✅ Manejo de dependencias de claves foráneas
+- ✅ Sistema de reintentos con backoff exponencial
+- ✅ Dead Letter Queues para errores permanentes
+- ✅ Recuperación automática de mensajes fallidos
 - ✅ Control de estado del procesamiento ETL
-- 🚧 Integración con RabbitMQ (futura implementación)
-- 🚧 API REST con FastAPI (futura implementación)
+- ✅ Logging centralizado con rotación semanal
 
 ## 🏗️ Arquitectura
 
@@ -374,24 +379,160 @@ CREATE TABLE "sc_renagro_mag"."control_envios_boletas" (
 2. Agregar referencia en `mapping/master.yml`
 3. Ejecutar el script para procesar un JSON
 
+## 🚀 Despliegue en Producción
+
+### Recomendación: Usar systemd (NO scripts .sh)
+
+Para producción, **NO uses scripts .sh**. En su lugar, usa servicios systemd para gestión profesional:
+
+✅ **systemd** ofrece:
+- Auto-restart si un worker muere
+- Logs centralizados con journalctl
+- Gestión de dependencias entre servicios
+- Control de recursos (CPU, memoria)
+- Auto-start en boot del servidor
+- Integración con monitoreo
+
+Ver documentación completa: **[systemd/README.md](systemd/README.md)**
+
+### Instalación rápida en servidor
+
+```bash
+# 1. Copiar código al servidor
+rsync -avz ./ servidor:/opt/renagro-etl-process/
+
+# 2. Ejecutar instalación automatizada
+ssh servidor
+cd /opt/renagro-etl-process
+sudo bash systemd/install.sh
+
+# 3. Configurar .env
+sudo nano /opt/renagro-etl-process/.env
+
+# 4. Ejecutar migración SQL
+psql -h localhost -U postgres -d renagro_db \
+  -f /opt/renagro-etl-process/migrations/001_add_retry_fields.sql
+
+# 5. Iniciar servicios
+sudo systemctl start renagro-api.service
+sleep 10  # Esperar carga de mapeos
+sudo systemctl start renagro-worker-json-save.service
+sudo systemctl start renagro-worker-etl-transform.service
+sudo systemctl start renagro-worker-db-insert.service
+
+# 6. Verificar
+sudo systemctl status renagro-*
+sudo journalctl -u renagro-api.service -f
+```
+
+### Logs en Producción
+
+**Estrategia dual:**
+
+1. **systemd journal** (principal - RECOMENDADO):
+```bash
+# Ver logs en tiempo real
+sudo journalctl -u renagro-api.service -f
+sudo journalctl -u 'renagro-worker-*' -f
+
+# Logs con errores
+sudo journalctl -u renagro-api.service -p err
+
+# Exportar logs
+sudo journalctl -u renagro-api.service --since today > api-logs.txt
+```
+
+2. **Archivos logs/** (secundario - debugging):
+- `etl_process.log` - Logs generales
+- `etl_errors.log` - Solo errores
+- Rotación automática semanal (12 semanas)
+- Configurar logrotate (ver `systemd/logrotate-renagro`)
+
+**¿Por qué NO usar logs de workers individuales?**
+- systemd journal centraliza TODO
+- No necesitas logs/worker_json_save.log separados
+- journalctl filtra por servicio automáticamente
+- Rotación automática sin configuración
+
+### Nginx como reverse proxy
+
+Ver configuración completa en: **[systemd/README.md](systemd/README.md#configuración-nginx)**
+
+```bash
+# Instalar certificado SSL
+sudo certbot --nginx -d etl.renagro.gob.ec
+
+# Configurar proxy
+sudo nano /etc/nginx/sites-available/renagro-etl
+sudo ln -s /etc/nginx/sites-available/renagro-etl /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+## 📊 Monitoreo y Manejo de Errores
+
+### Sistema de Reintentos
+
+El sistema implementa **reintentos automáticos con backoff exponencial**:
+
+- Intento 1: delay 2 segundos
+- Intento 2: delay 4 segundos
+- Intento 3: delay 8 segundos
+- Después de 3 intentos → Dead Letter Queue (DLQ)
+
+Ver documentación completa: **[ERROR_HANDLING.md](ERROR_HANDLING.md)**
+
+### Consultar mensajes con error
+
+```sql
+-- Errores permanentes (requieren corrección de código)
+SELECT _id, retry_count, last_error_stage, error_message
+FROM sc_renagro_mag.control_envios_boletas
+WHERE estado_etl = 'ERROR' AND retry_count >= 3
+ORDER BY fecha_recepcion DESC;
+
+-- Mensajes en reintentos
+SELECT _id, retry_count, last_error_stage, error_message
+FROM sc_renagro_mag.control_envios_boletas
+WHERE estado_etl = 'PENDIENTE' AND retry_count > 0;
+```
+
+### Recuperación automática
+
+Al reiniciar el servidor API, el sistema:
+1. Busca registros con `estado_etl='ERROR'` y `retry_count < 3`
+2. Obtiene el JSON completo de la BD
+3. Republica a la cola correspondiente según `last_error_stage`
+4. Continúa el pipeline desde donde falló
+
 ### Ejecutar tests (futuro)
 
 ```bash
 pytest tests/
 ```
 
-## 📝 Próximos pasos
+## 📝 Documentación Adicional
 
-- [ ] Implementar soporte para campos `repeat` (grupos repetidos)
-- [ ] Agregar API REST con FastAPI para recibir JSONs
-- [ ] Integrar RabbitMQ para procesamiento asíncrono
-- [ ] Implementar workers para cada cola de mensajes
-- [ ] Agregar manejo de errores y reintentos
-- [ ] Implementar transacciones SQL con SQLAlchemy
-- [ ] Agregar envío a API de terceros
+- **[ERROR_HANDLING.md](ERROR_HANDLING.md)** - Sistema de reintentos y DLQ
+- **[REDIS_CACHE.md](REDIS_CACHE.md)** - Cache de mapeos YAML
+- **[systemd/README.md](systemd/README.md)** - Despliegue en producción
+- **[COMMIT_TYPES.md](COMMIT_TYPES.md)** - Convenciones de commits
+
+## ✅ Estado del Proyecto
+
+- [x] API REST con FastAPI
+- [x] Pipeline asíncrono con RabbitMQ
+- [x] Workers para cada cola de mensajes
+- [x] Manejo de errores y reintentos
+- [x] Dead Letter Queues (DLQ)
+- [x] Recuperación automática de mensajes
+- [x] Transacciones SQL con SQLAlchemy
+- [x] Cache Redis para mapeos YAML
+- [x] Logging con rotación semanal
+- [x] Servicios systemd para producción
+- [ ] Envío a API de terceros
 - [ ] Tests unitarios y de integración
-- [ ] Logging estructurado
-- [ ] Monitoreo y métricas
+- [ ] Métricas con Prometheus
 
 ## 🤝 Contribución
 
