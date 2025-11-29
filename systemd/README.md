@@ -12,13 +12,21 @@
 ### 1. Preparar el entorno
 
 ```bash
-# Crear usuario del sistema
-sudo useradd -r -s /bin/false renagro
+# El usuario 'ubuntu' ya existe en Ubuntu Server
+# Verificar
+id ubuntu
 
-# Copiar aplicación
+# Crear directorio de aplicación
 sudo mkdir -p /opt/renagro-etl-process
-sudo cp -r . /opt/renagro-etl-process/
-sudo chown -R renagro:renagro /opt/renagro-etl-process
+
+# Copiar aplicación (desde tu máquina local)
+rsync -avz --exclude='venv' --exclude='logs' --exclude='__pycache__' \
+  ./ usuario@servidor:/tmp/renagro-etl/
+
+# En el servidor, mover a /opt
+ssh servidor
+sudo mv /tmp/renagro-etl/* /opt/renagro-etl-process/
+sudo chown -R ubuntu:ubuntu /opt/renagro-etl-process
 
 # Crear virtualenv
 cd /opt/renagro-etl-process
@@ -36,7 +44,7 @@ sudo nano /opt/renagro-etl-process/.env
 
 # Asegurar permisos (archivo tiene credenciales)
 sudo chmod 600 /opt/renagro-etl-process/.env
-sudo chown renagro:renagro /opt/renagro-etl-process/.env
+sudo chown ubuntu:ubuntu /opt/renagro-etl-process/.env
 ```
 
 ### 3. Instalar servicios systemd

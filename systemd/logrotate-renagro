@@ -16,7 +16,7 @@
     notifempty
     
     # Crear nuevo archivo con permisos correctos
-    create 0644 renagro renagro
+    create 0644 ubuntu ubuntu
     
     # Ejecutar solo una vez para todos los archivos
     sharedscripts

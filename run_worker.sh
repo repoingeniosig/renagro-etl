@@ -1,5 +1,10 @@
 #!/bin/bash
-# Script para ejecutar workers de RabbitMQ
+#!/bin/bash
+# ⚠️  SOLO PARA DESARROLLO LOCAL
+# Para producción, usar servicios systemd en systemd/
+# Ver: systemd/README.md
+
+# Script para ejecutar un worker individual en modo desarrollo
 
 WORKER_TYPE=$1
 

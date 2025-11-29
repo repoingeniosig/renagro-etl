@@ -1,5 +1,9 @@
 #!/bin/bash
-# Script para detener todos los workers
+# ⚠️  SOLO PARA DESARROLLO LOCAL
+# Para producción, usar: sudo systemctl stop renagro-worker-*
+# Ver: systemd/README.md
+
+# Script para detener todos los workers (DESARROLLO)
 
 if [ ! -f .worker_pids ]; then
     echo "⚠️  No se encontró archivo .worker_pids"

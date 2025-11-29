@@ -15,7 +15,7 @@ fi
 
 # Variables
 APP_DIR="/opt/renagro-etl-process"
-APP_USER="renagro"
+APP_USER="ubuntu"
 VENV_DIR="$APP_DIR/venv"
 
 echo "📁 Configuración:"
@@ -23,12 +23,14 @@ echo "   Directorio: $APP_DIR"
 echo "   Usuario: $APP_USER"
 echo ""
 
-# 1. Crear usuario del sistema
-if id "$APP_USER" &>/dev/null; then
-    echo "✓ Usuario $APP_USER ya existe"
+# 1. Verificar que el usuario existe
+if ! id "$APP_USER" &>/dev/null; then
+    echo "⚠️  Error: Usuario $APP_USER no existe"
+    echo "   En Ubuntu Server, el usuario 'ubuntu' debería existir por defecto"
+    echo "   Si usas otro usuario, edita la variable APP_USER en este script"
+    exit 1
 else
-    echo "👤 Creando usuario $APP_USER..."
-    useradd -r -s /bin/false $APP_USER
+    echo "✓ Usuario $APP_USER existe"
 fi
 
 # 2. Crear directorio y copiar archivos

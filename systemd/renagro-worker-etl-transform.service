@@ -6,8 +6,8 @@ BindsTo=renagro-api.service
 
 [Service]
 Type=simple
-User=renagro
-Group=renagro
+User=ubuntu
+Group=ubuntu
 WorkingDirectory=/opt/renagro-etl-process
 Environment="PATH=/opt/renagro-etl-process/venv/bin"
 EnvironmentFile=/opt/renagro-etl-process/.env
@@ -20,10 +20,13 @@ RestartSec=10
 StartLimitBurst=5
 StartLimitIntervalSec=300
 
-# Límites de recursos
+# Límites de recursos (4 CPUs, 16GB RAM)
+# Worker más pesado: transformaciones complejas
 LimitNOFILE=65536
-MemoryLimit=1G
-CPUQuota=150%
+MemoryLimit=4G
+MemoryHigh=3G
+CPUQuota=100%
+CPUWeight=100
 
 # Logging (systemd journal)
 StandardOutput=journal

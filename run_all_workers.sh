@@ -1,5 +1,9 @@
 #!/bin/bash
-# Script para iniciar todos los workers en paralelo
+# ⚠️  SOLO PARA DESARROLLO LOCAL
+# Para producción, usar servicios systemd en systemd/
+# Ver: systemd/README.md
+
+# Script para iniciar todos los workers en paralelo (DESARROLLO)
 
 echo "🚀 Iniciando todos los workers del pipeline ETL"
 echo "==============================================="

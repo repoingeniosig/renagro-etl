@@ -5,8 +5,8 @@ Wants=postgresql.service redis.service rabbitmq-server.service
 
 [Service]
 Type=notify
-User=renagro
-Group=renagro
+User=ubuntu
+Group=ubuntu
 WorkingDirectory=/opt/renagro-etl-process
 Environment="PATH=/opt/renagro-etl-process/venv/bin"
 EnvironmentFile=/opt/renagro-etl-process/.env
@@ -15,7 +15,7 @@ EnvironmentFile=/opt/renagro-etl-process/.env
 ExecStart=/opt/renagro-etl-process/venv/bin/uvicorn src.api:app \
     --host 0.0.0.0 \
     --port 8000 \
-    --workers 4 \
+    --workers 2 \
     --log-level info \
     --no-access-log
 
@@ -25,10 +25,12 @@ RestartSec=10
 StartLimitBurst=5
 StartLimitIntervalSec=300
 
-# Límites de recursos
+# Límites de recursos (4 CPUs, 16GB RAM)
 LimitNOFILE=65536
-MemoryLimit=2G
-CPUQuota=200%
+MemoryLimit=4G
+MemoryHigh=3G
+CPUQuota=150%
+CPUWeight=100
 
 # Logging (systemd maneja los logs)
 StandardOutput=journal
