@@ -51,6 +51,13 @@ class Config:
     API_EXTERNAL_URL = os.getenv('API_EXTERNAL_URL', 'https://api.example.com')
     API_EXTERNAL_KEY = os.getenv('API_EXTERNAL_KEY', '')
     
+    # API REST (FastAPI)
+    API_HOST = os.getenv('API_HOST', '0.0.0.0')
+    API_PORT = int(os.getenv('API_PORT', 8000))
+    API_RELOAD = os.getenv('API_RELOAD', 'true').lower() in ('true', '1', 'yes')
+    API_BASIC_USER = os.getenv('API_BASIC_USER', 'admin')
+    API_BASIC_PASSWORD = os.getenv('API_BASIC_PASSWORD', 'admin123')
+    
     # Aplicación
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
