@@ -1,12 +1,16 @@
 """
 Cargador de archivos YAML de mapeo
+Soporta cache en Redis para optimizar el rendimiento
 """
 import yaml
+import logging
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 
 from .config import config
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -105,18 +109,73 @@ class MappingLoader:
         
         return entity_mapping
     
-    def load_all_mappings(self) -> Dict[str, EntityMapping]:
+    def load_all_mappings(self, force_reload: bool = False) -> Dict[str, EntityMapping]:
         """
         Carga todos los mapeos definidos en master.yml
-        Retorna un diccionario con los mapeos por entidad
+        Intenta primero desde Redis cache, si falla lee desde disco
+        
+        Args:
+            force_reload: Si True, ignora el cache y recarga desde disco
+        
+        Returns:
+            Diccionario con los mapeos por entidad
         """
+        # Intentar cargar desde Redis cache primero
+        if not force_reload:
+            try:
+                from .redis_client import redis_client
+                
+                cached_mappings = redis_client.get_cached_mappings()
+                if cached_mappings:
+                    self.entity_mappings = cached_mappings
+                    logger.info(f"✅ Mapeos cargados desde Redis cache ({len(cached_mappings)} entidades)")
+                    return self.entity_mappings
+                    
+            except ImportError:
+                logger.debug("Redis client no disponible, cargando desde disco")
+            except Exception as e:
+                logger.warning(f"⚠️  Error accediendo a Redis cache: {e}")
+                logger.warning("Fallback: cargando mapeos desde disco")
+        
+        # Fallback: Cargar desde disco
+        logger.info("📂 Cargando mapeos desde archivos YAML...")
+        
         if not self.master_config:
             self.load_master()
         
         for entity_name, yaml_file in self.master_config.items():
             self.entity_mappings[entity_name] = self.load_entity_mapping(yaml_file)
         
+        logger.info(f"✅ {len(self.entity_mappings)} mapeos cargados desde disco")
+        
+        # Intentar guardar en Redis cache para futuras ejecuciones
+        if not force_reload:
+            try:
+                from .redis_client import redis_client
+                success = redis_client.set_cached_mappings(self.entity_mappings)
+                if success:
+                    logger.info("✅ Mapeos guardados en Redis cache")
+            except ImportError:
+                pass
+            except Exception as e:
+                logger.warning(f"⚠️  No se pudo guardar en cache: {e}")
+                logger.warning("El proceso continuará normalmente")
+        
         return self.entity_mappings
+    
+    def invalidate_cache(self):
+        """
+        Invalida el cache de Redis
+        Útil cuando se actualizan los archivos YAML
+        """
+        try:
+            from .redis_client import redis_client
+            redis_client.invalidate_cache()
+            logger.info("✅ Cache invalidado, próxima carga será desde disco")
+        except ImportError:
+            logger.warning("Redis client no disponible")
+        except Exception as e:
+            logger.error(f"Error invalidando cache: {e}")
     
     def get_processing_order(self) -> List[List[str]]:
         """
