@@ -32,7 +32,7 @@ fields:
       contains_option: "fiebre_aftosa_porcino"
     default: false
 
-  por_is_neumonia_por_enzootica:
+  por_is_neumonía_por_enzootica:
     source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/vacunas_porcino"
     type: boolean
     convert:
