@@ -62,10 +62,12 @@ class Config:
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
     ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
     DEBUG = os.getenv('DEBUG', 'false').lower() in ('true', '1', 'yes')
+    DEBUG_CLI = os.getenv('DEBUG_CLI', 'false').lower() in ('true', '1', 'yes')
     
     # Rutas del proyecto
     BASE_DIR = Path(__file__).parent.parent
     MAPPING_DIR = BASE_DIR / 'mapping'
+    LOG_DIR = BASE_DIR / os.getenv('LOG_DIR', 'logs')
     
 
 # Instancia global de configuración

@@ -26,6 +26,7 @@ from .models import ControlEnviosBoletas, EstadoETLEnum, EstadoEnvioEnum
 from .mapping_loader import mapping_loader
 from .transformer import JSONTransformer
 from .executor import TransactionExecutor
+from .logger import etl_logger
 
 console = Console()
 
@@ -63,13 +64,18 @@ def save_to_control_table(json_data: Dict[str, Any], allow_duplicates: bool = Tr
     Raises:
         ValueError: Si allow_duplicates=False y el _id ya existe
     """
-    console.print("\n[bold cyan]PASO 1: Guardando en tabla de control[/bold cyan]")
+    if config.DEBUG_CLI:
+        console.print("\n[bold cyan]PASO 1: Guardando en tabla de control[/bold cyan]")
     
     # Extraer campos requeridos del JSON
     _id = json_data.get('_id')
     
     if not _id:
-        raise ValueError("El JSON no contiene el campo '_id'")
+        error_msg = "El JSON no contiene el campo '_id'"
+        etl_logger.error(f"Validación fallida: {error_msg}")
+        raise ValueError(error_msg)
+    
+    etl_logger.info(f"Iniciando procesamiento de JSON _id={_id}")
     
     # Crear el registro
     registro = ControlEnviosBoletas(
@@ -86,24 +92,36 @@ def save_to_control_table(json_data: Dict[str, Any], allow_duplicates: bool = Tr
         
         if existing:
             if not allow_duplicates:
-                raise ValueError(f"Registro duplicado: _id={_id} ya existe en la base de datos")
+                error_msg = f"Registro duplicado: _id={_id} ya existe en la base de datos"
+                etl_logger.warning(error_msg)
+                raise ValueError(error_msg)
             
-            console.print(f"[yellow]⚠️  Ya existe registro con _id={_id}[/yellow]")
-            console.print(f"   estado_etl: {existing.estado_etl.value}")
-            console.print(f"   Actualizando JSON y reseteando estado...")
+            if config.DEBUG_CLI:
+                console.print(f"[yellow]⚠️  Ya existe registro con _id={_id}[/yellow]")
+                console.print(f"   estado_etl: {existing.estado_etl.value}")
+                console.print(f"   Actualizando JSON y reseteando estado...")
+            
+            etl_logger.info(f"Actualizando registro existente _id={_id}")
             
             # Actualizar el JSON y resetear estado
             existing.json_data = json_data
             existing.estado_etl = EstadoETLEnum.PENDIENTE
             existing.updated_at = datetime.now()
             session.commit()
-            console.print(f"[green]✅ Registro actualizado[/green]")
+            
+            if config.DEBUG_CLI:
+                console.print(f"[green]✅ Registro actualizado[/green]")
         else:
             session.add(registro)
             session.commit()
-            console.print(f"[green]✅ Nuevo registro guardado[/green]")
+            
+            etl_logger.info(f"Nuevo registro guardado _id={_id}")
+            
+            if config.DEBUG_CLI:
+                console.print(f"[green]✅ Nuevo registro guardado[/green]")
         
-        console.print(f"   _id: {_id}")
+        if config.DEBUG_CLI:
+            console.print(f"   _id: {_id}")
     
     return _id
 
@@ -118,31 +136,42 @@ def process_transformations(json_data: Dict[str, Any]) -> Dict[str, Any]:
     Returns:
         Diccionario con las transformaciones por entidad y el orden de procesamiento
     """
-    console.print("\n[bold cyan]PASO 2: Realizando transformaciones y mapeos[/bold cyan]")
+    _id = json_data.get('_id', 'unknown')
+    
+    if config.DEBUG_CLI:
+        console.print("\n[bold cyan]PASO 2: Realizando transformaciones y mapeos[/bold cyan]")
+    
+    etl_logger.info(f"Iniciando transformaciones para _id={_id}")
     
     # Cargar todos los mapeos
-    console.print("\n📋 Cargando archivos de mapeo YAML...")
+    if config.DEBUG_CLI:
+        console.print("\n📋 Cargando archivos de mapeo YAML...")
+    
     mapping_loader.load_master()
     mapping_loader.load_all_mappings()
     
     # Obtener el orden de procesamiento
     processing_order = mapping_loader.get_processing_order()
     
-    console.print(f"[green]✅ Mapeos cargados: {len(mapping_loader.entity_mappings)} entidades[/green]")
-    console.print(f"\n📊 Orden de procesamiento en {len(processing_order)} grupos:")
-    for i, group in enumerate(processing_order, 1):
-        console.print(f"   Grupo {i}: {', '.join(group)}")
+    if config.DEBUG_CLI:
+        console.print(f"[green]✅ Mapeos cargados: {len(mapping_loader.entity_mappings)} entidades[/green]")
+        console.print(f"\n📊 Orden de procesamiento en {len(processing_order)} grupos:")
+        for i, group in enumerate(processing_order, 1):
+            console.print(f"   Grupo {i}: {', '.join(group)}")
     
     # Diccionario para almacenar las transformaciones
     transformations = {}
     
     # Procesar cada grupo en orden
     for group_num, group in enumerate(processing_order, 1):
-        console.print(f"\n[bold]Grupo {group_num}:[/bold] {', '.join(group)}")
+        if config.DEBUG_CLI:
+            console.print(f"\n[bold]Grupo {group_num}:[/bold] {', '.join(group)}")
         
         for entity_name in group:
             if entity_name not in mapping_loader.entity_mappings:
-                console.print(f"   [yellow]⚠️  {entity_name}: Sin mapeo[/yellow]")
+                if config.DEBUG_CLI:
+                    console.print(f"   [yellow]⚠️  {entity_name}: Sin mapeo[/yellow]")
+                etl_logger.warning(f"_id={_id} - Entidad {entity_name} sin mapeo")
                 continue
             
             entity_mapping = mapping_loader.entity_mappings[entity_name]
@@ -156,9 +185,14 @@ def process_transformations(json_data: Dict[str, Any]) -> Dict[str, Any]:
             
             if rows:
                 transformations[entity_name] = rows
-                console.print(f"   [green]✅ {entity_name}: {len(rows)} registro(s)[/green]")
+                if config.DEBUG_CLI:
+                    console.print(f"   [green]✅ {entity_name}: {len(rows)} registro(s)[/green]")
+                etl_logger.debug(f"_id={_id} - {entity_name}: {len(rows)} registros transformados")
             else:
-                console.print(f"   [dim]⏭️  {entity_name}: Sin datos[/dim]")
+                if config.DEBUG_CLI:
+                    console.print(f"   [dim]⏭️  {entity_name}: Sin datos[/dim]")
+    
+    etl_logger.info(f"Transformaciones completadas para _id={_id}: {len(transformations)} entidades con datos")
     
     return {
         'transformations': transformations,
@@ -169,7 +203,8 @@ def process_transformations(json_data: Dict[str, Any]) -> Dict[str, Any]:
 def execute_transaction(
     transformations: Dict[str, Any],
     processing_order: list,
-    debug: bool = False
+    debug: bool = False,
+    _id: int = None
 ) -> Dict[str, Any]:
     """
     PASO 3 y 4: Genera y ejecuta la transacción SQL con SQLAlchemy
@@ -178,17 +213,30 @@ def execute_transaction(
         transformations: Diccionario {entity_name: [rows]}
         processing_order: Orden de procesamiento de entidades
         debug: Si True, imprime detalles de ejecución
+        _id: ID del JSON (para logging)
         
     Returns:
         Resultados de la ejecución
     """
-    console.print("\n[bold cyan]PASO 3 y 4: Ejecutando transacción en la base de datos[/bold cyan]")
+    if config.DEBUG_CLI:
+        console.print("\n[bold cyan]PASO 3 y 4: Ejecutando transacción en la base de datos[/bold cyan]")
+    
+    etl_logger.info(f"Iniciando ejecución de transacción para _id={_id}")
     
     results = TransactionExecutor.execute_inserts(
         transformations=transformations,
         processing_order=processing_order,
         debug=debug
     )
+    
+    if results['success']:
+        etl_logger.info(
+            f"_id={_id} - Transacción exitosa: {results['total_rows_inserted']} registros insertados "
+            f"en {results['entities_processed']} entidades"
+        )
+    else:
+        error_msg = '; '.join(results['errors']) if results['errors'] else 'Error desconocido'
+        etl_logger.error(f"_id={_id} - Transacción fallida: {error_msg}")
     
     return results
 
@@ -214,14 +262,22 @@ def update_control_status(
                     control.estado_etl = EstadoETLEnum.PROCESADO
                     control.procesado_at = datetime.now()
                     control.error_message = None
+                    etl_logger.info(f"_id={_id} - Estado actualizado a PROCESADO")
                 else:
                     control.estado_etl = EstadoETLEnum.ERROR
                     control.error_message = error_message
+                    etl_logger.error(f"_id={_id} - Estado actualizado a ERROR: {error_message}")
                 
                 session.commit()
-                console.print(f"\n[green]✅ Estado actualizado en control_envios_boletas[/green]")
+                
+                if config.DEBUG_CLI:
+                    console.print(f"\n[green]✅ Estado actualizado en control_envios_boletas[/green]")
     except Exception as e:
-        console.print(f"[yellow]⚠️  No se pudo actualizar el estado: {e}[/yellow]")
+        error_msg = f"No se pudo actualizar el estado para _id={_id}: {e}"
+        etl_logger.error(error_msg)
+        
+        if config.DEBUG_CLI:
+            console.print(f"[yellow]⚠️  {error_msg}[/yellow]")
 
 
 def main():
@@ -257,30 +313,39 @@ Ejemplos de uso:
     # Usar DEBUG del .env si no se especifica en argumentos
     debug = args.debug or config.DEBUG
     
+    _id = None
+    
     try:
         # Banner inicial
-        console.print(Panel.fit(
-            "[bold cyan]RENAGRO ETL PROCESS[/bold cyan]\n"
-            "Procesador de formularios KoboToolbox",
-            border_style="cyan"
-        ))
+        if config.DEBUG_CLI:
+            console.print(Panel.fit(
+                "[bold cyan]RENAGRO ETL PROCESS[/bold cyan]\n"
+                "Procesador de formularios KoboToolbox",
+                border_style="cyan"
+            ))
         
         # Cargar el archivo JSON
-        console.print(f"\n📂 Cargando archivo: [bold]{args.json_file}[/bold]")
+        if config.DEBUG_CLI:
+            console.print(f"\n📂 Cargando archivo: [bold]{args.json_file}[/bold]")
+        
         json_data = load_json_file(args.json_file)
+        _id = json_data.get('_id')
         
         file_size = Path(args.json_file).stat().st_size
-        console.print(f"[green]✅ Archivo cargado exitosamente[/green]")
-        console.print(f"   Tamaño: {file_size:,} bytes ({file_size/1024:.2f} KB)")
         
-        _id = None
+        if config.DEBUG_CLI:
+            console.print(f"[green]✅ Archivo cargado exitosamente[/green]")
+            console.print(f"   Tamaño: {file_size:,} bytes ({file_size/1024:.2f} KB)")
+        
+        etl_logger.info(f"Archivo JSON cargado: {args.json_file} ({file_size} bytes)")
         
         # PASO 1: Guardar en la tabla de control
         if not args.skip_db:
             _id = save_to_control_table(json_data)
         else:
-            console.print("\n[yellow]⏭️  Omitiendo guardado en base de datos (--skip-db)[/yellow]")
-            _id = json_data.get('_id')
+            if config.DEBUG_CLI:
+                console.print("\n[yellow]⏭️  Omitiendo guardado en base de datos (--skip-db)[/yellow]")
+            etl_logger.info(f"_id={_id} - Modo skip-db activado")
         
         # PASO 2: Procesar transformaciones
         transformation_result = process_transformations(json_data)
@@ -289,9 +354,11 @@ Ejemplos de uso:
         
         # Mostrar resumen de transformaciones
         total_rows = sum(len(rows) for rows in transformations.values())
-        console.print(f"\n[bold green]✅ Transformaciones completadas:[/bold green]")
-        console.print(f"   Entidades con datos: {len(transformations)}")
-        console.print(f"   Total registros a insertar: {total_rows}")
+        
+        if config.DEBUG_CLI:
+            console.print(f"\n[bold green]✅ Transformaciones completadas:[/bold green]")
+            console.print(f"   Entidades con datos: {len(transformations)}")
+            console.print(f"   Total registros a insertar: {total_rows}")
         
         # PASO 3 y 4: Ejecutar transacción
         if not args.skip_db and transformations:
@@ -299,26 +366,36 @@ Ejemplos de uso:
                 results = execute_transaction(
                     transformations=transformations,
                     processing_order=processing_order,
-                    debug=debug
+                    debug=debug,
+                    _id=_id
                 )
                 
                 # PASO 5: Mostrar resultados
-                console.print("\n[bold cyan]PASO 5: Resultados de la ejecución[/bold cyan]")
-                TransactionExecutor.print_execution_summary(results)
+                if config.DEBUG_CLI:
+                    console.print("\n[bold cyan]PASO 5: Resultados de la ejecución[/bold cyan]")
+                    TransactionExecutor.print_execution_summary(results)
                 
                 # Actualizar estado a PROCESADO
                 if results['success']:
                     update_control_status(_id, success=True)
-                    console.print("\n[bold green]🎉 ¡Proceso completado exitosamente![/bold green]")
+                    
+                    if config.DEBUG_CLI:
+                        console.print("\n[bold green]🎉 ¡Proceso completado exitosamente![/bold green]")
                 else:
                     error_msg = '; '.join(results['errors']) if results['errors'] else 'Error desconocido'
                     update_control_status(_id, success=False, error_message=error_msg)
-                    console.print("\n[bold red]❌ El proceso finalizó con errores[/bold red]")
+                    
+                    if config.DEBUG_CLI:
+                        console.print("\n[bold red]❌ El proceso finalizó con errores[/bold red]")
+                    
                     sys.exit(1)
                     
             except Exception as e:
                 error_msg = str(e)
-                console.print(f"\n[bold red]❌ Error ejecutando transacción: {error_msg}[/bold red]")
+                etl_logger.error(f"_id={_id} - Error ejecutando transacción: {error_msg}", exc_info=True)
+                
+                if config.DEBUG_CLI:
+                    console.print(f"\n[bold red]❌ Error ejecutando transacción: {error_msg}[/bold red]")
                 
                 # Actualizar estado a ERROR
                 if _id:
@@ -331,23 +408,42 @@ Ejemplos de uso:
                 sys.exit(1)
         
         elif args.skip_db:
-            console.print("\n[yellow]⏭️  Omitiendo ejecución en base de datos (--skip-db)[/yellow]")
-            console.print("[dim]Para ejecutar en BD, ejecute sin --skip-db[/dim]")
+            if config.DEBUG_CLI:
+                console.print("\n[yellow]⏭️  Omitiendo ejecución en base de datos (--skip-db)[/yellow]")
+                console.print("[dim]Para ejecutar en BD, ejecute sin --skip-db[/dim]")
         
         elif not transformations:
-            console.print("\n[yellow]⚠️  No hay datos para insertar[/yellow]")
+            if config.DEBUG_CLI:
+                console.print("\n[yellow]⚠️  No hay datos para insertar[/yellow]")
+            etl_logger.warning(f"_id={_id} - Sin datos para insertar")
         
     except FileNotFoundError as e:
-        console.print(f"\n[bold red]❌ Error: {e}[/bold red]")
+        error_msg = str(e)
+        etl_logger.error(f"Archivo no encontrado: {error_msg}")
+        
+        if config.DEBUG_CLI:
+            console.print(f"\n[bold red]❌ Error: {e}[/bold red]")
+        
         sys.exit(1)
     except ValueError as e:
-        console.print(f"\n[bold red]❌ Error de validación: {e}[/bold red]")
+        error_msg = str(e)
+        etl_logger.error(f"_id={_id} - Error de validación: {error_msg}")
+        
+        if config.DEBUG_CLI:
+            console.print(f"\n[bold red]❌ Error de validación: {e}[/bold red]")
+        
         sys.exit(1)
     except Exception as e:
-        console.print(f"\n[bold red]❌ Error inesperado: {e}[/bold red]")
+        error_msg = str(e)
+        etl_logger.error(f"_id={_id} - Error inesperado: {error_msg}", exc_info=True)
+        
+        if config.DEBUG_CLI:
+            console.print(f"\n[bold red]❌ Error inesperado: {e}[/bold red]")
+        
         if debug or config.DEBUG:
             import traceback
             traceback.print_exc()
+        
         sys.exit(1)
 
 

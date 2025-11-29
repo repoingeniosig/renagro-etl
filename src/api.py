@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from .config import config
 from .models import EstadoETLEnum
 from .process_json import save_to_control_table, process_transformations, execute_transaction, update_control_status
+from .logger import etl_logger
 
 # Inicializar FastAPI
 app = FastAPI(
@@ -112,19 +113,23 @@ async def process_boleta(
         # PASO 1: Guardar en tabla de control
         try:
             _id = save_to_control_table(json_data, allow_duplicates=False)
+            etl_logger.info(f"API - _id={_id} recibido desde {username}")
         except ValueError as e:
             # Error de duplicado o validación
             if "duplicado" in str(e).lower():
+                etl_logger.warning(f"API - Rechazo de duplicado: {str(e)}")
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=str(e)
                 )
             else:
+                etl_logger.error(f"API - Error de validación: {str(e)}")
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=str(e)
                 )
         except Exception as e:
+            etl_logger.error(f"API - Error guardando en BD: {str(e)}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error guardando en base de datos: {str(e)}"
@@ -161,7 +166,8 @@ async def process_boleta(
             results = execute_transaction(
                 transformations=transformations,
                 processing_order=processing_order,
-                debug=config.DEBUG
+                debug=config.DEBUG,
+                _id=_id
             )
             
             if results['success']:
@@ -203,6 +209,8 @@ async def process_boleta(
     except Exception as e:
         # Error inesperado
         error_msg = f"Error inesperado: {str(e)}"
+        etl_logger.error(f"API - _id={_id} - {error_msg}", exc_info=True)
+        
         if _id:
             update_control_status(_id, success=False, error_message=error_msg)
         
@@ -215,6 +223,8 @@ async def process_boleta(
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
     """Manejador global de excepciones"""
+    etl_logger.error(f"API - Excepción global: {str(exc)}", exc_info=True)
+    
     return {
         "success": False,
         "message": f"Error interno del servidor: {str(exc)}",
