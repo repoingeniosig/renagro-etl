@@ -54,25 +54,67 @@ class RabbitMQClient:
     
     async def declare_queues(self, channel: Channel):
         """
-        Declara todas las colas necesarias
-        Las colas son durables para persistir mensajes
+        Declara todas las colas necesarias con sistema de reintentos
+        
+        ARQUITECTURA:
+        - Colas principales: procesamiento normal
+        - Colas .retry: reintentos con TTL (redirecciona a principal)
+        - Colas .dlq: errores permanentes (después de MAX_RETRIES)
         """
-        queues = [
+        # Mapeo de colas principales
+        main_queues = [
             config.QUEUE_JSON_SAVE,
             config.QUEUE_ETL_TRANSFORM,
             config.QUEUE_DB_INSERT
         ]
         
-        for queue_name in queues:
-            queue = await channel.declare_queue(
-                queue_name,
-                durable=True,  # Cola persiste después de reinicio
+        retry_queues = [
+            config.QUEUE_JSON_SAVE_RETRY,
+            config.QUEUE_ETL_TRANSFORM_RETRY,
+            config.QUEUE_DB_INSERT_RETRY
+        ]
+        
+        dlq_queues = [
+            config.QUEUE_JSON_SAVE_DLQ,
+            config.QUEUE_ETL_TRANSFORM_DLQ,
+            config.QUEUE_DB_INSERT_DLQ
+        ]
+        
+        # 1. Declarar Dead Letter Queues (sin TTL, sin DLX)
+        for dlq_name in dlq_queues:
+            await channel.declare_queue(
+                dlq_name,
+                durable=True,
+                arguments={'x-max-priority': 10}
+            )
+            etl_logger.info(f"DLQ declarada: {dlq_name}")
+        
+        # 2. Declarar colas de reintentos (con TTL dinámico y DLX a cola principal)
+        for retry_name, main_name in zip(retry_queues, main_queues):
+            await channel.declare_queue(
+                retry_name,
+                durable=True,
                 arguments={
-                    'x-max-priority': 10,  # Soporte de prioridades
-                    'x-message-ttl': 3600000  # TTL de 1 hora (milisegundos)
+                    'x-max-priority': 10,
+                    # Sin TTL aquí - se establece por mensaje
+                    # DLX redirige a cola principal cuando expira
+                    'x-dead-letter-exchange': '',
+                    'x-dead-letter-routing-key': main_name
                 }
             )
-            etl_logger.info(f"Cola declarada: {queue_name}")
+            etl_logger.info(f"Cola retry declarada: {retry_name} -> {main_name}")
+        
+        # 3. Declarar colas principales
+        for queue_name in main_queues:
+            await channel.declare_queue(
+                queue_name,
+                durable=True,
+                arguments={
+                    'x-max-priority': 10,
+                    'x-message-ttl': 3600000  # 1 hora timeout general
+                }
+            )
+            etl_logger.info(f"Cola principal declarada: {queue_name}")
     
     async def publish_message(
         self,
@@ -116,6 +158,121 @@ class RabbitMQClient:
         
         except Exception as e:
             etl_logger.error(f"Error publicando mensaje a {queue_name}: {e}", exc_info=True)
+            return False
+    
+    async def publish_to_retry(
+        self,
+        retry_queue: str,
+        message: Dict[str, Any],
+        retry_count: int,
+        error_msg: str,
+        priority: int = 5
+    ) -> bool:
+        """
+        Publica mensaje a cola de reintentos con TTL exponencial
+        
+        Args:
+            retry_queue: Cola .retry destino
+            message: Mensaje original
+            retry_count: Número de reintentos actual
+            error_msg: Mensaje del último error
+            priority: Prioridad
+            
+        Returns:
+            True si se publicó exitosamente
+        """
+        try:
+            # Backoff exponencial: 2^retry_count segundos -> milisegundos
+            delay_seconds = 2 ** retry_count
+            ttl_ms = delay_seconds * 1000
+            
+            async with self._connection_pool.acquire() as connection:
+                async with connection.channel() as channel:
+                    message_body = json.dumps(message).encode()
+                    
+                    msg = Message(
+                        message_body,
+                        delivery_mode=DeliveryMode.PERSISTENT,
+                        priority=priority,
+                        content_type='application/json',
+                        headers={
+                            'x-retry-count': retry_count,
+                            'x-last-error': error_msg[:500],  # Limitar tamaño
+                            'x-retry-timestamp': asyncio.get_event_loop().time()
+                        },
+                        expiration=str(ttl_ms)  # TTL en milisegundos (como string)
+                    )
+                    
+                    await channel.default_exchange.publish(
+                        msg,
+                        routing_key=retry_queue
+                    )
+                    
+                    etl_logger.info(
+                        f"Mensaje enviado a retry {retry_queue}: "
+                        f"_id={message.get('_id')} retry={retry_count} delay={delay_seconds}s"
+                    )
+                    return True
+        
+        except Exception as e:
+            etl_logger.error(f"Error publicando a retry {retry_queue}: {e}", exc_info=True)
+            return False
+    
+    async def publish_to_dlq(
+        self,
+        dlq_queue: str,
+        _id: int,
+        error_msg: str,
+        original_queue: str,
+        retry_count: int
+    ) -> bool:
+        """
+        Publica mensaje a Dead Letter Queue con metadata reducida
+        Solo guarda _id para ahorrar memoria
+        
+        Args:
+            dlq_queue: Cola DLQ destino
+            _id: ID del registro
+            error_msg: Mensaje de error final
+            original_queue: Cola de origen
+            retry_count: Número de reintentos realizados
+            
+        Returns:
+            True si se publicó exitosamente
+        """
+        try:
+            async with self._connection_pool.acquire() as connection:
+                async with connection.channel() as channel:
+                    # Solo metadata, no JSON completo
+                    dlq_message = {
+                        '_id': _id,
+                        'error': error_msg[:1000],  # Limitar tamaño
+                        'original_queue': original_queue,
+                        'retry_count': retry_count,
+                        'timestamp': asyncio.get_event_loop().time()
+                    }
+                    
+                    message_body = json.dumps(dlq_message).encode()
+                    
+                    msg = Message(
+                        message_body,
+                        delivery_mode=DeliveryMode.PERSISTENT,
+                        content_type='application/json'
+                    )
+                    
+                    await channel.default_exchange.publish(
+                        msg,
+                        routing_key=dlq_queue
+                    )
+                    
+                    etl_logger.error(
+                        f"Mensaje enviado a DLQ {dlq_queue}: "
+                        f"_id={_id} retry_count={retry_count}"
+                    )
+                    return True
+        
+        except Exception as e:
+            etl_logger.error(f"Error publicando a DLQ {dlq_queue}: {e}", exc_info=True)
             return False
     
     async def consume_queue(

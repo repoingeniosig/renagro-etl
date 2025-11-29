@@ -13,6 +13,7 @@ from .models import EstadoETLEnum
 from .logger import etl_logger
 from .mapping_loader import mapping_loader
 from .rabbitmq_client import rabbitmq_client
+from .recovery import recover_failed_messages
 
 # Inicializar FastAPI
 app = FastAPI(
@@ -25,27 +26,34 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup_event():
     """
-    Evento de inicio: Cargar mapeos YAML a Redis cache
-    Se ejecuta una sola vez al iniciar el servidor
+    Evento de inicio: 
+    1. Cargar mapeos YAML a Redis cache
+    2. Recuperar mensajes con ERROR de la BD y republicarlos
     """
     etl_logger.info("Iniciando servidor RENAGRO ETL API...")
     
     try:
-        # Cargar mapeos master y YAML
+        # 1. Cargar mapeos master y YAML
         etl_logger.info("Cargando mapeos YAML...")
         mapping_loader.load_master()
         mapping_loader.load_all_mappings(force_reload=False)
         
         etl_logger.info(f"Mapeos cargados: {len(mapping_loader.entity_mappings)} entidades")
         
+        # 2. Recuperar mensajes fallidos de la BD
+        etl_logger.info("Recuperando mensajes con estado ERROR...")
+        recovered = await recover_failed_messages()
+        etl_logger.info(f"Recuperación completada: {recovered} mensajes republicados")
+        
         if config.DEBUG_CLI:
             from rich.console import Console
             console = Console()
             console.print(f"\n[green]✅ Servidor iniciado - {len(mapping_loader.entity_mappings)} mapeos YAML cargados[/green]")
-            console.print(f"[cyan]Redis cache: {'Habilitado' if config.REDIS_ENABLED else 'Deshabilitado'}[/cyan]\n")
+            console.print(f"[cyan]Redis cache: {'Habilitado' if config.REDIS_ENABLED else 'Deshabilitado'}[/cyan]")
+            console.print(f"[yellow]Mensajes recuperados: {recovered}[/yellow]\n")
     
     except Exception as e:
-        etl_logger.error(f"Error cargando mapeos en startup: {e}", exc_info=True)
+        etl_logger.error(f"Error en startup: {e}", exc_info=True)
         raise
 
 

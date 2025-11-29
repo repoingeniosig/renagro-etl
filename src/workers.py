@@ -85,19 +85,50 @@ class JsonSaveWorker:
             error_msg = f"Error en json_save: {str(e)}"
             etl_logger.error(f"[json_save] _id={_id} - {error_msg}", exc_info=True)
             
-            # Actualizar estado a ERROR en BD
+            # Actualizar retry_count y estado en BD
+            retry_count = 0
             try:
                 with db.get_session() as session:
                     control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
                     if control:
-                        control.estado_etl = EstadoETLEnum.ERROR
+                        control.retry_count += 1
+                        retry_count = control.retry_count
+                        control.last_error_stage = 'json_save'
                         control.error_message = error_msg
+                        
+                        if retry_count >= config.MAX_RETRIES:
+                            control.estado_etl = EstadoETLEnum.ERROR
+                            etl_logger.error(
+                                f"[json_save] _id={_id} alcanzó MAX_RETRIES={config.MAX_RETRIES}"
+                            )
+                        else:
+                            control.estado_etl = EstadoETLEnum.PENDIENTE
+                        
                         session.commit()
             except Exception as db_error:
-                etl_logger.error(f"[json_save] Error actualizando estado: {db_error}")
+                etl_logger.error(f"[json_save] Error actualizando BD: {db_error}")
             
-            # Re-raise para que RabbitMQ reintente
-            raise
+            # Decidir si reintentar o enviar a DLQ
+            if retry_count >= config.MAX_RETRIES:
+                # Enviar a Dead Letter Queue
+                await rabbitmq_client.publish_to_dlq(
+                    dlq_queue=config.QUEUE_JSON_SAVE_DLQ,
+                    _id=_id,
+                    error_msg=error_msg,
+                    original_queue=config.QUEUE_JSON_SAVE,
+                    retry_count=retry_count
+                )
+            else:
+                # Publicar a cola de reintentos con delay
+                await rabbitmq_client.publish_to_retry(
+                    retry_queue=config.QUEUE_JSON_SAVE_RETRY,
+                    message=data,
+                    retry_count=retry_count,
+                    error_msg=error_msg,
+                    priority=5
+                )
+            
+            # NO re-raise - el mensaje ya se manejó (retry o DLQ)
 
 
 class EtlTransformWorker:
@@ -186,17 +217,50 @@ class EtlTransformWorker:
             error_msg = f"Error en etl_transform: {str(e)}"
             etl_logger.error(f"[etl_transform] _id={_id} - {error_msg}", exc_info=True)
             
-            # Actualizar estado a ERROR
+            # Actualizar retry_count y estado en BD
+            retry_count = 0
             try:
                 with db.get_session() as session:
                     control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
                     if control:
-                        control.estado_etl = EstadoETLEnum.ERROR
+                        control.retry_count += 1
+                        retry_count = control.retry_count
+                        control.last_error_stage = 'etl_transform'
                         control.error_message = error_msg
+                        
+                        if retry_count >= config.MAX_RETRIES:
+                            control.estado_etl = EstadoETLEnum.ERROR
+                            etl_logger.error(
+                                f"[etl_transform] _id={_id} alcanzó MAX_RETRIES={config.MAX_RETRIES}"
+                            )
+                        else:
+                            control.estado_etl = EstadoETLEnum.PENDIENTE
+                        
                         session.commit()
             except Exception as db_error:
-                etl_logger.error(f"[etl_transform] Error actualizando estado: {db_error}")
+                etl_logger.error(f"[etl_transform] Error actualizando BD: {db_error}")
             
+            # Decidir si reintentar o enviar a DLQ
+            if retry_count >= config.MAX_RETRIES:
+                # Enviar a Dead Letter Queue
+                await rabbitmq_client.publish_to_dlq(
+                    dlq_queue=config.QUEUE_ETL_TRANSFORM_DLQ,
+                    _id=_id,
+                    error_msg=error_msg,
+                    original_queue=config.QUEUE_ETL_TRANSFORM,
+                    retry_count=retry_count
+                )
+            else:
+                # Publicar a cola de reintentos con delay
+                await rabbitmq_client.publish_to_retry(
+                    retry_queue=config.QUEUE_ETL_TRANSFORM_RETRY,
+                    message=data,
+                    retry_count=retry_count,
+                    error_msg=error_msg,
+                    priority=5
+                )
+            
+            # NO re-raise - el mensaje ya se manejó (retry o DLQ)
             raise
 
 
@@ -264,18 +328,51 @@ class DbInsertWorker:
             error_msg = f"Error en db_insert: {str(e)}"
             etl_logger.error(f"[db_insert] _id={_id} - {error_msg}", exc_info=True)
             
-            # Actualizar estado a ERROR
+            # Actualizar retry_count y estado en BD
+            retry_count = 0
             try:
                 with db.get_session() as session:
                     control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
                     if control:
-                        control.estado_etl = EstadoETLEnum.ERROR
+                        control.retry_count += 1
+                        retry_count = control.retry_count
+                        control.last_error_stage = 'db_insert'
                         control.error_message = error_msg
+                        
+                        if retry_count >= config.MAX_RETRIES:
+                            control.estado_etl = EstadoETLEnum.ERROR
+                            etl_logger.error(
+                                f"[db_insert] _id={_id} alcanzó MAX_RETRIES={config.MAX_RETRIES}"
+                            )
+                        else:
+                            control.estado_etl = EstadoETLEnum.PENDIENTE
+                        
                         session.commit()
             except Exception as db_error:
-                etl_logger.error(f"[db_insert] Error actualizando estado: {db_error}")
+                etl_logger.error(f"[db_insert] Error actualizando BD: {db_error}")
             
-            raise
+            # Decidir si reintentar o enviar a DLQ
+            if retry_count >= config.MAX_RETRIES:
+                # Enviar a Dead Letter Queue
+                await rabbitmq_client.publish_to_dlq(
+                    dlq_queue=config.QUEUE_DB_INSERT_DLQ,
+                    _id=_id,
+                    error_msg=error_msg,
+                    original_queue=config.QUEUE_DB_INSERT,
+                    retry_count=retry_count
+                )
+            else:
+                # Publicar a cola de reintentos con delay
+                # IMPORTANTE: Re-publicar el mensaje de transformación completo
+                await rabbitmq_client.publish_to_retry(
+                    retry_queue=config.QUEUE_DB_INSERT_RETRY,
+                    message=data,  # Incluye transformations y processing_order
+                    retry_count=retry_count,
+                    error_msg=error_msg,
+                    priority=5
+                )
+            
+            # NO re-raise - el mensaje ya se manejó (retry o DLQ)
 
 
 # Función principal para ejecutar un worker específico

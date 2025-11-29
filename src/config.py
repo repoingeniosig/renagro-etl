@@ -47,6 +47,19 @@ class Config:
     QUEUE_ETL_TRANSFORM = os.getenv('QUEUE_ETL_TRANSFORM', 'renagro.etl.transform')
     QUEUE_DB_INSERT = os.getenv('QUEUE_DB_INSERT', 'renagro.db.insert')
     
+    # Colas de reintentos (con TTL)
+    QUEUE_JSON_SAVE_RETRY = os.getenv('QUEUE_JSON_SAVE_RETRY', 'renagro.json.save.retry')
+    QUEUE_ETL_TRANSFORM_RETRY = os.getenv('QUEUE_ETL_TRANSFORM_RETRY', 'renagro.etl.transform.retry')
+    QUEUE_DB_INSERT_RETRY = os.getenv('QUEUE_DB_INSERT_RETRY', 'renagro.db.insert.retry')
+    
+    # Dead Letter Queues (errores permanentes)
+    QUEUE_JSON_SAVE_DLQ = os.getenv('QUEUE_JSON_SAVE_DLQ', 'renagro.json.save.dlq')
+    QUEUE_ETL_TRANSFORM_DLQ = os.getenv('QUEUE_ETL_TRANSFORM_DLQ', 'renagro.etl.transform.dlq')
+    QUEUE_DB_INSERT_DLQ = os.getenv('QUEUE_DB_INSERT_DLQ', 'renagro.db.insert.dlq')
+    
+    # Configuraci\u00f3n de reintentos
+    MAX_RETRIES = int(os.getenv('MAX_RETRIES', 3))
+    
     # API Externa
     API_EXTERNAL_URL = os.getenv('API_EXTERNAL_URL', 'https://api.example.com')
     API_EXTERNAL_KEY = os.getenv('API_EXTERNAL_KEY', '')

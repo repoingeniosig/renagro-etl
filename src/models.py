@@ -80,6 +80,8 @@ class ControlEnviosBoletas(Base):
         comment='Fecha de última actualización del registro'
     )
     error_message = Column('error_message', Text, nullable=True, comment='Mensaje de error en caso de que el procesamiento falle')
+    retry_count = Column('retry_count', Integer, nullable=False, server_default='0', comment='Número de reintentos de procesamiento realizados')
+    last_error_stage = Column('last_error_stage', String(50), nullable=True, comment='Última etapa donde ocurrió el error: json_save, etl_transform, db_insert')
     procesado_at = Column(
         'procesado_at',
         DateTime(timezone=True),
