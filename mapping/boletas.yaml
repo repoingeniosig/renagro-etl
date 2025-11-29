@@ -558,15 +558,13 @@ fields:
     default: false
 
   bol_latitud:
-    source: "_geolocation"
+    source: "_geolocation[0]"
     type: float
-    extract_index: 0
     default: null
 
   bol_longitud:
-    source: "_geolocation"
+    source: "_geolocation[1]"
     type: float
-    extract_index: 0
     default: null
 
   bol_manejo_residuo_agricola:
@@ -1033,7 +1031,7 @@ fields:
     default: null
 
   neo_poligono_upa:
-    source: "group_nw2re05"
+    source: "group_nw2re05[0]"
     extract: "group_nw2re05/poligono_upa"
     type: string
     default: null

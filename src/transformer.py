@@ -15,30 +15,63 @@ class JSONTransformer:
     @staticmethod
     def get_value_by_path(data: Dict[str, Any], path: str) -> Any:
         """
-        Obtiene un valor del JSON usando notación de punto
+        Obtiene un valor del JSON usando notación de punto y soporte para índices de array
         
         Args:
             data: Diccionario con los datos JSON
-            path: Ruta en notación de punto (ej: "capitulo_3.seccion3_1.tieneAnimales")
+            path: Ruta en notación de punto con soporte para índices
+                  (ej: "capitulo_3.seccion3_1.tieneAnimales" o "_geolocation[0]" o "group[0]")
         
         Returns:
             El valor encontrado o None si no existe
         """
+        import re
+        
+        # Patrón para detectar índices: campo[índice]
+        pattern = r'([^\[]+)(\[(\d+)\])?'
+        
         keys = path.split('.')
         value = data
         
         try:
             for key in keys:
-                if isinstance(value, dict):
-                    value = value.get(key)
-                else:
-                    return None
+                # Verificar si la clave tiene un índice de array
+                match = re.match(pattern, key)
+                if match:
+                    field_name = match.group(1)
+                    array_index = match.group(3)
                     
-                if value is None:
-                    return None
+                    # Obtener el valor del campo
+                    if isinstance(value, dict):
+                        value = value.get(field_name)
+                    else:
+                        return None
+                    
+                    if value is None:
+                        return None
+                    
+                    # Si hay índice y el valor es una lista, acceder al elemento
+                    if array_index is not None:
+                        if isinstance(value, list):
+                            idx = int(array_index)
+                            if 0 <= idx < len(value):
+                                value = value[idx]
+                            else:
+                                return None
+                        else:
+                            return None
+                else:
+                    # Clave sin índice
+                    if isinstance(value, dict):
+                        value = value.get(key)
+                    else:
+                        return None
+                    
+                    if value is None:
+                        return None
             
             return value
-        except (KeyError, TypeError, AttributeError):
+        except (KeyError, TypeError, AttributeError, ValueError):
             return None
     
     @staticmethod
