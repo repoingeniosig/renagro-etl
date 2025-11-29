@@ -119,7 +119,19 @@ async def process_boleta(
         
         # PASO 1: Guardar en tabla de control
         try:
-            _id = save_to_control_table(json_data)
+            _id = save_to_control_table(json_data, allow_duplicates=False)
+        except ValueError as e:
+            # Error de duplicado o validación
+            if "duplicado" in str(e).lower():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=str(e)
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=str(e)
+                )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

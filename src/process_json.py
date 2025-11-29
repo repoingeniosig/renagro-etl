@@ -49,15 +49,19 @@ def load_json_file(file_path: str) -> Dict[str, Any]:
         return json.load(f)
 
 
-def save_to_control_table(json_data: Dict[str, Any]) -> int:
+def save_to_control_table(json_data: Dict[str, Any], allow_duplicates: bool = True) -> int:
     """
     PASO 1: Guarda el JSON completo en la tabla de control
     
     Args:
         json_data: Datos JSON del formulario
+        allow_duplicates: Si False, lanza excepción si el _id ya existe
     
     Returns:
         El _id del registro insertado
+        
+    Raises:
+        ValueError: Si allow_duplicates=False y el _id ya existe
     """
     console.print("\n[bold cyan]PASO 1: Guardando en tabla de control[/bold cyan]")
     
@@ -86,6 +90,9 @@ def save_to_control_table(json_data: Dict[str, Any]) -> int:
         existing = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
         
         if existing:
+            if not allow_duplicates:
+                raise ValueError(f"Registro duplicado: _id={_id} ya existe en la base de datos")
+            
             console.print(f"[yellow]⚠️  Ya existe registro con _id={_id}[/yellow]")
             console.print(f"   formhub_uuid: {existing.formhub_uuid}")
             console.print(f"   estado_etl: {existing.estado_etl.value}")
