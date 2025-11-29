@@ -1,0 +1,132 @@
+"""
+Cargador de archivos YAML de mapeo
+"""
+import yaml
+from pathlib import Path
+from typing import Dict, Any, List, Optional
+from dataclasses import dataclass
+
+from .config import config
+
+
+@dataclass
+class FieldMapping:
+    """Mapeo de un campo individual"""
+    source: str  # Ruta en el JSON (dot notation)
+    type: str  # integer, decimal, boolean, string
+    default: Any = None
+    convert: Optional[Dict[str, Any]] = None
+    
+
+@dataclass
+class EntityMapping:
+    """Mapeo de una entidad completa"""
+    version: str
+    entity: str
+    table: str
+    fields: Dict[str, FieldMapping]
+    conversions: Optional[Dict[str, Dict[str, Any]]] = None
+
+
+class MappingLoader:
+    """Cargador de archivos YAML de mapeo"""
+    
+    def __init__(self, mapping_dir: Path = None):
+        self.mapping_dir = mapping_dir or config.MAPPING_DIR
+        self.master_config = None
+        self.entity_mappings: Dict[str, EntityMapping] = {}
+    
+    def load_master(self) -> Dict[str, str]:
+        """
+        Carga el archivo master.yml que contiene las referencias a todos los mapeos
+        Retorna un diccionario con el orden de procesamiento
+        """
+        master_path = self.mapping_dir / 'master.yml'
+        
+        if not master_path.exists():
+            raise FileNotFoundError(f"Archivo master.yml no encontrado en {self.mapping_dir}")
+        
+        with open(master_path, 'r', encoding='utf-8') as f:
+            self.master_config = yaml.safe_load(f)
+        
+        return self.master_config
+    
+    def load_entity_mapping(self, yaml_file: str) -> EntityMapping:
+        """
+        Carga un archivo YAML de mapeo de una entidad específica
+        
+        Args:
+            yaml_file: Ruta relativa del archivo YAML (ej: "mapping/bovinos.yml")
+        
+        Returns:
+            EntityMapping con la configuración cargada
+        """
+        # Si la ruta es relativa desde mapping/, construir la ruta completa
+        if yaml_file.startswith('mapping/'):
+            yaml_path = self.mapping_dir.parent / yaml_file
+        else:
+            yaml_path = self.mapping_dir / yaml_file
+        
+        if not yaml_path.exists():
+            raise FileNotFoundError(f"Archivo de mapeo no encontrado: {yaml_path}")
+        
+        with open(yaml_path, 'r', encoding='utf-8') as f:
+            data = yaml.safe_load(f)
+        
+        # Convertir fields a objetos FieldMapping
+        fields = {}
+        for field_name, field_config in data.get('fields', {}).items():
+            fields[field_name] = FieldMapping(
+                source=field_config['source'],
+                type=field_config['type'],
+                default=field_config.get('default'),
+                convert=field_config.get('convert')
+            )
+        
+        entity_mapping = EntityMapping(
+            version=data.get('version', '1.0'),
+            entity=data.get('entity'),
+            table=data.get('table'),
+            fields=fields,
+            conversions=data.get('conversions')
+        )
+        
+        return entity_mapping
+    
+    def load_all_mappings(self) -> Dict[str, EntityMapping]:
+        """
+        Carga todos los mapeos definidos en master.yml
+        Retorna un diccionario con los mapeos por entidad
+        """
+        if not self.master_config:
+            self.load_master()
+        
+        for entity_name, yaml_file in self.master_config.items():
+            self.entity_mappings[entity_name] = self.load_entity_mapping(yaml_file)
+        
+        return self.entity_mappings
+    
+    def get_processing_order(self) -> List[List[str]]:
+        """
+        Retorna el orden de procesamiento de las entidades en grupos
+        según las dependencias de las llaves foráneas
+        
+        Returns:
+            Lista de listas, donde cada lista interna representa un grupo
+            que puede ser procesado en paralelo
+        """
+        # Orden definido según dependencias de FK
+        return [
+            # Grupo 1: Tablas sin dependencias
+            ['bovinos', 'pecuario_otros', 'pollos', 'porcinos', 'personas'],
+            # Grupo 2: Boletas (depende de los IDs del grupo 1)
+            ['boletas'],
+            # Grupo 3: Tablas que dependen de boletas
+            ['miembros_hogar', 'terrenos'],
+            # Grupo 4: Tablas que dependen de terrenos
+            ['cultivos', 'forestales']
+        ]
+
+
+# Instancia global del cargador
+mapping_loader = MappingLoader()
