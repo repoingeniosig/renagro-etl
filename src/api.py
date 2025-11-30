@@ -153,6 +153,20 @@ async def process_boleta(
         
         etl_logger.info(f"API - _id={_id} recibido desde {username}")
         
+        # VALIDAR DUPLICADOS ANTES DE ENCOLAR
+        from .database import db
+        from .models import ControlEnviosBoletas
+        
+        with db.get_session() as session:
+            existing = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+            
+            if existing:
+                etl_logger.warning(f"API - _id={_id} duplicado rechazado (ya existe en BD)")
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"Registro duplicado: _id={_id} ya existe en la base de datos"
+                )
+        
         # Publicar a cola json_save
         success = await rabbitmq_client.publish_message(
             queue_name=config.QUEUE_JSON_SAVE,

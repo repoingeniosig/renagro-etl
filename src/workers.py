@@ -43,19 +43,11 @@ class JsonSaveWorker:
             
             # Guardar en tabla de control
             with db.get_session() as session:
-                # Verificar si ya existe (rechazo de duplicados)
-                existing = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
-                
-                if existing:
-                    error_msg = f"Registro duplicado: _id={_id} ya existe"
-                    etl_logger.warning(f"[json_save] {error_msg}")
-                    
-                    # Actualizar estado a ERROR
-                    existing.estado_etl = EstadoETLEnum.ERROR
-                    existing.error_message = error_msg
-                    session.commit()
-                    
-                    return  # No continuar el pipeline
+                # Nota: La validación de duplicados se hace en el endpoint FastAPI
+                # Si llegó aquí, es porque pasó la validación
+
+                # En caso de leer desde la api de kobo, igualente cada registro se deberia verificar en el script
+                # que orignalmente lee la api de kobo y hacer un proceso parecido al que hace la api actual de /boletas para evitar duplicados.
                 
                 # Crear nuevo registro
                 registro = ControlEnviosBoletas(
