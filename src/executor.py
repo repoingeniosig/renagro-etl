@@ -16,7 +16,31 @@ console = Console()
 
 
 class TransactionExecutor:
-    """Ejecuta transacciones SQL en el orden correcto"""
+    """Ejecuta transacciones SQL en el orden correcto con manejo de dependencias de IDs"""
+    
+    # Mapeo de relaciones padre-hijo con campos de FK
+    PARENT_CHILD_RELATIONS = {
+        # Nivel 1: Entidades independientes que generan IDs para boletas
+        'bovinos': {'generates_for': 'boletas', 'fk_field': 'bov_id', 'pk_field': 'bov_id'},
+        'pecuario_otros': {'generates_for': 'boletas', 'fk_field': 'peot_id', 'pk_field': 'peot_id'},
+        'pollos': {'generates_for': 'boletas', 'fk_field': 'pol_id', 'pk_field': 'pol_id'},
+        'porcinos': {'generates_for': 'boletas', 'fk_field': 'por_id', 'pk_field': 'por_id'},
+        'personas': {'generates_for': 'boletas', 'fk_field': 'per_id', 'pk_field': 'per_id'},
+        
+        # Nivel 2: boletas genera ID para miembros_hogar y terrenos
+        'boletas': {
+            'generates_for': ['miembros_hogar', 'terrenos'], 
+            'fk_field': 'bol_id', 
+            'pk_field': 'bol_id'
+        },
+        
+        # Nivel 3: terrenos genera ID para cultivos y forestales
+        'terrenos': {
+            'generates_for': ['cultivos', 'forestales'], 
+            'fk_field': 'ter_id', 
+            'pk_field': 'ter_id'
+        }
+    }
     
     @staticmethod
     def execute_inserts(
@@ -49,7 +73,8 @@ class TransactionExecutor:
         
         try:
             with db.get_session() as session:
-                # Diccionario para almacenar IDs generados (entity_name -> list of IDs)
+                # Diccionario para almacenar IDs generados por entidad
+                # Estructura: {entity_name: {index_in_transformations: generated_id}}
                 generated_ids = {}
                 
                 # Procesar cada grupo en orden
@@ -71,7 +96,14 @@ class TransactionExecutor:
                                 console.print(f"⏭️  {entity_name}: Lista vacía")
                             continue
                         
-                        # Ejecutar INSERT y obtener IDs generados
+                        # PASO 1: Inyectar IDs de padres en las filas
+                        rows = TransactionExecutor._inject_parent_ids(
+                            entity_name=entity_name,
+                            rows=rows,
+                            generated_ids=generated_ids
+                        )
+                        
+                        # PASO 2: Ejecutar INSERT y capturar IDs
                         try:
                             inserted_ids = TransactionExecutor._execute_entity_insert(
                                 session=session,
@@ -80,8 +112,12 @@ class TransactionExecutor:
                                 debug=debug
                             )
                             
-                            # Guardar IDs generados
-                            generated_ids[entity_name] = inserted_ids
+                            # PASO 3: Guardar IDs generados para inyectar en hijos
+                            if inserted_ids:
+                                generated_ids[entity_name] = {
+                                    i: inserted_id 
+                                    for i, inserted_id in enumerate(inserted_ids)
+                                }
                             
                             # Actualizar estadísticas
                             results['entities_processed'] += 1
@@ -147,6 +183,66 @@ class TransactionExecutor:
         return results
     
     @staticmethod
+    def _inject_parent_ids(
+        entity_name: str,
+        rows: List[Dict[str, Any]],
+        generated_ids: Dict[str, Dict[int, int]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Inyecta IDs de entidades padre en las filas hijas
+        
+        Args:
+            entity_name: Nombre de la entidad hija
+            rows: Filas a procesar
+            generated_ids: Diccionario de IDs generados {entity: {index: id}}
+            
+        Returns:
+            Filas con IDs de padres inyectados
+        """
+        # Buscar qué entidades generan IDs para esta entidad
+        parent_entities = []
+        for parent, config in TransactionExecutor.PARENT_CHILD_RELATIONS.items():
+            generates_for = config.get('generates_for')
+            
+            # Manejar si es lista o string
+            if isinstance(generates_for, list):
+                if entity_name in generates_for:
+                    parent_entities.append(parent)
+            elif generates_for == entity_name:
+                parent_entities.append(parent)
+        
+        if not parent_entities:
+            # No tiene padres, retornar sin modificar
+            return rows
+        
+        # Inyectar IDs de cada padre
+        updated_rows = []
+        for row_index, row in enumerate(rows):
+            updated_row = row.copy()
+            
+            for parent_entity in parent_entities:
+                parent_config = TransactionExecutor.PARENT_CHILD_RELATIONS[parent_entity]
+                fk_field = parent_config['fk_field']
+                
+                # Obtener el ID generado del padre (mismo índice)
+                if parent_entity in generated_ids and row_index in generated_ids[parent_entity]:
+                    parent_id = generated_ids[parent_entity][row_index]
+                    
+                    # Inyectar ID en la fila
+                    if fk_field in updated_row:
+                        updated_row[fk_field] = parent_id
+                        
+                        if config.DEBUG_CLI:
+                            etl_logger.debug(
+                                f"[{entity_name}] Inyectando {fk_field}={parent_id} "
+                                f"desde {parent_entity} (índice {row_index})"
+                            )
+            
+            updated_rows.append(updated_row)
+        
+        return updated_rows
+    
+    @staticmethod
     def _execute_entity_insert(
         session,
         entity_name: str,
@@ -196,16 +292,11 @@ class TransactionExecutor:
         
         values_str = ',\n    '.join(values_placeholders)
         
-        # Determinar la columna ID para el RETURNING
-        # Asumimos que la primera columna numérica con 'id' en el nombre es el ID
-        id_column = None
-        for col in columns:
-            if 'id' in col.lower() and col.endswith('_id'):
-                id_column = col
-                break
+        # Determinar la columna ID (PK) para RETURNING
+        pk_field = TransactionExecutor._get_primary_key_field(entity_name)
         
-        # Si no hay columna ID explícita, no usar RETURNING
-        returning_clause = f' RETURNING "{id_column}"' if id_column else ''
+        # SIEMPRE usar RETURNING para capturar IDs
+        returning_clause = f' RETURNING "{pk_field}"' if pk_field else ''
         
         sql = f'''
 INSERT INTO "{schema}"."{table_name}" ({columns_str})
@@ -223,10 +314,30 @@ VALUES
         
         # Obtener IDs generados si hay RETURNING
         inserted_ids = []
-        if id_column:
+        if pk_field:
             inserted_ids = [row[0] for row in result.fetchall()]
         
         return inserted_ids
+    
+    @staticmethod
+    def _get_primary_key_field(entity_name: str) -> Optional[str]:
+        """
+        Obtiene el nombre del campo de clave primaria para una entidad
+        
+        Args:
+            entity_name: Nombre de la entidad
+            
+        Returns:
+            Nombre del campo PK o None
+        """
+        # Buscar en configuración de relaciones
+        if entity_name in TransactionExecutor.PARENT_CHILD_RELATIONS:
+            return TransactionExecutor.PARENT_CHILD_RELATIONS[entity_name]['pk_field']
+        
+        # Fallback: buscar campo que termine en _id con mismo prefijo
+        # Ej: bovinos -> bov_id, pollos -> pol_id
+        prefix = entity_name[:3] if len(entity_name) >= 3 else entity_name
+        return f"{prefix}_id"
     
     @staticmethod
     def print_execution_summary(results: Dict[str, Any]):
