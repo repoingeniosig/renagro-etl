@@ -245,6 +245,18 @@ async def process_batch(file_path: str, skip_duplicates: bool = True):
         console.print(f"[red]❌ Error inesperado: {e}[/red]")
         etl_logger.error(f"Error procesando batch: {e}", exc_info=True)
         sys.exit(1)
+    
+    finally:
+        # Cerrar conexiones de RabbitMQ correctamente
+        try:
+            console.print("\n🔌 Cerrando conexiones...")
+            await rabbitmq_client.close()
+            
+            # Esperar un momento para que se completen los callbacks pendientes
+            await asyncio.sleep(0.5)
+            
+        except Exception as e:
+            etl_logger.warning(f"Error cerrando RabbitMQ: {e}")
 
 
 def main():
@@ -285,11 +297,15 @@ Ejemplos de uso:
     
     args = parser.parse_args()
     
-    # Ejecutar procesamiento asíncrono
-    asyncio.run(process_batch(
-        file_path=args.json_file,
-        skip_duplicates=not args.allow_duplicates
-    ))
+    # Ejecutar procesamiento asíncrono con cleanup correcto
+    try:
+        asyncio.run(process_batch(
+            file_path=args.json_file,
+            skip_duplicates=not args.allow_duplicates
+        ))
+    except KeyboardInterrupt:
+        console.print("\n[yellow]⚠️  Procesamiento interrumpido por el usuario[/yellow]")
+        sys.exit(0)
 
 
 if __name__ == '__main__':
