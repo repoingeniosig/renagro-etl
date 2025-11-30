@@ -32,6 +32,7 @@ class ControlEnviosBoletas(Base):
     __table_args__ = {'schema': 'sc_renagro_mag'}
     
     _id = Column('_id', Integer, primary_key=True, nullable=False, comment='ID único del envío proveniente del campo _id del JSON de KoboToolbox')
+    uuid_boleta = Column('uuid_boleta', String(36), nullable=True, unique=True, comment='UUID de la boleta extraído del campo _uuid del JSON de KoboToolbox')
     json_data = Column('json_data', JSONB, nullable=False, comment='JSON completo del envío de KoboToolbox almacenado en formato JSONB')
     fecha_recepcion = Column(
         'fecha_recepcion',

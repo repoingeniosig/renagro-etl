@@ -32,9 +32,10 @@ class JsonSaveWorker:
             data: Mensaje con el JSON completo del formulario
         """
         _id = data.get('_id')
+        uuid_boleta = data.get('_uuid')  # Extraer UUID de la boleta
         
         try:
-            etl_logger.info(f"[json_save] Procesando _id={_id}")
+            etl_logger.info(f"[json_save] Procesando _id={_id} uuid={uuid_boleta}")
             
             # Validar campos requeridos
             if not _id:
@@ -59,6 +60,7 @@ class JsonSaveWorker:
                 # Crear nuevo registro
                 registro = ControlEnviosBoletas(
                     _id=_id,
+                    uuid_boleta=uuid_boleta,
                     json_data=data,
                     estado_etl=EstadoETLEnum.PENDIENTE,
                     envio_datos_procesados=EstadoEnvioEnum.PENDIENTE
