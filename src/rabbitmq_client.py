@@ -134,6 +134,10 @@ class RabbitMQClient:
             True si se publicó exitosamente
         """
         try:
+            # Inicializar pool si no existe
+            if self._connection_pool is None:
+                self._connection_pool = Pool(self.get_connection, max_size=10)
+            
             async with self._connection_pool.acquire() as connection:
                 async with connection.channel() as channel:
                     # Serializar mensaje a JSON
@@ -185,6 +189,10 @@ class RabbitMQClient:
             # Backoff exponencial: 2^retry_count segundos -> milisegundos
             delay_seconds = 2 ** retry_count
             ttl_ms = delay_seconds * 1000
+            
+            # Inicializar pool si no existe
+            if self._connection_pool is None:
+                self._connection_pool = Pool(self.get_connection, max_size=10)
             
             async with self._connection_pool.acquire() as connection:
                 async with connection.channel() as channel:
@@ -241,6 +249,10 @@ class RabbitMQClient:
             True si se publicó exitosamente
         """
         try:
+            # Inicializar pool si no existe
+            if self._connection_pool is None:
+                self._connection_pool = Pool(self.get_connection, max_size=10)
+            
             async with self._connection_pool.acquire() as connection:
                 async with connection.channel() as channel:
                     # Solo metadata, no JSON completo

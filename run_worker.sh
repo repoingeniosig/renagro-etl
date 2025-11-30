@@ -32,4 +32,4 @@ echo "🚀 Iniciando worker: $WORKER_TYPE"
 echo ""
 
 # Ejecutar worker
-python -m src.workers $WORKER_TYPE
+python3 -m src.workers $WORKER_TYPE

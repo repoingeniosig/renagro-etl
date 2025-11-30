@@ -27,10 +27,20 @@ async def recover_failed_messages() -> int:
         
         with db.get_session() as session:
             # Buscar registros con ERROR y reintentos disponibles
-            failed_records = session.query(ControlEnviosBoletas).filter(
-                ControlEnviosBoletas.estado_etl == EstadoETLEnum.ERROR,
-                ControlEnviosBoletas.retry_count < config.MAX_RETRIES
-            ).all()
+            try:
+                failed_records = session.query(ControlEnviosBoletas).filter(
+                    ControlEnviosBoletas.estado_etl == EstadoETLEnum.ERROR,
+                    ControlEnviosBoletas.retry_count < config.MAX_RETRIES
+                ).all()
+            except Exception as db_error:
+                # Si faltan columnas retry_count/last_error_stage, skip recovery
+                if "retry_count" in str(db_error) or "last_error_stage" in str(db_error):
+                    etl_logger.warning(
+                        "Columnas retry_count/last_error_stage no existen en BD. "
+                        "Ejecuta: migrations/001_add_retry_fields.sql"
+                    )
+                    return 0
+                raise
             
             if not failed_records:
                 etl_logger.info("No hay mensajes con ERROR pendientes de recuperación")

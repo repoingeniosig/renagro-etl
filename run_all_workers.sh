@@ -18,15 +18,15 @@ fi
 
 # Iniciar workers en background
 echo "📥 Iniciando worker json_save..."
-python -m src.workers json_save > logs/worker_json_save.log 2>&1 &
+python3 -m src.workers json_save > logs/worker_json_save.log 2>&1 &
 JSON_SAVE_PID=$!
 
 echo "🔄 Iniciando worker etl_transform..."
-python -m src.workers etl_transform > logs/worker_etl_transform.log 2>&1 &
+python3 -m src.workers etl_transform > logs/worker_etl_transform.log 2>&1 &
 ETL_TRANSFORM_PID=$!
 
 echo "💾 Iniciando worker db_insert..."
-python -m src.workers db_insert > logs/worker_db_insert.log 2>&1 &
+python3 -m src.workers db_insert > logs/worker_db_insert.log 2>&1 &
 DB_INSERT_PID=$!
 
 echo ""
