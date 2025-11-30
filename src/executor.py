@@ -43,8 +43,10 @@ class TransactionExecutor:
         
         for entity_name, mapping in self.entity_mappings.items():
             # Verificar si esta entidad tiene parent_key o parent_keys
-            parent_key = mapping.get('parent_key')
-            parent_keys = mapping.get('parent_keys')
+            # Usar raw_data que es el dict del YAML
+            raw = mapping.raw_data if hasattr(mapping, 'raw_data') and mapping.raw_data else {}
+            parent_key = raw.get('parent_key')
+            parent_keys = raw.get('parent_keys')
             
             if parent_key:
                 # parent_key: {field: bol_id, from_entity: boletas}
@@ -246,9 +248,13 @@ class TransactionExecutor:
             return rows
         
         # Obtener configuración de parent_key desde YAML
-        mapping = self.entity_mappings.get(entity_name, {})
-        parent_key = mapping.get('parent_key')
-        parent_keys = mapping.get('parent_keys')
+        mapping = self.entity_mappings.get(entity_name)
+        if not mapping:
+            return rows
+        
+        raw = mapping.raw_data if hasattr(mapping, 'raw_data') and mapping.raw_data else {}
+        parent_key = raw.get('parent_key')
+        parent_keys = raw.get('parent_keys')
         
         # Lista de dependencias padre
         parent_dependencies = []
@@ -376,7 +382,6 @@ VALUES
         
         return inserted_ids
     
-    @staticmethod
     def _get_primary_key_field(self, entity_name: str) -> str:
         """
         Obtiene el campo de clave primaria para una entidad

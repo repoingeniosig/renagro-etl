@@ -40,6 +40,7 @@ class EntityMapping:
     parent_key: Optional[str] = None  # Nombre del campo FK al padre
     repeat: Optional[Dict[str, str]] = None  # {source: "ruta.al.array"}
     parent_key: Optional[Dict[str, str]] = None  # {field: "nombre_campo_fk"}
+    raw_data: Optional[Dict[str, Any]] = None  # Diccionario raw del YAML para parent_keys
 
 
 class MappingLoader:
@@ -107,7 +108,8 @@ class MappingLoader:
             fields=fields,
             conversions=data.get('conversions'),
             repeat=data.get('repeat'),
-            parent_key=data.get('parent_key')
+            parent_key=data.get('parent_key'),
+            raw_data=data  # Guardar el diccionario completo para parent_keys
         )
         
         return entity_mapping
