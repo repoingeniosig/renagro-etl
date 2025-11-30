@@ -12,6 +12,11 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
+# Verificar que existe el virtualenv (para psycopg2 si es necesario)
+if [ ! -d "venv" ]; then
+    echo "⚠️  Advertencia: No existe virtualenv, usando psql del sistema"
+fi
+
 # Cargar variables de .env
 source .env
 

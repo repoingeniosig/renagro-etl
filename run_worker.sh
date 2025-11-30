@@ -28,6 +28,17 @@ if [ ! -f .env ]; then
     exit 1
 fi
 
+# Verificar que existe el virtualenv
+if [ ! -d "venv" ]; then
+    echo "⚠️  Error: No existe el virtualenv en venv/"
+    echo "📝 Crea el virtualenv con: python3 -m venv venv"
+    echo "   Luego instala dependencias: source venv/bin/activate && pip install -r requirements.txt"
+    exit 1
+fi
+
+# Activar virtualenv
+source venv/bin/activate
+
 echo "🚀 Iniciando worker: $WORKER_TYPE"
 echo ""
 
