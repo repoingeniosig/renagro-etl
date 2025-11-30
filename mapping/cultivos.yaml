@@ -6,9 +6,9 @@ repeat:
   source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat"
 
 # id terreno
-parent_key:
-  field: ter_id
-  from_entity: terrenos
+parent_keys:
+  - field: ter_id
+    from_entity: terrenos
 
 fields:
   # ID de referencia a tabla padre (generado automáticamente)
