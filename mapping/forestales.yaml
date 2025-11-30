@@ -12,6 +12,12 @@ parent_key:
   from_entity: terrenos
 
 fields:
+  # ID de referencia a tabla padre (generado automáticamente)
+  ter_id:
+    source: ""
+    type: integer
+    default: null
+
   for_edad_especie:
     source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/especies_forestales_group/especies_forestales_repeat/edad_especie"
     type: integer
