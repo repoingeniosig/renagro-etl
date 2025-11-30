@@ -285,6 +285,13 @@ class DbInsertWorker:
         try:
             etl_logger.info(f"[db_insert] Procesando _id={_id}")
             
+            # Cargar mapeos si no están en memoria (workers son procesos separados)
+            from .mapping_loader import mapping_loader
+            if not mapping_loader.entity_mappings:
+                etl_logger.warning("[db_insert] Cargando mapeos desde Redis/disco...")
+                mapping_loader.load_master()
+                mapping_loader.load_all_mappings(force_reload=False)
+            
             # Ejecutar transacción
             # Nota: execute_inserts es síncrono, lo ejecutamos en thread pool
             loop = asyncio.get_event_loop()

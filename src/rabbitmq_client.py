@@ -206,9 +206,9 @@ class RabbitMQClient:
                         headers={
                             'x-retry-count': retry_count,
                             'x-last-error': error_msg[:500],  # Limitar tamaño
-                            'x-retry-timestamp': asyncio.get_event_loop().time()
+                            'x-retry-timestamp': int(asyncio.get_event_loop().time())
                         },
-                        expiration=str(ttl_ms)  # TTL en milisegundos (como string)
+                        expiration=int(ttl_ms)  # Debe ser int, no string
                     )
                     
                     await channel.default_exchange.publish(
