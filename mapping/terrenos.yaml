@@ -58,12 +58,12 @@ fields:
     default: false
 
   ter_superficie:
-    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/superficie_valor"
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/captura_superficie2/superficie_valor"
     type: float
     default: null
 
   ter_superficie_unidad:
-    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/superficie_unidad"
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/captura_superficie2/superficie_unidad"
     type: string
     default: null
 
