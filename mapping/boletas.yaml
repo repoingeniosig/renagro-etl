@@ -2,7 +2,52 @@ version: 1.0
 entity: boletas
 table: boletas
 
+# IDs de entidades padre (múltiples)
+parent_keys:
+  - field: bov_id
+    from_entity: bovinos
+  - field: pol_id
+    from_entity: pollos
+  - field: por_id
+    from_entity: porcinos
+  - field: peot_id
+    from_entity: pecuario_otros
+  - field: per_id
+    from_entity: personas
+
 fields:
+  # IDs de referencias a tablas padre (generados automáticamente)
+  
+  # bovinos
+  bov_id:
+    source: ""
+    type: integer
+    default: null
+
+  # pecuario_otros
+  peot_id:
+    source: ""
+    type: integer
+    default: null
+
+  # pollos
+  pol_id:
+    source: ""
+    type: integer
+    default: null
+
+  # porcinos
+  por_id:
+    source: ""
+    type: integer
+    default: null
+
+  # personas
+  per_id:
+    source: ""
+    type: integer
+    default: null
+
   bol_arado:
     source: "capitulos_1_10_wrapper/cap6_group/maquinaria_group/Arado/acceso_maquinaria_m9"
     type: string
@@ -911,38 +956,6 @@ fields:
   bol_bomba_mochila:
     source: "capitulos_1_10_wrapper/cap6_group/maquinaria_group/Bomba_de_mochila/acceso_maquinaria_m28"
     type: string
-    default: null
-
-# ids de referencias a tablas hijas
-
-  # bovinos
-  bov_id:
-    source: ""
-    type: integer
-    default: null
-
-# pecuario otros
-  peot_id:
-    source: ""
-    type: integer
-    default: null
-
-  # pollos
-  pol_id:
-    source: ""
-    type: integer
-    default: null
-
-  #porcinos
-  por_id:
-    source: ""
-    type: integer
-    default: null
-
-   # personas
-  per_id:
-    source: ""
-    type: integer
     default: null
 
   bol_numero_UPA:

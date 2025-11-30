@@ -215,7 +215,11 @@ def execute_transaction(
     
     etl_logger.info(f"Iniciando ejecución de transacción para _id={_id}")
     
-    results = TransactionExecutor.execute_inserts(
+    # Crear instancia de executor con los mapeos cargados
+    from .mapping_loader import mapping_loader
+    executor = TransactionExecutor(entity_mappings=mapping_loader.entity_mappings)
+    
+    results = executor.execute_inserts(
         transformations=transformations,
         processing_order=processing_order,
         debug=debug

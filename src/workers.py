@@ -294,12 +294,15 @@ class DbInsertWorker:
                 mapping_loader.load_master()
                 mapping_loader.load_all_mappings(force_reload=False)
             
+            # Crear instancia de executor con los mapeos
+            executor = TransactionExecutor(entity_mappings=mapping_loader.entity_mappings)
+            
             # Ejecutar transacción
             # Nota: execute_inserts es síncrono, lo ejecutamos en thread pool
             loop = asyncio.get_event_loop()
             results = await loop.run_in_executor(
                 None,
-                TransactionExecutor.execute_inserts,
+                executor.execute_inserts,
                 transformations,
                 processing_order,
                 config.DEBUG

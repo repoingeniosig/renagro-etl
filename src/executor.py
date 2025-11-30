@@ -18,32 +18,74 @@ console = Console()
 class TransactionExecutor:
     """Ejecuta transacciones SQL en el orden correcto con manejo de dependencias de IDs"""
     
-    # Mapeo de relaciones padre-hijo con campos de FK
-    PARENT_CHILD_RELATIONS = {
-        # Nivel 1: Entidades independientes que generan IDs para boletas
-        'bovinos': {'generates_for': 'boletas', 'fk_field': 'bov_id', 'pk_field': 'bov_id'},
-        'pecuario_otros': {'generates_for': 'boletas', 'fk_field': 'peot_id', 'pk_field': 'peot_id'},
-        'pollos': {'generates_for': 'boletas', 'fk_field': 'pol_id', 'pk_field': 'pol_id'},
-        'porcinos': {'generates_for': 'boletas', 'fk_field': 'por_id', 'pk_field': 'por_id'},
-        'personas': {'generates_for': 'boletas', 'fk_field': 'per_id', 'pk_field': 'per_id'},
-        
-        # Nivel 2: boletas genera ID para miembros_hogar y terrenos
-        'boletas': {
-            'generates_for': ['miembros_hogar', 'terrenos'], 
-            'fk_field': 'bol_id', 
-            'pk_field': 'bol_id'
-        },
-        
-        # Nivel 3: terrenos genera ID para cultivos y forestales
-        'terrenos': {
-            'generates_for': ['cultivos', 'forestales'], 
-            'fk_field': 'ter_id', 
-            'pk_field': 'ter_id'
-        }
-    }
+    def __init__(self, entity_mappings: Dict[str, Any]):
+        """
+        Args:
+            entity_mappings: Dict con los YAMLs cargados {entity_name: yaml_config}
+        """
+        self.entity_mappings = entity_mappings
+        self._parent_child_map = self._build_parent_child_map()
     
-    @staticmethod
+    def _build_parent_child_map(self) -> Dict[str, Any]:
+        """
+        Construye el mapeo de relaciones padre-hijo desde los YAMLs
+        
+        Returns:
+            Dict con estructura:
+            {
+                'entity_name': {
+                    'generates_for': ['child1', 'child2'],
+                    'pk_field': 'entity_id'
+                }
+            }
+        """
+        parent_child_map = {}
+        
+        for entity_name, mapping in self.entity_mappings.items():
+            # Verificar si esta entidad tiene parent_key o parent_keys
+            parent_key = mapping.get('parent_key')
+            parent_keys = mapping.get('parent_keys')
+            
+            if parent_key:
+                # parent_key: {field: bol_id, from_entity: boletas}
+                fk_field = parent_key['field']
+                parent_entity = parent_key['from_entity']
+                
+                # Registrar en el mapa
+                if parent_entity not in parent_child_map:
+                    parent_child_map[parent_entity] = {
+                        'generates_for': [],
+                        'pk_field': fk_field  # El FK es el mismo que el PK del padre
+                    }
+                
+                if entity_name not in parent_child_map[parent_entity]['generates_for']:
+                    parent_child_map[parent_entity]['generates_for'].append(entity_name)
+            
+            elif parent_keys:
+                # parent_keys: lista de {field: bov_id, from_entity: bovinos}
+                for pk in parent_keys:
+                    fk_field = pk['field']
+                    parent_entity = pk['from_entity']
+                    
+                    # Registrar en el mapa
+                    if parent_entity not in parent_child_map:
+                        parent_child_map[parent_entity] = {
+                            'generates_for': [],
+                            'pk_field': fk_field
+                        }
+                    
+                    if entity_name not in parent_child_map[parent_entity]['generates_for']:
+                        parent_child_map[parent_entity]['generates_for'].append(entity_name)
+        
+        if config.DEBUG_CLI:
+            console.print(f"[cyan]Parent-Child Map construido desde YAMLs:[/cyan]")
+            for parent, info in parent_child_map.items():
+                console.print(f"  {parent} → {info['generates_for']} (PK: {info['pk_field']})")
+        
+        return parent_child_map
+    
     def execute_inserts(
+        self,
         transformations: Dict[str, List[Dict[str, Any]]],
         processing_order: List[List[str]],
         debug: bool = False
@@ -97,7 +139,7 @@ class TransactionExecutor:
                             continue
                         
                         # PASO 1: Inyectar IDs de padres en las filas
-                        rows = TransactionExecutor._inject_parent_ids(
+                        rows = self._inject_parent_ids(
                             entity_name=entity_name,
                             rows=rows,
                             generated_ids=generated_ids
@@ -105,7 +147,7 @@ class TransactionExecutor:
                         
                         # PASO 2: Ejecutar INSERT y capturar IDs
                         try:
-                            inserted_ids = TransactionExecutor._execute_entity_insert(
+                            inserted_ids = self._execute_entity_insert(
                                 session=session,
                                 entity_name=entity_name,
                                 rows=rows,
@@ -182,47 +224,62 @@ class TransactionExecutor:
         
         return results
     
-    @staticmethod
     def _inject_parent_ids(
+        self,
         entity_name: str,
         rows: List[Dict[str, Any]],
         generated_ids: Dict[str, Dict[int, int]]
     ) -> List[Dict[str, Any]]:
         """
-        Inyecta IDs de entidades padre en las filas hijas
+        Inyecta IDs de entidades padre en las filas de la entidad hija
+        Usa configuración desde YAMLs (parent_key/parent_keys)
         
         Args:
             entity_name: Nombre de la entidad hija
-            rows: Filas a procesar
-            generated_ids: Diccionario de IDs generados {entity: {index: id}}
-            
+            rows: Filas a las que inyectar IDs
+            generated_ids: Dict de IDs generados {entity: {row_index: id}}
+        
         Returns:
             Filas con IDs de padres inyectados
         """
-        # Buscar qué entidades generan IDs para esta entidad
-        parent_entities = []
-        for parent, config in TransactionExecutor.PARENT_CHILD_RELATIONS.items():
-            generates_for = config.get('generates_for')
-            
-            # Manejar si es lista o string
-            if isinstance(generates_for, list):
-                if entity_name in generates_for:
-                    parent_entities.append(parent)
-            elif generates_for == entity_name:
-                parent_entities.append(parent)
-        
-        if not parent_entities:
-            # No tiene padres, retornar sin modificar
+        if not rows:
             return rows
         
-        # Inyectar IDs de cada padre
+        # Obtener configuración de parent_key desde YAML
+        mapping = self.entity_mappings.get(entity_name, {})
+        parent_key = mapping.get('parent_key')
+        parent_keys = mapping.get('parent_keys')
+        
+        # Lista de dependencias padre
+        parent_dependencies = []
+        
+        if parent_key:
+            # Caso simple: un solo padre
+            parent_dependencies.append({
+                'entity': parent_key['from_entity'],
+                'fk_field': parent_key['field']
+            })
+        
+        elif parent_keys:
+            # Caso múltiple: varios padres
+            for pk in parent_keys:
+                parent_dependencies.append({
+                    'entity': pk['from_entity'],
+                    'fk_field': pk['field']
+                })
+        
+        if not parent_dependencies:
+            # Esta entidad no tiene padres
+            return rows
+        
+        # Inyectar IDs en cada fila
         updated_rows = []
         for row_index, row in enumerate(rows):
             updated_row = row.copy()
             
-            for parent_entity in parent_entities:
-                parent_config = TransactionExecutor.PARENT_CHILD_RELATIONS[parent_entity]
-                fk_field = parent_config['fk_field']
+            for parent_info in parent_dependencies:
+                parent_entity = parent_info['entity']
+                fk_field = parent_info['fk_field']
                 
                 # Obtener el ID generado del padre (mismo índice)
                 if parent_entity in generated_ids and row_index in generated_ids[parent_entity]:
@@ -242,8 +299,8 @@ class TransactionExecutor:
         
         return updated_rows
     
-    @staticmethod
     def _execute_entity_insert(
+        self,
         session,
         entity_name: str,
         rows: List[Dict[str, Any]],
@@ -293,7 +350,7 @@ class TransactionExecutor:
         values_str = ',\n    '.join(values_placeholders)
         
         # Determinar la columna ID (PK) para RETURNING
-        pk_field = TransactionExecutor._get_primary_key_field(entity_name)
+        pk_field = self._get_primary_key_field(entity_name)
         
         # SIEMPRE usar RETURNING para capturar IDs
         returning_clause = f' RETURNING "{pk_field}"' if pk_field else ''
@@ -320,22 +377,21 @@ VALUES
         return inserted_ids
     
     @staticmethod
-    def _get_primary_key_field(entity_name: str) -> Optional[str]:
+    def _get_primary_key_field(self, entity_name: str) -> str:
         """
-        Obtiene el nombre del campo de clave primaria para una entidad
-        
-        Args:
-            entity_name: Nombre de la entidad
-            
-        Returns:
-            Nombre del campo PK o None
+        Obtiene el campo de clave primaria para una entidad
         """
-        # Buscar en configuración de relaciones
-        if entity_name in TransactionExecutor.PARENT_CHILD_RELATIONS:
-            return TransactionExecutor.PARENT_CHILD_RELATIONS[entity_name]['pk_field']
+        # Intentar obtener desde el mapa construido
+        if entity_name in self._parent_child_map:
+            return self._parent_child_map[entity_name]['pk_field']
         
-        # Fallback: buscar campo que termine en _id con mismo prefijo
-        # Ej: bovinos -> bov_id, pollos -> pol_id
+        # Fallback: usar prefijo de la entidad + _id
+        # terrenos → ter_id, boletas → bol_id
+        if entity_name == 'pecuario_otros':
+            return 'peot_id'
+        elif entity_name == 'miembros_hogar':
+            return 'miho_id'
+        
         prefix = entity_name[:3] if len(entity_name) >= 3 else entity_name
         return f"{prefix}_id"
     

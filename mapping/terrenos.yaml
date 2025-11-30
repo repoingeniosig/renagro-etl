@@ -8,6 +8,7 @@ repeat:
 # id de boleta
 parent_key:
   field: bol_id
+  from_entity: boletas
 
 fields:
   ter_cobertura_tierra:

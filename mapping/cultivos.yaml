@@ -8,6 +8,7 @@ repeat:
 # id terreno
 parent_key:
   field: ter_id
+  from_entity: terrenos
 
 fields:
   cul_forma_cultivar:
