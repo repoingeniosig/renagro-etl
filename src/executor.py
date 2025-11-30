@@ -287,19 +287,47 @@ class TransactionExecutor:
                 parent_entity = parent_info['entity']
                 fk_field = parent_info['fk_field']
                 
-                # Obtener el ID generado del padre (mismo índice)
-                if parent_entity in generated_ids and row_index in generated_ids[parent_entity]:
-                    parent_id = generated_ids[parent_entity][row_index]
+                # Obtener el ID generado del padre
+                # IMPORTANTE: Para entidades con repeat (array de hijos):
+                # - Caso 1: Repeat simple (miembros_hogar, terrenos)
+                #   → Todos usan el ID del padre en índice 0
+                # - Caso 2: Repeat anidado (cultivos dentro de terrenos)
+                #   → Cada cultivo usa el ID del terreno correspondiente
+                #   → El índice está en __parent_index__
+                
+                parent_id = None
+                
+                # Verificar si hay metadato de índice padre (repeat anidado)
+                parent_index = row.get('__parent_index__', 0)
+                
+                if parent_entity in generated_ids:
+                    # Intentar usar el índice del padre específico
+                    if parent_index in generated_ids[parent_entity]:
+                        parent_id = generated_ids[parent_entity][parent_index]
+                        etl_logger.info(
+                            f"[{entity_name}] Row {row_index}: {fk_field}={parent_id} "
+                            f"(from {parent_entity}[{parent_index}] - nested repeat)"
+                        )
+                    # Fallback: usar índice 0 (caso de repeat simple)
+                    elif 0 in generated_ids[parent_entity]:
+                        parent_id = generated_ids[parent_entity][0]
+                        etl_logger.info(
+                            f"[{entity_name}] Row {row_index}: {fk_field}={parent_id} "
+                            f"(from {parent_entity}[0] - simple repeat)"
+                        )
                     
                     # Inyectar ID en la fila
-                    if fk_field in updated_row:
+                    if parent_id is not None and fk_field in updated_row:
                         updated_row[fk_field] = parent_id
-                        
-                        if config.DEBUG_CLI:
-                            etl_logger.debug(
-                                f"[{entity_name}] Inyectando {fk_field}={parent_id} "
-                                f"desde {parent_entity} (índice {row_index})"
-                            )
+                    elif parent_id is None:
+                        etl_logger.warning(
+                            f"[{entity_name}] Row {row_index}: No se encontró parent_id "
+                            f"para {parent_entity}[{parent_index}]"
+                        )
+                
+                # Remover metadato __parent_index__ antes de insertar
+                if '__parent_index__' in updated_row:
+                    del updated_row['__parent_index__']
             
             updated_rows.append(updated_row)
         

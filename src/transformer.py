@@ -241,7 +241,8 @@ class JSONTransformer:
             parent_id: ID del registro padre (para FK)
         
         Returns:
-            Lista de diccionarios con los valores transformados
+            Lista de diccionarios con los valores transformados, 
+            cada uno con metadato __parent_index__ si es repeat anidado
         """
         # Si la entidad tiene repeat configurado
         if entity_mapping.repeat:
@@ -251,30 +252,66 @@ class JSONTransformer:
             else:
                 repeat_path = entity_mapping.repeat
             
-            repeat_items = JSONTransformer.get_value_by_path(json_data, repeat_path)
+            # Detectar si es un repeat anidado (contiene otro repeat en el path)
+            is_nested_repeat = '/terrenos_repeat/' in repeat_path
             
-            if not repeat_items or not isinstance(repeat_items, list):
-                return []
-            
-            rows = []
-            for item in repeat_items:
-                # Combinar el contexto global con el item actual
-                context = {**json_data, **item}
-                row = JSONTransformer.transform_entity(context, entity_mapping)
+            if is_nested_repeat:
+                # CASO ESPECIAL: Repeat anidado (ej: cultivos dentro de terrenos)
+                # Necesitamos procesar cada terreno por separado y mantener el índice
                 
-                # Agregar parent_id si existe
-                if parent_id is not None and entity_mapping.parent_key:
-                    if isinstance(entity_mapping.parent_key, dict):
-                        parent_field = entity_mapping.parent_key.get('field')
-                    else:
-                        parent_field = entity_mapping.parent_key
+                # Extraer el path del padre (terrenos)
+                parent_repeat_path = repeat_path.split('/terrenos_repeat/')[0] + '/terrenos_repeat'
+                terrenos = JSONTransformer.get_value_by_path(json_data, parent_repeat_path)
+                
+                if not terrenos or not isinstance(terrenos, list):
+                    return []
+                
+                rows = []
+                for terreno_index, terreno in enumerate(terrenos):
+                    # Obtener cultivos/forestales de este terreno específico
+                    # El path relativo después de terrenos_repeat
+                    child_relative_path = repeat_path.split('/terrenos_repeat/')[1]
+                    child_items = JSONTransformer.get_value_by_path(terreno, child_relative_path)
                     
-                    if parent_field:
-                        row[parent_field] = parent_id
+                    if child_items and isinstance(child_items, list):
+                        for item in child_items:
+                            # Combinar contexto global + terreno + item
+                            context = {**json_data, **terreno, **item}
+                            row = JSONTransformer.transform_entity(context, entity_mapping)
+                            
+                            # IMPORTANTE: Agregar índice del terreno padre como metadato
+                            row['__parent_index__'] = terreno_index
+                            
+                            rows.append(row)
                 
-                rows.append(row)
+                return rows
             
-            return rows
+            else:
+                # CASO NORMAL: Repeat simple (ej: miembros_hogar, terrenos)
+                repeat_items = JSONTransformer.get_value_by_path(json_data, repeat_path)
+                
+                if not repeat_items or not isinstance(repeat_items, list):
+                    return []
+                
+                rows = []
+                for item in repeat_items:
+                    # Combinar el contexto global con el item actual
+                    context = {**json_data, **item}
+                    row = JSONTransformer.transform_entity(context, entity_mapping)
+                    
+                    # Agregar parent_id si existe
+                    if parent_id is not None and entity_mapping.parent_key:
+                        if isinstance(entity_mapping.parent_key, dict):
+                            parent_field = entity_mapping.parent_key.get('field')
+                        else:
+                            parent_field = entity_mapping.parent_key
+                        
+                        if parent_field:
+                            row[parent_field] = parent_id
+                    
+                    rows.append(row)
+                
+                return rows
         else:
             # Sin repeat, generar un solo registro
             row = JSONTransformer.transform_entity(json_data, entity_mapping)
