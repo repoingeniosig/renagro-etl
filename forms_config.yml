@@ -3,7 +3,7 @@
 
 forms:
   # Formulario Principal - Boletas Completas
-  - uuid: "aa"
+  - uuid: "00885ce6824041039a4e0218a0e8167f"
     name: "boletas"
     description: "Formulario principal de boletas agropecuarias"
     control_table: "control_envios_boletas"
@@ -11,7 +11,7 @@ forms:
     enabled: true
     
   # Formulario de Procesos Productivos
-  - uuid: "bb"
+  - uuid: "078cca4bd25b40bf87c42a7b2b3f8ff9"
     name: "boletas-procesos"
     description: "Formulario de procesos productivos"
     control_table: "control_envios_boletas_procesos"
@@ -19,7 +19,7 @@ forms:
     enabled: true
     
   # Formulario Simplificado
-  - uuid: "cc"
+  - uuid: "8c6d5f403ffd4f568215e79a352416c4"
     name: "boletas_simplificadas"
     description: "Formulario simplificado de boletas"
     control_table: "control_envios_boletas_simplificadas"
