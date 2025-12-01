@@ -1,0 +1,151 @@
+version: 1.0
+entity: cultivos
+table: cultivos
+
+repeat:
+  source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat"
+
+# id terreno
+parent_keys:
+  - field: ter_id
+    from_entity: terrenos
+
+fields:
+  # ID de referencia a tabla padre (generado automáticamente)
+  ter_id:
+    source: ""
+    type: integer
+    default: null
+
+  cul_forma_cultivar:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/cultivo_ubicacion"
+    type: string
+    default: null
+
+  cul_cultivo_asociado:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/cultivo_asociado"
+    type: string
+    default: null
+
+  cul_is_certificacion_organica:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/certificacion_organica"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  cul_is_control_plagas_organico:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/control_plagas_organico"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  cul_is_control_plagas_quimico:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/control_plagas_sintetico"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  cul_is_lleva_registro_prod:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/registro_produccion"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  cul_is_seguro_agricola:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/seguro_agricola"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  cul_is_uso_fert_organico:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/fertilizantes_organicos"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  cul_is_uso_fert_quimico:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/fertilizantes_sinteticos"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  cul_is_uso_material_vegetativo:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/material_certificado"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  cul_is_uso_semilla_nativa_camp:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/semillas_nativas"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  cul_metodo_de_riego:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/metodo_riego"
+    type: string
+    default: null
+
+  cul_nombre_cultivo:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/nombre_cultivo"
+    type: string
+    default: null
+
+  cul_sacos_de_urea_usado:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/sacos_urea"
+    type: integer
+    default: null
+
+  cul_superficie_plantada:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/captura_superficie3/superficie_plantada_valor"
+    type: float
+    default: null
+
+  cul_superficie_plantada_unidad:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/captura_superficie3/superficie_plantada_unidad"
+    type: string
+    default: null
+
+  cul_superficie_riego:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/captura_superficie4/superficie_riego_valor"
+    type: float
+    default: null
+
+  cul_superficie_riego_unidad:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat/captura_superficie4/superficie_riego_unidad"
+    type: string
+    default: null
+
+  cul_otro_nombre_cultivo:
+    source: ""
+    type: string
+    default: null
+
+  cul_reg_usu:
+    source: ""
+    type: integer
+    default: 999
+
+  cul_reg_fecha:
+    source: "_submission_time"
+    type: datetime
+    default: null
+
+  cul_estado:
+    source: ""
+    type: integer
+    default: 11
+
+conversions:
+  yes_no_to_bool:
+    yes: true
+    no: false

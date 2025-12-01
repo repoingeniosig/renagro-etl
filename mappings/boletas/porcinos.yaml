@@ -1,0 +1,147 @@
+version: 1.0
+entity: porcinos
+table: porcinos
+
+fields:
+  por_capaci_explot_cerdo:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/infraestructura_porcino/capacidad_galpones_porcino"
+    type: integer
+    default: null
+
+  por_fuente_reprodruccion_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/forma_reproduccion_porcino"
+    type: string
+    default: null
+
+  por_galpon_existente_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/infraestructura_porcino/numero_galpones_porcino"
+    type: integer
+    default: null
+
+  por_is_colibacilosis_diarrea:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/vacunas_porcino"
+    type: boolean
+    convert:
+      contains_option: "colibacilosis"
+    default: false
+
+  por_is_fiebre_aftosa:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/vacunas_porcino"
+    type: boolean
+    convert:
+      contains_option: "fiebre_aftosa_porcino"
+    default: false
+
+  por_is_neumonía_por_enzootica:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/vacunas_porcino"
+    type: boolean
+    convert:
+      contains_option: "neumonia_porcina"
+    default: false
+
+  por_is_ninguna:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/vacunas_porcino"
+    type: boolean
+    convert:
+      contains_option: "ninguna_vacunas_porcino"
+    default: false
+
+  por_is_no_sabe_no_responde:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/vacunas_porcino"
+    type: boolean
+    convert:
+      contains_option: "no_sabe_porcino"
+    default: false
+
+  por_is_otra:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/vacunas_porcino"
+    type: boolean
+    convert:
+      contains_option: "otras_vacunas_porcino"
+    default: false
+
+  por_is_parvovirus_moquera:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/vacunas_porcino"
+    type: boolean
+    convert:
+      contains_option: "parvovirus"
+    default: false
+
+  por_is_pasteurella_neumonia:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/vacunas_porcino"
+    type: boolean
+    convert:
+      contains_option: "pasteurella"
+    default: false
+
+  por_is_peste_por_clasica:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/vacunas_porcino"
+    type: boolean
+    convert:
+      contains_option: "peste_porcina"
+    default: false
+
+  por_mas_dos_mes_hembra_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/cerdos_mas_2_meses_hembras"
+    type: integer
+    default: null
+
+  por_mas_dos_mes_macho_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/cerdos_mas_2_meses_machos"
+    type: integer
+    default: null
+
+  por_menos_dos_mes_hembra_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/cerdos_menos_2_meses_hembras"
+    type: integer
+    default: null
+
+  por_menos_dos_mes_macho_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/cerdos_menos_2_meses_machos"
+    type: integer
+    default: null
+
+  por_propio_hembra_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/porcino_propios_hembras"
+    type: integer
+    default: null
+
+  por_propio_macho_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/porcino_propios_machos"
+    type: integer
+    default: null
+
+  por_reproductor_hembra_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/reproductoras_hembras"
+    type: integer
+    default: null
+
+  por_reproductor_macho_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/reproductores_machos"
+    type: integer
+    default: null
+
+  por_total_hembra_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/subtotal_hembras_porcino"
+    type: integer
+    default: null
+
+  por_total_macho_por:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/subtotal_machos_porcino"
+    type: integer
+    default: null
+
+  por_reg_usu:
+    source: ""
+    type: integer
+    default: 999
+
+  por_reg_fecha:
+    source: "_submission_time"
+    type: datetime
+    default: null
+
+  por_estado:
+    source: ""
+    type: integer
+    default: 11

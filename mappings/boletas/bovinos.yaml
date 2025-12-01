@@ -1,0 +1,223 @@
+version: 1.0
+entity: bovinos
+table: bovinos
+
+fields:
+  bov_capacidad_total_explo:
+    source: ""
+    type: integer
+    default: null
+
+  bov_doble_prop_ajeno:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/Del_total_cu_ntos_son_AJENOS/bovino_ajeno_doble"
+    type: integer
+    default: null
+
+  bov_doble_prop_propio:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/Del_total_cu_ntos_son_PROPIOS/bovino_propio_doble"
+    type: integer
+    default: null
+
+  bov_galpones_numero:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/Infraestructura_para_descanso/numero_galpones_bovino"
+    type: integer
+    default: null
+
+  bov_is_ninguna_vacuna:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/vacunas_bovino"
+    type: boolean
+    convert:
+      contains_option: "ninguna"
+    default: false
+
+  bov_is_no_sabe_vacuna:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/vacunas_bovino"
+    type: boolean
+    convert:
+      contains_option: "no_sabe"
+    default: false
+
+  bov_ordeniadora:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/grupo_maquinaria_acceso/ordenadora_acceso"
+    type: string
+    default: null
+
+  bov_tanque_enfriamiento:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/grupo_maquinaria_acceso/tanque_enfriamiento_acceso"
+    type: string
+    default: null
+
+  bov_is_vaca_ordeniada_ayer:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/vacas_ordenadas_ayer"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  bov_is_vacuna_brucelosi:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/vacunas_bovino"
+    type: boolean
+    convert:
+      contains_option: "brucelosis"
+    default: false
+
+  bov_is_vacuna_carbunco:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/vacunas_bovino"
+    type: boolean
+    convert:
+      contains_option: "carbunco"
+    default: false
+
+  bov_is_vacuna_fiebre_aftosa:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/vacunas_bovino"
+    type: boolean
+    convert:
+      contains_option: "fiebre_aftosa"
+    default: false
+
+  bov_is_vacuna_ibr:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/vacunas_bovino"
+    type: boolean
+    convert:
+      contains_option: "ibr"
+    default: false
+
+  bov_is_vacuna_papilomatosis:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/vacunas_bovino"
+    type: boolean
+    convert:
+      contains_option: "papilomatosis_bovina"
+    default: false
+
+  bov_litros_leche_obtenido:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/litros_leche_ayer"
+    type: integer
+    default: null
+
+  bov_no_sabe_prop:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/bovino_no_sabe"
+    type: integer
+    default: null
+
+  bov_otra_vacuna:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/otro_vacunas_bovino"
+    type: string
+    default: false
+
+  bov_prin_forma_reproduccion:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/forma_reproduccion_bovino"
+    type: string
+    default: false
+
+  bov_prin_produ_ganado:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/sistema_produccion_bovino"
+    type: string
+    default: false
+
+  bov_prop_para_carne_ajeno:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/Del_total_cu_ntos_son_AJENOS/bovino_ajeno_carne"
+    type: integer
+    default: null
+
+  bov_prop_para_carne_propio:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/Del_total_cu_ntos_son_PROPIOS/bovino_propio_carne"
+    type: integer
+    default: null
+
+  bov_prop_para_leche_ajeno:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/Del_total_cu_ntos_son_AJENOS/bovino_ajeno_leche"
+    type: integer
+    default: null
+
+  bov_prop_para_leche_propio:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/Del_total_cu_ntos_son_PROPIOS/bovino_propio_leche"
+    type: integer
+    default: null
+
+  bov_subtotal_propio:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/Del_total_cu_ntos_son_PROPIOS/subtotal_propios"
+    type: integer
+    default: null
+
+  bov_subtotal_ajeno:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/Del_total_cu_ntos_son_AJENOS/subtotal_ajenos"
+    type: integer
+    default: null
+
+  bov_subtotal_hembra:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/N_mero_de_hembras/subtotal_hembras"
+    type: integer
+    default: null
+
+  bov_subtotal_macho:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/N_mero_de_machos/subtotal_machos"
+    type: integer
+    default: null
+
+  bov_ternera:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/N_mero_de_hembras/terneras"
+    type: integer
+    default: null
+
+  bov_ternero:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/N_mero_de_machos/terneros"
+    type: integer
+    default: null
+
+  bov_torete:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/N_mero_de_machos/toretes"
+    type: integer
+    default: null
+
+  bov_toro:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/N_mero_de_machos/toros"
+    type: integer
+    default: null
+
+  bov_total_ganado:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/total_bovino"
+    type: integer
+    default: null
+
+  bov_total_ganado_prop:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/total_tenencia_bovino"
+    type: integer
+    default: null
+
+  bov_vacas_en_produ:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/N_mero_de_hembras/vacas_produccion"
+    type: integer
+    default: null
+
+  bov_vacas_seca:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/N_mero_de_hembras/vacas_secas"
+    type: integer
+    default: null
+
+  bov_vacona:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/N_mero_de_hembras/vaconas"
+    type: integer
+    default: null
+
+  bov_reg_usu:
+    source: ""
+    type: integer
+    default: 999
+
+  bov_reg_fecha:
+    source: "_submission_time"
+    type: datetime
+    default: null
+
+  bov_estado:
+    source: ""
+    type: integer
+    default: 11
+
+conversions:
+  yes_no_to_bool:
+    yes: true
+    no: false
+
+contains_option:
+  type: contains

@@ -1,0 +1,12 @@
+bovinos: "bovinos.yaml"
+pecuario_otros: "pecuarios_otros.yaml"
+pollos: "pollos.yaml"
+porcinos: "porcinos.yaml"
+personas: "personas.yaml"
+
+boletas: "boletas.yaml"
+miembros_hogar: "miembros_hogar.yaml"
+terrenos: "terrenos.yaml"
+
+cultivos: "cultivos.yaml"
+forestales: "forestales.yaml"

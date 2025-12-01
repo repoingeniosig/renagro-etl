@@ -7,15 +7,15 @@ forms:
     name: "boletas"
     description: "Formulario principal de boletas agropecuarias"
     control_table: "control_envios_boletas"
-    mapping_dir: "aa"
+    mapping_dir: "boletas"
     enabled: true
     
   # Formulario de Procesos Productivos
   - uuid: "bb"
-    name: "boletas_procesos"
+    name: "boletas-procesos"
     description: "Formulario de procesos productivos"
     control_table: "control_envios_boletas_procesos"
-    mapping_dir: "bb"
+    mapping_dir: "boletas-procesos"
     enabled: true
     
   # Formulario Simplificado
@@ -23,7 +23,7 @@ forms:
     name: "boletas_simplificadas"
     description: "Formulario simplificado de boletas"
     control_table: "control_envios_boletas_simplificadas"
-    mapping_dir: "cc"
+    mapping_dir: "boletas-simplificadas"
     enabled: true
 
 # Configuración global
