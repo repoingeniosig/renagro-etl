@@ -1,207 +1,156 @@
--- ============================================================================
--- Tablas de Control para Sistema ETL Multi-Formulario
--- Versión: 2.0
--- ============================================================================
+-- Script para crear las tablas de control de envíos multi-formulario
+-- Schema: sc_renagro_mag
+
+-- Crear tipos ENUM para los campos de control
+DROP TYPE IF EXISTS "sc_renagro_mag"."estado_etl_enum" CASCADE;
+CREATE TYPE "sc_renagro_mag"."estado_etl_enum" AS ENUM ('ERROR', 'PENDIENTE', 'PROCESADO');
+
+DROP TYPE IF EXISTS "sc_renagro_mag"."estado_envio_enum" CASCADE;
+CREATE TYPE "sc_renagro_mag"."estado_envio_enum" AS ENUM ('ERROR', 'PENDIENTE', 'PROCESADO');
+
+-- Trigger para actualizar automáticamente el campo updated_at
+CREATE OR REPLACE FUNCTION "sc_renagro_mag"."update_updated_at_column"()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 
 -- ============================================================================
 -- 1. CONTROL_ENVIOS_BOLETAS (Formulario Principal)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS control_envios_boletas (
-    id SERIAL PRIMARY KEY,
-    _id INTEGER UNIQUE NOT NULL,
-    uuid_boleta VARCHAR(255),
-    json_data JSONB NOT NULL,
-    estado_etl VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
-    envio_datos_procesados VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
-    procesado_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    error_message TEXT,
-    
-    -- Campos para sistema de reintentos (migración 001)
-    retry_count INTEGER DEFAULT 0,
-    last_error_stage VARCHAR(50),
-    
-    CONSTRAINT chk_estado_etl CHECK (estado_etl IN ('PENDIENTE', 'PROCESANDO', 'PROCESADO', 'ERROR')),
-    CONSTRAINT chk_envio_datos CHECK (envio_datos_procesados IN ('PENDIENTE', 'ENVIADO', 'ERROR'))
+DROP TABLE IF EXISTS "sc_renagro_mag"."control_envios_boletas" CASCADE;
+CREATE TABLE "sc_renagro_mag"."control_envios_boletas" (
+  "_id" INTEGER NOT NULL,
+  "uuid_boleta" VARCHAR(36),
+  "json_data" JSONB NOT NULL,
+  "fecha_recepcion" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "estado_etl" "sc_renagro_mag"."estado_etl_enum" NOT NULL DEFAULT 'PENDIENTE',
+  "envio_datos_procesados" "sc_renagro_mag"."estado_envio_enum" NOT NULL DEFAULT 'PENDIENTE',
+  "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "error_message" TEXT,
+  "procesado_at" TIMESTAMP WITH TIME ZONE,
+  "retry_count" INTEGER NOT NULL DEFAULT 0,
+  "last_error_stage" VARCHAR(50),
+  CONSTRAINT "pk_control_envios_boletas" PRIMARY KEY ("_id")
 );
 
--- Índices para optimización
-CREATE INDEX IF NOT EXISTS idx_control_boletas_estado_etl ON control_envios_boletas(estado_etl);
-CREATE INDEX IF NOT EXISTS idx_control_boletas_uuid ON control_envios_boletas(uuid_boleta);
-CREATE INDEX IF NOT EXISTS idx_control_boletas_created_at ON control_envios_boletas(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_control_boletas_error ON control_envios_boletas(estado_etl) WHERE estado_etl = 'ERROR';
+CREATE INDEX "idx_control_boletas_estado_etl" ON "sc_renagro_mag"."control_envios_boletas" ("estado_etl");
+CREATE INDEX "idx_control_boletas_estado_procesados" ON "sc_renagro_mag"."control_envios_boletas" ("envio_datos_procesados");
+CREATE INDEX "idx_control_boletas_fecha_recepcion" ON "sc_renagro_mag"."control_envios_boletas" ("fecha_recepcion");
+CREATE INDEX "idx_control_boletas_json_data" ON "sc_renagro_mag"."control_envios_boletas" USING GIN ("json_data");
+CREATE INDEX "idx_control_boletas_uuid" ON "sc_renagro_mag"."control_envios_boletas" ("uuid_boleta");
 
-COMMENT ON TABLE control_envios_boletas IS 'Control de procesamiento ETL para formulario principal de boletas';
-COMMENT ON COLUMN control_envios_boletas._id IS 'ID del formulario de KoboToolbox (único)';
-COMMENT ON COLUMN control_envios_boletas.uuid_boleta IS 'UUID del submission (_uuid del JSON)';
-COMMENT ON COLUMN control_envios_boletas.json_data IS 'JSON completo del formulario';
-COMMENT ON COLUMN control_envios_boletas.estado_etl IS 'Estado del procesamiento ETL: PENDIENTE, PROCESANDO, PROCESADO, ERROR';
-COMMENT ON COLUMN control_envios_boletas.retry_count IS 'Número de reintentos realizados';
-COMMENT ON COLUMN control_envios_boletas.last_error_stage IS 'Última etapa donde falló: json_save, etl_transform, db_insert';
+COMMENT ON TABLE "sc_renagro_mag"."control_envios_boletas" IS 'Tabla de control para almacenar los JSONs del formulario principal de boletas';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."_id" IS 'ID único del envío proveniente del campo _id del JSON de KoboToolbox (Primary Key)';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."uuid_boleta" IS 'UUID del submission (_uuid del JSON)';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."json_data" IS 'JSON completo del envío de KoboToolbox almacenado en formato JSONB';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."fecha_recepcion" IS 'Fecha y hora exacta de recepción del JSON en el servidor externo';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."estado_etl" IS 'Estado del procesamiento ETL: PENDIENTE, PROCESADO, ERROR';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."envio_datos_procesados" IS 'Estado del envío a API de terceros: PENDIENTE, PROCESADO, ERROR';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."created_at" IS 'Fecha de creación del registro';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."updated_at" IS 'Fecha de última actualización del registro';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."error_message" IS 'Mensaje de error en caso de que el procesamiento falle';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."procesado_at" IS 'Fecha y hora cuando se completó el procesamiento exitosamente';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."retry_count" IS 'Número de reintentos de procesamiento realizados';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."last_error_stage" IS 'Última etapa donde ocurrió el error: json_save, etl_transform, db_insert';
+
+CREATE TRIGGER "trigger_update_control_envios_boletas_updated_at"
+    BEFORE UPDATE ON "sc_renagro_mag"."control_envios_boletas"
+    FOR EACH ROW
+    EXECUTE FUNCTION "sc_renagro_mag"."update_updated_at_column"();
 
 
 -- ============================================================================
 -- 2. CONTROL_ENVIOS_BOLETAS_PROCESOS (Formulario de Procesos)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS control_envios_boletas_procesos (
-    id SERIAL PRIMARY KEY,
-    _id INTEGER UNIQUE NOT NULL,
-    uuid_boleta VARCHAR(255),
-    json_data JSONB NOT NULL,
-    estado_etl VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
-    envio_datos_procesados VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
-    procesado_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    error_message TEXT,
-    
-    -- Campos para sistema de reintentos
-    retry_count INTEGER DEFAULT 0,
-    last_error_stage VARCHAR(50),
-    
-    CONSTRAINT chk_estado_etl_procesos CHECK (estado_etl IN ('PENDIENTE', 'PROCESANDO', 'PROCESADO', 'ERROR')),
-    CONSTRAINT chk_envio_datos_procesos CHECK (envio_datos_procesados IN ('PENDIENTE', 'ENVIADO', 'ERROR'))
+DROP TABLE IF EXISTS "sc_renagro_mag"."control_envios_boletas_procesos" CASCADE;
+CREATE TABLE "sc_renagro_mag"."control_envios_boletas_procesos" (
+  "_id" INTEGER NOT NULL,
+  "uuid_boleta" VARCHAR(36),
+  "json_data" JSONB NOT NULL,
+  "fecha_recepcion" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "estado_etl" "sc_renagro_mag"."estado_etl_enum" NOT NULL DEFAULT 'PENDIENTE',
+  "envio_datos_procesados" "sc_renagro_mag"."estado_envio_enum" NOT NULL DEFAULT 'PENDIENTE',
+  "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "error_message" TEXT,
+  "procesado_at" TIMESTAMP WITH TIME ZONE,
+  "retry_count" INTEGER NOT NULL DEFAULT 0,
+  "last_error_stage" VARCHAR(50),
+  CONSTRAINT "pk_control_envios_boletas_procesos" PRIMARY KEY ("_id")
 );
 
--- Índices para optimización
-CREATE INDEX IF NOT EXISTS idx_control_procesos_estado_etl ON control_envios_boletas_procesos(estado_etl);
-CREATE INDEX IF NOT EXISTS idx_control_procesos_uuid ON control_envios_boletas_procesos(uuid_boleta);
-CREATE INDEX IF NOT EXISTS idx_control_procesos_created_at ON control_envios_boletas_procesos(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_control_procesos_error ON control_envios_boletas_procesos(estado_etl) WHERE estado_etl = 'ERROR';
+CREATE INDEX "idx_control_procesos_estado_etl" ON "sc_renagro_mag"."control_envios_boletas_procesos" ("estado_etl");
+CREATE INDEX "idx_control_procesos_estado_procesados" ON "sc_renagro_mag"."control_envios_boletas_procesos" ("envio_datos_procesados");
+CREATE INDEX "idx_control_procesos_fecha_recepcion" ON "sc_renagro_mag"."control_envios_boletas_procesos" ("fecha_recepcion");
+CREATE INDEX "idx_control_procesos_json_data" ON "sc_renagro_mag"."control_envios_boletas_procesos" USING GIN ("json_data");
+CREATE INDEX "idx_control_procesos_uuid" ON "sc_renagro_mag"."control_envios_boletas_procesos" ("uuid_boleta");
 
-COMMENT ON TABLE control_envios_boletas_procesos IS 'Control de procesamiento ETL para formulario de procesos productivos';
-COMMENT ON COLUMN control_envios_boletas_procesos._id IS 'ID del formulario de KoboToolbox (único)';
-COMMENT ON COLUMN control_envios_boletas_procesos.uuid_boleta IS 'UUID del submission (_uuid del JSON)';
-COMMENT ON COLUMN control_envios_boletas_procesos.json_data IS 'JSON completo del formulario';
-COMMENT ON COLUMN control_envios_boletas_procesos.estado_etl IS 'Estado del procesamiento ETL: PENDIENTE, PROCESANDO, PROCESADO, ERROR';
-COMMENT ON COLUMN control_envios_boletas_procesos.retry_count IS 'Número de reintentos realizados';
-COMMENT ON COLUMN control_envios_boletas_procesos.last_error_stage IS 'Última etapa donde falló: json_save, etl_transform, db_insert';
+COMMENT ON TABLE "sc_renagro_mag"."control_envios_boletas_procesos" IS 'Tabla de control para almacenar los JSONs del formulario de procesos productivos';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."_id" IS 'ID único del envío proveniente del campo _id del JSON de KoboToolbox (Primary Key)';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."uuid_boleta" IS 'UUID del submission (_uuid del JSON)';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."json_data" IS 'JSON completo del envío de KoboToolbox almacenado en formato JSONB';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."fecha_recepcion" IS 'Fecha y hora exacta de recepción del JSON en el servidor externo';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."estado_etl" IS 'Estado del procesamiento ETL: PENDIENTE, PROCESADO, ERROR';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."envio_datos_procesados" IS 'Estado del envío a API de terceros: PENDIENTE, PROCESADO, ERROR';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."created_at" IS 'Fecha de creación del registro';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."updated_at" IS 'Fecha de última actualización del registro';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."error_message" IS 'Mensaje de error en caso de que el procesamiento falle';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."procesado_at" IS 'Fecha y hora cuando se completó el procesamiento exitosamente';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."retry_count" IS 'Número de reintentos de procesamiento realizados';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."last_error_stage" IS 'Última etapa donde ocurrió el error: json_save, etl_transform, db_insert';
+
+CREATE TRIGGER "trigger_update_control_envios_boletas_procesos_updated_at"
+    BEFORE UPDATE ON "sc_renagro_mag"."control_envios_boletas_procesos"
+    FOR EACH ROW
+    EXECUTE FUNCTION "sc_renagro_mag"."update_updated_at_column"();
 
 
 -- ============================================================================
 -- 3. CONTROL_ENVIOS_BOLETAS_SIMPLIFICADAS (Formulario Simplificado)
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS control_envios_boletas_simplificadas (
-    id SERIAL PRIMARY KEY,
-    _id INTEGER UNIQUE NOT NULL,
-    uuid_boleta VARCHAR(255),
-    json_data JSONB NOT NULL,
-    estado_etl VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
-    envio_datos_procesados VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
-    procesado_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    error_message TEXT,
-    
-    -- Campos para sistema de reintentos
-    retry_count INTEGER DEFAULT 0,
-    last_error_stage VARCHAR(50),
-    
-    CONSTRAINT chk_estado_etl_simplificadas CHECK (estado_etl IN ('PENDIENTE', 'PROCESANDO', 'PROCESADO', 'ERROR')),
-    CONSTRAINT chk_envio_datos_simplificadas CHECK (envio_datos_procesados IN ('PENDIENTE', 'ENVIADO', 'ERROR'))
+DROP TABLE IF EXISTS "sc_renagro_mag"."control_envios_boletas_simplificadas" CASCADE;
+CREATE TABLE "sc_renagro_mag"."control_envios_boletas_simplificadas" (
+  "_id" INTEGER NOT NULL,
+  "uuid_boleta" VARCHAR(36),
+  "json_data" JSONB NOT NULL,
+  "fecha_recepcion" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "estado_etl" "sc_renagro_mag"."estado_etl_enum" NOT NULL DEFAULT 'PENDIENTE',
+  "envio_datos_procesados" "sc_renagro_mag"."estado_envio_enum" NOT NULL DEFAULT 'PENDIENTE',
+  "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "error_message" TEXT,
+  "procesado_at" TIMESTAMP WITH TIME ZONE,
+  "retry_count" INTEGER NOT NULL DEFAULT 0,
+  "last_error_stage" VARCHAR(50),
+  CONSTRAINT "pk_control_envios_boletas_simplificadas" PRIMARY KEY ("_id")
 );
 
--- Índices para optimización
-CREATE INDEX IF NOT EXISTS idx_control_simplificadas_estado_etl ON control_envios_boletas_simplificadas(estado_etl);
-CREATE INDEX IF NOT EXISTS idx_control_simplificadas_uuid ON control_envios_boletas_simplificadas(uuid_boleta);
-CREATE INDEX IF NOT EXISTS idx_control_simplificadas_created_at ON control_envios_boletas_simplificadas(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_control_simplificadas_error ON control_envios_boletas_simplificadas(estado_etl) WHERE estado_etl = 'ERROR';
+CREATE INDEX "idx_control_simplificadas_estado_etl" ON "sc_renagro_mag"."control_envios_boletas_simplificadas" ("estado_etl");
+CREATE INDEX "idx_control_simplificadas_estado_procesados" ON "sc_renagro_mag"."control_envios_boletas_simplificadas" ("envio_datos_procesados");
+CREATE INDEX "idx_control_simplificadas_fecha_recepcion" ON "sc_renagro_mag"."control_envios_boletas_simplificadas" ("fecha_recepcion");
+CREATE INDEX "idx_control_simplificadas_json_data" ON "sc_renagro_mag"."control_envios_boletas_simplificadas" USING GIN ("json_data");
+CREATE INDEX "idx_control_simplificadas_uuid" ON "sc_renagro_mag"."control_envios_boletas_simplificadas" ("uuid_boleta");
 
-COMMENT ON TABLE control_envios_boletas_simplificadas IS 'Control de procesamiento ETL para formulario simplificado de boletas';
-COMMENT ON COLUMN control_envios_boletas_simplificadas._id IS 'ID del formulario de KoboToolbox (único)';
-COMMENT ON COLUMN control_envios_boletas_simplificadas.uuid_boleta IS 'UUID del submission (_uuid del JSON)';
-COMMENT ON COLUMN control_envios_boletas_simplificadas.json_data IS 'JSON completo del formulario';
-COMMENT ON COLUMN control_envios_boletas_simplificadas.estado_etl IS 'Estado del procesamiento ETL: PENDIENTE, PROCESANDO, PROCESADO, ERROR';
-COMMENT ON COLUMN control_envios_boletas_simplificadas.retry_count IS 'Número de reintentos realizados';
-COMMENT ON COLUMN control_envios_boletas_simplificadas.last_error_stage IS 'Última etapa donde falló: json_save, etl_transform, db_insert';
+COMMENT ON TABLE "sc_renagro_mag"."control_envios_boletas_simplificadas" IS 'Tabla de control para almacenar los JSONs del formulario simplificado de boletas';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."_id" IS 'ID único del envío proveniente del campo _id del JSON de KoboToolbox (Primary Key)';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."uuid_boleta" IS 'UUID del submission (_uuid del JSON)';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."json_data" IS 'JSON completo del envío de KoboToolbox almacenado en formato JSONB';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."fecha_recepcion" IS 'Fecha y hora exacta de recepción del JSON en el servidor externo';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."estado_etl" IS 'Estado del procesamiento ETL: PENDIENTE, PROCESADO, ERROR';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."envio_datos_procesados" IS 'Estado del envío a API de terceros: PENDIENTE, PROCESADO, ERROR';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."created_at" IS 'Fecha de creación del registro';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."updated_at" IS 'Fecha de última actualización del registro';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."error_message" IS 'Mensaje de error en caso de que el procesamiento falle';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."procesado_at" IS 'Fecha y hora cuando se completó el procesamiento exitosamente';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."retry_count" IS 'Número de reintentos de procesamiento realizados';
+COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."last_error_stage" IS 'Última etapa donde ocurrió el error: json_save, etl_transform, db_insert';
 
-
--- ============================================================================
--- 4. VISTA UNIFICADA DE CONTROL (Opcional - para monitoreo)
--- ============================================================================
-CREATE OR REPLACE VIEW v_control_envios_todos AS
-SELECT 
-    'boletas' AS tipo_formulario,
-    _id,
-    uuid_boleta,
-    estado_etl,
-    envio_datos_procesados,
-    procesado_at,
-    created_at,
-    updated_at,
-    error_message,
-    retry_count,
-    last_error_stage
-FROM control_envios_boletas
-
-UNION ALL
-
-SELECT 
-    'boletas_procesos' AS tipo_formulario,
-    _id,
-    uuid_boleta,
-    estado_etl,
-    envio_datos_procesados,
-    procesado_at,
-    created_at,
-    updated_at,
-    error_message,
-    retry_count,
-    last_error_stage
-FROM control_envios_boletas_procesos
-
-UNION ALL
-
-SELECT 
-    'boletas_simplificadas' AS tipo_formulario,
-    _id,
-    uuid_boleta,
-    estado_etl,
-    envio_datos_procesados,
-    procesado_at,
-    created_at,
-    updated_at,
-    error_message,
-    retry_count,
-    last_error_stage
-FROM control_envios_boletas_simplificadas;
-
-COMMENT ON VIEW v_control_envios_todos IS 'Vista unificada de todos los formularios para monitoreo';
-
-
--- ============================================================================
--- 5. FUNCIONES AUXILIARES
--- ============================================================================
-
--- Función para obtener estadísticas por tipo de formulario
-CREATE OR REPLACE FUNCTION get_stats_by_form_type(form_type TEXT)
-RETURNS TABLE(
-    estado VARCHAR(20),
-    total BIGINT
-) AS $$
-BEGIN
-    RETURN QUERY EXECUTE format('
-        SELECT estado_etl::VARCHAR(20), COUNT(*)::BIGINT
-        FROM control_envios_%s
-        GROUP BY estado_etl
-        ORDER BY estado_etl
-    ', form_type);
-END;
-$$ LANGUAGE plpgsql;
-
-COMMENT ON FUNCTION get_stats_by_form_type IS 'Obtiene estadísticas de procesamiento por tipo de formulario';
-
--- Ejemplo de uso:
--- SELECT * FROM get_stats_by_form_type('boletas');
--- SELECT * FROM get_stats_by_form_type('boletas_procesos');
--- SELECT * FROM get_stats_by_form_type('boletas_simplificadas');
-
-
--- ============================================================================
--- PERMISOS (Ajustar según usuario de la aplicación)
--- ============================================================================
--- GRANT SELECT, INSERT, UPDATE ON control_envios_boletas TO renagro_app;
--- GRANT SELECT, INSERT, UPDATE ON control_envios_boletas_procesos TO renagro_app;
--- GRANT SELECT, INSERT, UPDATE ON control_envios_boletas_simplificadas TO renagro_app;
--- GRANT SELECT ON v_control_envios_todos TO renagro_app;
+CREATE TRIGGER "trigger_update_control_envios_boletas_simplificadas_updated_at"
+    BEFORE UPDATE ON "sc_renagro_mag"."control_envios_boletas_simplificadas"
+    FOR EACH ROW
+    EXECUTE FUNCTION "sc_renagro_mag"."update_updated_at_column"();
