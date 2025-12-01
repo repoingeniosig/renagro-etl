@@ -280,7 +280,8 @@ class MappingLoader:
                 continue
             
             try:
-                mapping = self.load_entity_mapping(yaml_file)
+                # Convertir Path a string para load_entity_mapping
+                mapping = self.load_entity_mapping(str(yaml_file))
                 entity_mappings[mapping.entity] = mapping
                 etl_logger.debug(f"  - {mapping.entity} cargado")
             except Exception as e:

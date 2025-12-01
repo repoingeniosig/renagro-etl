@@ -113,15 +113,21 @@ class FormsManager:
         Returns:
             UUID del formulario o None si no se encuentra
         """
-        # Navegar por el path (ej: "formhub/uuid")
-        keys = self.uuid_field.split('/')
-        value = json_data
-        
         try:
-            for key in keys:
-                value = value.get(key)
-                if value is None:
-                    return None
+            # Primero intentar acceso directo (para claves como "formhub/uuid")
+            value = json_data.get(self.uuid_field)
+            
+            # Si no existe, intentar navegación anidada (para paths como "formhub/uuid" → ["formhub"]["uuid"])
+            if value is None and '/' in self.uuid_field:
+                keys = self.uuid_field.split('/')
+                value = json_data
+                
+                for key in keys:
+                    if not isinstance(value, dict):
+                        return None
+                    value = value.get(key)
+                    if value is None:
+                        return None
             
             return str(value) if value else None
             

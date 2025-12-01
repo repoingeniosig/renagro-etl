@@ -25,6 +25,14 @@ forms:
     control_table: "control_envios_boletas_simplificadas"
     mapping_dir: "boletas-simplificadas"
     enabled: true
+  
+  # # Formulario por defecto (para JSONs sin formhub/uuid)
+  # - uuid: "default"
+  #   name: "boletas"
+  #   description: "Formulario por defecto cuando no hay UUID"
+  #   control_table: "control_envios_boletas"
+  #   mapping_dir: "boletas"
+  #   enabled: true
 
 # Configuración global
 config:
