@@ -212,6 +212,7 @@ class MappingLoader:
     def get_processing_order(self, form_uuid: str = None) -> List[List[str]]:
         """
         Retorna el orden de procesamiento de las entidades en grupos
+        Si no está en memoria, intenta cargar desde Redis
         
         Args:
             form_uuid: UUID del formulario (opcional, usa default si no se provee)
@@ -221,6 +222,12 @@ class MappingLoader:
         """
         if form_uuid and form_uuid in self.form_processing_orders:
             return self.form_processing_orders[form_uuid]
+        
+        # Si no está en memoria, intentar cargar los mapeos (que incluyen processing_order)
+        if form_uuid:
+            self.get_form_mappings(form_uuid)  # Esto cargará desde Redis si existe
+            if form_uuid in self.form_processing_orders:
+                return self.form_processing_orders[form_uuid]
         
         # Fallback: orden por defecto
         return [
@@ -335,6 +342,7 @@ class MappingLoader:
     def get_form_mappings(self, form_uuid: str) -> Dict[str, EntityMapping]:
         """
         Obtiene los mapeos de un formulario específico
+        Intenta primero desde memoria, luego desde Redis, finalmente desde disco
         
         Args:
             form_uuid: UUID del formulario
@@ -342,7 +350,35 @@ class MappingLoader:
         Returns:
             Diccionario {entity_name: EntityMapping}
         """
-        return self.form_mappings.get(form_uuid, {})
+        # 1. Intentar desde memoria
+        if form_uuid in self.form_mappings:
+            return self.form_mappings[form_uuid]
+        
+        # 2. Intentar desde Redis
+        from .redis_client import redis_client
+        cached_mappings = redis_client.get_form_mappings(form_uuid)
+        
+        if cached_mappings and isinstance(cached_mappings, dict):
+            entity_mappings_dict = cached_mappings.get('entity_mappings', {})
+            if entity_mappings_dict:
+                self.form_mappings[form_uuid] = entity_mappings_dict
+                self.form_processing_orders[form_uuid] = cached_mappings.get('processing_order', [])
+                etl_logger.debug(f"Mapeos de {form_uuid} cargados desde Redis: {len(entity_mappings_dict)} entidades")
+                return entity_mappings_dict
+        
+        # 3. Cargar desde disco como último recurso
+        from .forms_manager import forms_manager
+        form_config = forms_manager.get_form_config(form_uuid)
+        
+        if form_config:
+            mapping_path = forms_manager.get_mapping_path(form_config)
+            if mapping_path.exists():
+                etl_logger.info(f"Cargando mapeos de {form_uuid} desde disco (no estaban en cache)")
+                self.load_form_mappings(form_uuid, mapping_path)
+                return self.form_mappings.get(form_uuid, {})
+        
+        # 4. No se encontró nada
+        return {}
     
     def set_active_form(self, form_uuid: str):
         """
