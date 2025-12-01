@@ -70,7 +70,10 @@ async def startup_event():
             console.print(f"[yellow]Mensajes recuperados: {recovered}[/yellow]\n")
     
     except Exception as e:
-        etl_logger.error(f"Error en startup: {e}", exc_info=True)
+        etl_logger.error(
+            f"Error crítico en startup de API: {type(e).__name__} - {e}",
+            exc_info=config.DEBUG_MODE
+        )
         raise
 
 

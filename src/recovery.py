@@ -111,7 +111,10 @@ async def recover_failed_messages() -> int:
         return recovered_count
     
     except Exception as e:
-        etl_logger.error(f"Error en proceso de recuperación: {e}", exc_info=True)
+        etl_logger.error(
+            f"Error en proceso de recuperación: {type(e).__name__} - {e}",
+            exc_info=config.DEBUG_MODE
+        )
         return recovered_count
 
 

@@ -161,7 +161,10 @@ class RabbitMQClient:
                     return True
         
         except Exception as e:
-            etl_logger.error(f"Error publicando mensaje a {queue_name}: {e}", exc_info=True)
+            etl_logger.error(
+                f"Error publicando mensaje a cola '{queue_name}': {type(e).__name__} - {e}",
+                exc_info=config.DEBUG_MODE
+            )
             return False
     
     async def publish_to_retry(
@@ -223,7 +226,11 @@ class RabbitMQClient:
                     return True
         
         except Exception as e:
-            etl_logger.error(f"Error publicando a retry {retry_queue}: {e}", exc_info=True)
+            etl_logger.error(
+                f"Error publicando a cola de reintentos '{retry_queue}' para _id={_id}: "
+                f"{type(e).__name__} - {e}",
+                exc_info=config.DEBUG_MODE
+            )
             return False
     
     async def publish_to_dlq(
@@ -284,7 +291,11 @@ class RabbitMQClient:
                     return True
         
         except Exception as e:
-            etl_logger.error(f"Error publicando a DLQ {dlq_queue}: {e}", exc_info=True)
+            etl_logger.error(
+                f"Error publicando a Dead Letter Queue '{dlq_queue}' para _id={_id}: "
+                f"{type(e).__name__} - {e}",
+                exc_info=config.DEBUG_MODE
+            )
             return False
     
     async def consume_queue(
@@ -339,7 +350,11 @@ class RabbitMQClient:
                             # NACK - rechazar mensaje (no reencolar si es inválido)
                         
                         except Exception as e:
-                            etl_logger.error(f"Error procesando mensaje: {e}", exc_info=True)
+                            etl_logger.error(
+                                f"Error procesando mensaje de cola '{queue_name}': "
+                                f"{type(e).__name__} - {e}",
+                                exc_info=config.DEBUG_MODE
+                            )
                             # El mensaje se reintentará automáticamente
         
         except Exception as e:

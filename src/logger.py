@@ -1,5 +1,6 @@
 """
 Configuración del sistema de logging con rotación semanal
+Separa logs de proceso (INFO/DEBUG) de logs de error (ERROR/CRITICAL)
 """
 import logging
 from logging.handlers import TimedRotatingFileHandler
@@ -7,6 +8,18 @@ from pathlib import Path
 from datetime import datetime
 
 from .config import config
+
+
+class InfoFilter(logging.Filter):
+    """Filtro que solo permite mensajes de nivel INFO, DEBUG y WARNING"""
+    def filter(self, record):
+        return record.levelno < logging.ERROR
+
+
+class ErrorFilter(logging.Filter):
+    """Filtro que solo permite mensajes de nivel ERROR y CRITICAL"""
+    def filter(self, record):
+        return record.levelno >= logging.ERROR
 
 
 def setup_logger(name: str = 'renagro_etl') -> logging.Logger:
@@ -31,7 +44,7 @@ def setup_logger(name: str = 'renagro_etl') -> logging.Logger:
     if logger.handlers:
         return logger
     
-    # Handler para archivo con rotación semanal (cada lunes)
+    # Handler para archivo de proceso (solo INFO, DEBUG, WARNING)
     log_file = log_dir / 'etl_process.log'
     file_handler = TimedRotatingFileHandler(
         filename=log_file,
@@ -42,8 +55,9 @@ def setup_logger(name: str = 'renagro_etl') -> logging.Logger:
     )
     file_handler.suffix = '%Y-%m-%d'  # Sufijo con fecha
     file_handler.setLevel(logging.DEBUG)
+    file_handler.addFilter(InfoFilter())  # Solo INFO, DEBUG, WARNING
     
-    # Handler para archivo de errores con rotación semanal
+    # Handler para archivo de errores (solo ERROR y CRITICAL)
     error_log_file = log_dir / 'etl_errors.log'
     error_handler = TimedRotatingFileHandler(
         filename=error_log_file,
@@ -54,6 +68,7 @@ def setup_logger(name: str = 'renagro_etl') -> logging.Logger:
     )
     error_handler.suffix = '%Y-%m-%d'
     error_handler.setLevel(logging.ERROR)
+    error_handler.addFilter(ErrorFilter())  # Solo ERROR y CRITICAL
     
     # Formato de logs
     formatter = logging.Formatter(

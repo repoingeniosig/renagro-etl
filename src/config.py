@@ -77,6 +77,11 @@ class Config:
     DEBUG = os.getenv('DEBUG', 'false').lower() in ('true', '1', 'yes')
     DEBUG_CLI = os.getenv('DEBUG_CLI', 'false').lower() in ('true', '1', 'yes')
     
+    @property
+    def DEBUG_MODE(self) -> bool:
+        """Alias para DEBUG, usado en logging con exc_info"""
+        return self.DEBUG
+    
     # Rutas del proyecto
     BASE_DIR = Path(__file__).parent.parent
     MAPPING_DIR = BASE_DIR / 'mapping'

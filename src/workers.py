@@ -80,8 +80,11 @@ class JsonSaveWorker:
                 raise Exception("No se pudo publicar a etl_transform")
         
         except Exception as e:
-            error_msg = f"Error en json_save: {str(e)}"
-            etl_logger.error(f"[json_save] _id={_id} - {error_msg}", exc_info=True)
+            error_msg = f"Error guardando JSON en BD: {type(e).__name__} - {str(e)}"
+            etl_logger.error(
+                f"[json_save] Fallo procesando _id={_id}, form={form_uuid}: {error_msg}",
+                exc_info=config.DEBUG_MODE
+            )
             
             # Actualizar retry_count y estado en BD
             retry_count = 0
@@ -107,7 +110,10 @@ class JsonSaveWorker:
                         
                         session.commit()
             except Exception as db_error:
-                etl_logger.error(f"[json_save] Error actualizando BD: {db_error}")
+                etl_logger.error(
+                    f"[json_save] Error crítico actualizando estado en BD para _id={_id}: "
+                    f"{type(db_error).__name__} - {db_error}"
+                )
             
             # Decidir si reintentar o enviar a DLQ
             if retry_count >= config.MAX_RETRIES:
@@ -222,8 +228,11 @@ class EtlTransformWorker:
                 raise Exception("No se pudo publicar a db_insert")
         
         except Exception as e:
-            error_msg = f"Error en etl_transform: {str(e)}"
-            etl_logger.error(f"[etl_transform] _id={_id} - {error_msg}", exc_info=True)
+            error_msg = f"Error en transformación ETL: {type(e).__name__} - {str(e)}"
+            etl_logger.error(
+                f"[etl_transform] Fallo transformando _id={_id}, form={form_uuid}: {error_msg}",
+                exc_info=config.DEBUG_MODE
+            )
             
             # Actualizar retry_count y estado en BD (tabla específica)
             retry_count = 0
@@ -249,7 +258,10 @@ class EtlTransformWorker:
                         
                         session.commit()
             except Exception as db_error:
-                etl_logger.error(f"[etl_transform] Error actualizando BD: {db_error}")
+                etl_logger.error(
+                    f"[etl_transform] Error crítico actualizando estado en BD para _id={_id}: "
+                    f"{type(db_error).__name__} - {db_error}"
+                )
             
             # Decidir si reintentar o enviar a DLQ
             if retry_count >= config.MAX_RETRIES:
@@ -352,8 +364,11 @@ class DbInsertWorker:
                 raise Exception(f"Transacción fallida: {error_msg}")
         
         except Exception as e:
-            error_msg = f"Error en db_insert: {str(e)}"
-            etl_logger.error(f"[db_insert] _id={_id} - {error_msg}", exc_info=True)
+            error_msg = f"Error insertando en BD: {type(e).__name__} - {str(e)}"
+            etl_logger.error(
+                f"[db_insert] Fallo insertando datos de _id={_id}, form={form_uuid}: {error_msg}",
+                exc_info=config.DEBUG_MODE
+            )
             
             # Actualizar retry_count y estado en BD (tabla específica)
             retry_count = 0
