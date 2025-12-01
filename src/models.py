@@ -2,7 +2,7 @@
 Modelos SQLAlchemy para la base de datos
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Text, DateTime, Enum as SQLEnum, Table, MetaData
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
@@ -23,6 +23,31 @@ class EstadoEnvioEnum(enum.Enum):
     ERROR = "ERROR"
     PENDIENTE = "PENDIENTE"
     PROCESADO = "PROCESADO"
+
+
+def get_control_table_model(table_name: str, engine):
+    """
+    Crea dinámicamente un modelo SQLAlchemy para una tabla de control
+    usando reflexión de la tabla existente en la BD
+    
+    Args:
+        table_name: Nombre de la tabla sin schema
+        engine: Engine de SQLAlchemy para reflexión
+    
+    Returns:
+        Clase modelo SQLAlchemy
+    """
+    metadata = MetaData(schema='sc_renagro_mag')
+    table = Table(table_name, metadata, autoload_with=engine)
+    
+    class ControlEnvios(Base):
+        __table__ = table
+        __mapper_args__ = {'primary_key': [table.c._id]}
+    
+    ControlEnvios.__name__ = f'Control_{table_name}'
+    return ControlEnvios
+
+
 class ControlEnviosBoletas(Base):
     """
     Tabla de control para almacenar los JSONs recibidos de KoboToolbox

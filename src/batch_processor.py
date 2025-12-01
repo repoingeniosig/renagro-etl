@@ -118,6 +118,21 @@ async def process_batch(file_path: str, skip_duplicates: bool = True):
             border_style="cyan"
         ))
         
+        # Cargar configuración de formularios
+        from .forms_manager import forms_manager
+        from .mapping_loader import mapping_loader
+        from sqlalchemy import text
+        
+        console.print("\n⚙️  Cargando configuración de formularios...")
+        forms = forms_manager.list_active_forms()
+        
+        for form in forms:
+            mapping_path = forms_manager.get_mapping_path(form)
+            if mapping_path.exists():
+                mapping_loader.load_form_mappings(form.uuid, mapping_path)
+        
+        console.print(f"[green]✅ {len(forms)} formularios configurados[/green]")
+        
         # Cargar archivo
         console.print(f"\n📂 Cargando archivo: [bold]{file_path}[/bold]")
         batch_data = load_batch_file(file_path)
@@ -139,7 +154,8 @@ async def process_batch(file_path: str, skip_duplicates: bool = True):
             'enviados': 0,
             'duplicados': 0,
             'invalidos': 0,
-            'errores': 0
+            'errores': 0,
+            'rechazados_uuid': 0
         }
         
         # Procesar registros con barra de progreso
@@ -160,6 +176,14 @@ async def process_batch(file_path: str, skip_duplicates: bool = True):
             for index, record in enumerate(records, start=1):
                 progress.update(task, advance=1)
                 
+                # Validar formulario por UUID
+                is_valid_form, form_config, error = forms_manager.validate_json(record)
+                
+                if not is_valid_form:
+                    stats['rechazados_uuid'] += 1
+                    etl_logger.error(f"Registro {index}: {error}")
+                    continue
+                
                 # Validar registro
                 is_valid, error_msg = validate_record(record, index)
                 
@@ -170,18 +194,22 @@ async def process_batch(file_path: str, skip_duplicates: bool = True):
                 
                 _id = record.get('_id')
                 
-                # Verificar duplicados
+                # Verificar duplicados en tabla de control correspondiente
                 try:
+                    from .models import get_control_table_model
+                    
+                    ControlModel = get_control_table_model(form_config.control_table, db.engine)
+                    
                     with db.get_session() as session:
-                        is_duplicate = check_duplicate(session, _id)
+                        existing = session.query(ControlModel).filter_by(_id=_id).first()
                         
-                        if is_duplicate:
+                        if existing:
                             if skip_duplicates:
                                 stats['duplicados'] += 1
-                                etl_logger.info(f"Registro {index} (_id={_id}): Duplicado omitido")
+                                etl_logger.info(f"Registro {index} (_id={_id}): Duplicado omitido en {form_config.control_table}")
                                 continue
                             else:
-                                etl_logger.info(f"Registro {index} (_id={_id}): Duplicado, se actualizará")
+                                etl_logger.info(f"Registro {index} (_id={_id}): Duplicado, se actualizará en {form_config.control_table}")
                 
                 except Exception as db_error:
                     stats['errores'] += 1
@@ -190,6 +218,9 @@ async def process_batch(file_path: str, skip_duplicates: bool = True):
                 
                 # Publicar a cola RabbitMQ
                 try:
+                    # Agregar metadato del formulario
+                    record['__form_uuid__'] = form_config.uuid
+                    
                     success = await rabbitmq_client.publish_message(
                         queue_name=config.QUEUE_JSON_SAVE,
                         message=record,
@@ -217,6 +248,7 @@ async def process_batch(file_path: str, skip_duplicates: bool = True):
         console.print(f"✅ Enviados a cola:    {stats['enviados']}")
         console.print(f"⏭️  Duplicados omitidos: {stats['duplicados']}")
         console.print(f"⚠️  Inválidos:          {stats['invalidos']}")
+        console.print(f"🚫 UUID no reconocido: {stats['rechazados_uuid']}")
         console.print(f"❌ Errores:            {stats['errores']}")
         console.print("="*80)
         

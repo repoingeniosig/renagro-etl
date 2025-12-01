@@ -86,6 +86,109 @@ class RedisClient:
         """Verifica si Redis está habilitado y disponible"""
         return self._enabled and self._redis_client is not None
     
+    def get_form_mappings(self, form_uuid: str) -> Optional[Dict[str, Any]]:
+        """
+        Obtiene los mapeos de un formulario específico desde Redis
+        
+        Args:
+            form_uuid: UUID del formulario
+        
+        Returns:
+            Diccionario con los mapeos del formulario o None si no existen
+        """
+        if not self.is_enabled():
+            return None
+        
+        try:
+            key = f"renagro:mappings:{form_uuid}"
+            cached_data = self._redis_client.get(key)
+            
+            if cached_data:
+                mappings = pickle.loads(cached_data)
+                etl_logger.debug(f"Mapeos de {form_uuid} cargados desde Redis ({len(mappings)} entidades)")
+                
+                if config.DEBUG_CLI:
+                    console.print(f"✅ Mapeos de {form_uuid} desde Redis ({len(mappings)} entidades)")
+                
+                return mappings
+            else:
+                if config.DEBUG_CLI:
+                    console.print(f"ℹ️  No hay mapeos de {form_uuid} en cache")
+                return None
+        
+        except (RedisError, ConnectionError) as e:
+            etl_logger.warning(f"Error leyendo cache de {form_uuid}: {e}")
+            return None
+        except Exception as e:
+            etl_logger.error(f"Error inesperado leyendo cache de {form_uuid}: {e}", exc_info=True)
+            return None
+    
+    def set_form_mappings(self, form_uuid: str, mappings: Dict[str, Any]) -> bool:
+        """
+        Guarda los mapeos de un formulario en cache de Redis
+        
+        Args:
+            form_uuid: UUID del formulario
+            mappings: Diccionario con los mapeos
+        
+        Returns:
+            True si se guardó exitosamente
+        """
+        if not self.is_enabled():
+            return False
+        
+        try:
+            key = f"renagro:mappings:{form_uuid}"
+            serialized_data = pickle.dumps(mappings)
+            
+            self._redis_client.setex(
+                name=key,
+                time=config.REDIS_TTL,
+                value=serialized_data
+            )
+            
+            etl_logger.debug(f"Mapeos de {form_uuid} guardados en Redis ({len(mappings)} entidades)")
+            
+            if config.DEBUG_CLI:
+                console.print(f"✅ Mapeos de {form_uuid} guardados en Redis ({len(mappings)} entidades)")
+            
+            return True
+        
+        except (RedisError, pickle.PickleError) as e:
+            etl_logger.warning(f"Error guardando cache de {form_uuid}: {e}")
+            return False
+        except Exception as e:
+            etl_logger.error(f"Error inesperado guardando cache de {form_uuid}: {e}", exc_info=True)
+            return False
+    
+    def invalidate_form_cache(self, form_uuid: str) -> bool:
+        """
+        Invalida el cache de un formulario específico
+        
+        Args:
+            form_uuid: UUID del formulario
+        
+        Returns:
+            True si se invalidó exitosamente
+        """
+        if not self.is_enabled():
+            return False
+        
+        try:
+            key = f"renagro:mappings:{form_uuid}"
+            result = self._redis_client.delete(key)
+            
+            etl_logger.info(f"Cache de {form_uuid} invalidado")
+            
+            if config.DEBUG_CLI:
+                console.print(f"✅ Cache de {form_uuid} invalidado")
+            
+            return result > 0
+        
+        except (RedisError, ConnectionError) as e:
+            etl_logger.warning(f"Error invalidando cache de {form_uuid}: {e}")
+            return False
+    
     def get_cached_mappings(self) -> Optional[Dict[str, Any]]:
         """
         Obtiene los mapeos cacheados desde Redis
@@ -183,10 +286,12 @@ class RedisClient:
             
             return False
     
-    def invalidate_cache(self) -> bool:
+    def invalidate_cache(self, form_uuid: Optional[str] = None) -> bool:
         """
         Invalida el cache de mapeos
-        Útil cuando se actualizan los archivos YAML
+        
+        Args:
+            form_uuid: UUID del formulario (None para invalidar todos)
         
         Returns:
             True si se invalidó exitosamente
@@ -196,8 +301,25 @@ class RedisClient:
             return False
         
         try:
-            key = "renagro:mappings"
-            result = self._redis_client.delete(key)
+            if form_uuid:
+                # Invalidar formulario específico
+                return self.invalidate_form_cache(form_uuid)
+            else:
+                # Invalidar todos los formularios
+                pattern = "renagro:mappings:*"
+                keys = self._redis_client.keys(pattern)
+                
+                if keys:
+                    result = self._redis_client.delete(*keys)
+                    etl_logger.info(f"Cache invalidado: {result} formularios")
+                    
+                    if config.DEBUG_CLI:
+                        console.print(f"✅ Cache invalidado: {result} formularios")
+                    
+                    return result > 0
+                else:
+                    etl_logger.info("No hay cache para invalidar")
+                    return True
             
             if result > 0:
                 etl_logger.info("Cache de mapeos invalidado")

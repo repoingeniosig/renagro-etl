@@ -44,12 +44,16 @@ class EntityMapping:
 
 
 class MappingLoader:
-    """Cargador de archivos YAML de mapeo"""
+    """Cargador de archivos YAML de mapeo con soporte multi-formulario"""
     
     def __init__(self, mapping_dir: Path = None):
         self.mapping_dir = mapping_dir or config.MAPPING_DIR
         self.master_config = None
         self.entity_mappings: Dict[str, EntityMapping] = {}
+        
+        # Multi-formulario: {form_uuid: {entity: EntityMapping}}
+        self.form_mappings: Dict[str, Dict[str, EntityMapping]] = {}
+        self.form_processing_orders: Dict[str, List[List[str]]] = {}
     
     def load_master(self) -> Dict[str, str]:
         """
@@ -205,26 +209,116 @@ class MappingLoader:
         except Exception as e:
             logger.error(f"Error invalidando cache: {e}")
     
-    def get_processing_order(self) -> List[List[str]]:
+    def get_processing_order(self, form_uuid: str = None) -> List[List[str]]:
         """
         Retorna el orden de procesamiento de las entidades en grupos
-        según las dependencias de las llaves foráneas
+        
+        Args:
+            form_uuid: UUID del formulario (opcional, usa default si no se provee)
         
         Returns:
-            Lista de listas, donde cada lista interna representa un grupo
-            que puede ser procesado en paralelo
+            Lista de listas de nombres de entidades
         """
-        # Orden definido según dependencias de FK
+        if form_uuid and form_uuid in self.form_processing_orders:
+            return self.form_processing_orders[form_uuid]
+        
+        # Fallback: orden por defecto
         return [
-            # Grupo 1: Tablas sin dependencias
             ['bovinos', 'pecuario_otros', 'pollos', 'porcinos', 'personas'],
-            # Grupo 2: Boletas (depende de los IDs del grupo 1)
             ['boletas'],
-            # Grupo 3: Tablas que dependen de boletas
             ['miembros_hogar', 'terrenos'],
-            # Grupo 4: Tablas que dependen de terrenos
             ['cultivos', 'forestales']
         ]
+    
+    def load_form_mappings(self, form_uuid: str, mapping_path: Path, force_reload: bool = False):
+        """
+        Carga mapeos para un formulario específico
+        Primero intenta cargar desde Redis, luego desde disco
+        
+        Args:
+            form_uuid: UUID del formulario
+            mapping_path: Ruta al directorio de mapeos
+            force_reload: Forzar recarga desde disco ignorando cache
+        """
+        # Intentar cargar desde Redis si está habilitado
+        if not force_reload:
+            from .redis_client import redis_client
+            
+            cached_mappings = redis_client.get_form_mappings(form_uuid)
+            if cached_mappings:
+                self.form_mappings[form_uuid] = cached_mappings.get('entity_mappings', {})
+                self.form_processing_orders[form_uuid] = cached_mappings.get('processing_order', [])
+                etl_logger.info(f"Formulario {form_uuid}: {len(self.form_mappings[form_uuid])} entidades desde Redis")
+                return
+        
+        # Cargar desde disco
+        etl_logger.info(f"Cargando mapeos para formulario {form_uuid} desde {mapping_path}")
+        
+        # Cargar master.yml
+        master_file = mapping_path / "master.yml"
+        if not master_file.exists():
+            raise FileNotFoundError(f"master.yml no encontrado en {mapping_path}")
+        
+        with open(master_file, 'r', encoding='utf-8') as f:
+            master_data = yaml.safe_load(f)
+        
+        # Extraer orden de procesamiento
+        processing_order = []
+        for group in master_data.get('processing_order', []):
+            entities = group.get('entities', [])
+            if entities:
+                processing_order.append(entities)
+        
+        self.form_processing_orders[form_uuid] = processing_order
+        
+        # Cargar todos los YAMLs de entidades
+        entity_mappings = {}
+        yaml_files = list(mapping_path.glob("*.yaml"))
+        
+        for yaml_file in yaml_files:
+            if yaml_file.name == 'master.yml':
+                continue
+            
+            try:
+                mapping = self.load_entity_mapping(yaml_file)
+                entity_mappings[mapping.entity] = mapping
+                etl_logger.debug(f"  - {mapping.entity} cargado")
+            except Exception as e:
+                etl_logger.error(f"Error cargando {yaml_file.name}: {e}")
+        
+        self.form_mappings[form_uuid] = entity_mappings
+        etl_logger.info(f"Formulario {form_uuid}: {len(entity_mappings)} entidades cargadas desde disco")
+        
+        # Guardar en Redis
+        from .redis_client import redis_client
+        cache_data = {
+            'entity_mappings': entity_mappings,
+            'processing_order': processing_order
+        }
+        redis_client.set_form_mappings(form_uuid, cache_data)
+    
+    def get_form_mappings(self, form_uuid: str) -> Dict[str, EntityMapping]:
+        """
+        Obtiene los mapeos de un formulario específico
+        
+        Args:
+            form_uuid: UUID del formulario
+            
+        Returns:
+            Diccionario {entity_name: EntityMapping}
+        """
+        return self.form_mappings.get(form_uuid, {})
+    
+    def set_active_form(self, form_uuid: str):
+        """
+        Establece un formulario como activo (para retrocompatibilidad)
+        
+        Args:
+            form_uuid: UUID del formulario
+        """
+        if form_uuid in self.form_mappings:
+            self.entity_mappings = self.form_mappings[form_uuid]
+            etl_logger.info(f"Formulario activo: {form_uuid}")
 
 
 # Instancia global del cargador

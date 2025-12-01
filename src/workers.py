@@ -5,16 +5,19 @@ Cada worker procesa mensajes de una cola específica del pipeline ETL
 import asyncio
 import sys
 from typing import Dict, Any
+from sqlalchemy import text
 
 from .config import config
 from .logger import etl_logger
 from .database import db
-from .models import ControlEnviosBoletas, EstadoETLEnum, EstadoEnvioEnum
+from .models import ControlEnviosBoletas, EstadoETLEnum, EstadoEnvioEnum, get_control_table_model
 from .rabbitmq_client import rabbitmq_client
 from .mapping_loader import mapping_loader
 from .transformer import JSONTransformer
 from .executor import TransactionExecutor
+from .forms_manager import forms_manager
 from datetime import datetime
+from sqlalchemy import inspect
 
 
 class JsonSaveWorker:
@@ -32,36 +35,37 @@ class JsonSaveWorker:
             data: Mensaje con el JSON completo del formulario
         """
         _id = data.get('_id')
-        uuid_boleta = data.get('_uuid')  # Extraer UUID de la boleta
+        uuid_boleta = data.get('_uuid')
+        form_uuid = data.get('__form_uuid__', 'default')
         
         try:
-            etl_logger.info(f"[json_save] Procesando _id={_id} uuid={uuid_boleta}")
+            etl_logger.info(f"[json_save] Procesando _id={_id} uuid={uuid_boleta} form={form_uuid}")
             
             # Validar campos requeridos
             if not _id:
                 raise ValueError("El JSON no contiene el campo '_id'")
             
-            # Guardar en tabla de control
+            # Obtener configuración del formulario
+            form_config = forms_manager.get_form_config(form_uuid)
+            if not form_config:
+                raise ValueError(f"Formulario no configurado: {form_uuid}")
+            
+            # Obtener modelo dinámico de la tabla de control
+            ControlModel = get_control_table_model(form_config.control_table, db.engine)
+            
+            # Guardar en tabla de control correspondiente
             with db.get_session() as session:
-                # Nota: La validación de duplicados se hace en el endpoint FastAPI
-                # Si llegó aquí, es porque pasó la validación
-
-                # En caso de leer desde la api de kobo, igualente cada registro se deberia verificar en el script
-                # que orignalmente lee la api de kobo y hacer un proceso parecido al que hace la api actual de /boletas para evitar duplicados.
-                
-                # Crear nuevo registro
-                registro = ControlEnviosBoletas(
+                control = ControlModel(
                     _id=_id,
                     uuid_boleta=uuid_boleta,
                     json_data=data,
-                    estado_etl=EstadoETLEnum.PENDIENTE,
-                    envio_datos_procesados=EstadoEnvioEnum.PENDIENTE
+                    estado_etl=EstadoETLEnum.PENDIENTE.value,
+                    envio_datos_procesados=EstadoEnvioEnum.PENDIENTE.value
                 )
-                
-                session.add(registro)
+                session.add(control)
                 session.commit()
                 
-                etl_logger.info(f"[json_save] JSON guardado _id={_id}")
+                etl_logger.info(f"[json_save] Guardado en {form_config.control_table} _id={_id}")
             
             # Publicar a siguiente cola: etl_transform
             success = await rabbitmq_client.publish_message(
@@ -82,8 +86,11 @@ class JsonSaveWorker:
             # Actualizar retry_count y estado en BD
             retry_count = 0
             try:
+                form_config = forms_manager.get_form_config(form_uuid)
+                ControlModel = get_control_table_model(form_config.control_table, db.engine)
+                
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
                         control.retry_count += 1
                         retry_count = control.retry_count
@@ -140,28 +147,31 @@ class EtlTransformWorker:
             data: Mensaje con el JSON completo del formulario
         """
         _id = data.get('_id')
+        form_uuid = data.get('__form_uuid__', 'default')
         
         try:
-            etl_logger.info(f"[etl_transform] Procesando _id={_id}")
+            etl_logger.info(f"[etl_transform] Procesando _id={_id} form={form_uuid}")
             
-            # Verificar si los mapeos están cargados en memoria
-            # Si no están, cargarlos desde Redis/disco (fallback para workers independientes)
-            if not mapping_loader.entity_mappings:
-                etl_logger.warning("[etl_transform] Mapeos no encontrados en memoria, cargando desde Redis/disco...")
-                mapping_loader.load_master()
-                mapping_loader.load_all_mappings(force_reload=False)
+            # Obtener mapeos del formulario
+            entity_mappings = mapping_loader.get_form_mappings(form_uuid)
             
-            processing_order = mapping_loader.get_processing_order()
+            if not entity_mappings:
+                raise ValueError(f"No hay mapeos cargados para formulario {form_uuid}")
+            
+            # Establecer como activo para retrocompatibilidad
+            mapping_loader.set_active_form(form_uuid)
+            
+            processing_order = mapping_loader.get_processing_order(form_uuid)
             
             # Transformar datos según mapeos
             transformations = {}
             
             for group in processing_order:
                 for entity_name in group:
-                    if entity_name not in mapping_loader.entity_mappings:
+                    if entity_name not in entity_mappings:
                         continue
                     
-                    entity_mapping = mapping_loader.entity_mappings[entity_name]
+                    entity_mapping = entity_mappings[entity_name]
                     
                     rows = JSONTransformer.transform_entity_with_repeats(
                         data,
@@ -176,11 +186,14 @@ class EtlTransformWorker:
             if not transformations:
                 etl_logger.warning(f"[etl_transform] _id={_id} - Sin datos para insertar")
                 
-                # Actualizar estado a PROCESADO (sin datos)
+                # Actualizar estado a PROCESADO (sin datos) en tabla específica
+                form_config = forms_manager.get_form_config(form_uuid)
+                ControlModel = get_control_table_model(form_config.control_table, db.engine)
+                
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
-                        control.estado_etl = EstadoETLEnum.PROCESADO
+                        control.estado_etl = EstadoETLEnum.PROCESADO.value
                         control.procesado_at = datetime.now()
                         session.commit()
                 
@@ -191,6 +204,7 @@ class EtlTransformWorker:
             # Preparar mensaje para siguiente cola
             transform_message = {
                 '_id': _id,
+                '__form_uuid__': form_uuid,
                 'transformations': transformations,
                 'processing_order': processing_order
             }
@@ -211,19 +225,22 @@ class EtlTransformWorker:
             error_msg = f"Error en etl_transform: {str(e)}"
             etl_logger.error(f"[etl_transform] _id={_id} - {error_msg}", exc_info=True)
             
-            # Actualizar retry_count y estado en BD
+            # Actualizar retry_count y estado en BD (tabla específica)
             retry_count = 0
             try:
+                form_config = forms_manager.get_form_config(form_uuid)
+                ControlModel = get_control_table_model(form_config.control_table, db.engine)
+                
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
                         control.retry_count += 1
-                        retry_count = control.retry_count
                         control.last_error_stage = 'etl_transform'
                         control.error_message = error_msg
+                        retry_count = control.retry_count
                         
                         if retry_count >= config.MAX_RETRIES:
-                            control.estado_etl = EstadoETLEnum.ERROR
+                            control.estado_etl = EstadoETLEnum.ERROR.value
                             etl_logger.error(
                                 f"[etl_transform] _id={_id} alcanzó MAX_RETRIES={config.MAX_RETRIES}"
                             )
@@ -273,21 +290,21 @@ class DbInsertWorker:
             data: Mensaje con transformations y processing_order
         """
         _id = data.get('_id')
+        form_uuid = data.get('__form_uuid__', 'default')
         transformations = data.get('transformations', {})
         processing_order = data.get('processing_order', [])
         
         try:
-            etl_logger.info(f"[db_insert] Procesando _id={_id}")
+            etl_logger.info(f"[db_insert] Procesando _id={_id} form={form_uuid}")
             
-            # Cargar mapeos si no están en memoria (workers son procesos separados)
-            from .mapping_loader import mapping_loader
-            if not mapping_loader.entity_mappings:
-                etl_logger.warning("[db_insert] Cargando mapeos desde Redis/disco...")
-                mapping_loader.load_master()
-                mapping_loader.load_all_mappings(force_reload=False)
+            # Obtener mapeos del formulario
+            entity_mappings = mapping_loader.get_form_mappings(form_uuid)
             
-            # Crear instancia de executor con los mapeos
-            executor = TransactionExecutor(entity_mappings=mapping_loader.entity_mappings)
+            if not entity_mappings:
+                raise ValueError(f"No hay mapeos cargados para formulario {form_uuid}")
+            
+            # Crear instancia de executor con los mapeos del formulario
+            executor = TransactionExecutor(entity_mappings=entity_mappings)
             
             # Ejecutar transacción
             # Nota: execute_inserts es síncrono, lo ejecutamos en thread pool
@@ -306,11 +323,14 @@ class DbInsertWorker:
                     f"{results['total_rows_inserted']} filas insertadas"
                 )
                 
-                # Actualizar estado a PROCESADO
+                # Actualizar estado a PROCESADO en tabla específica
+                form_config = forms_manager.get_form_config(form_uuid)
+                ControlModel = get_control_table_model(form_config.control_table, db.engine)
+                
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
-                        control.estado_etl = EstadoETLEnum.PROCESADO
+                        control.estado_etl = EstadoETLEnum.PROCESADO.value
                         control.procesado_at = datetime.now()
                         control.error_message = None
                         session.commit()
@@ -318,11 +338,14 @@ class DbInsertWorker:
                 error_msg = '; '.join(results['errors']) if results['errors'] else 'Error desconocido'
                 etl_logger.error(f"[db_insert] _id={_id} - Transacción fallida: {error_msg}")
                 
-                # Actualizar estado a ERROR
+                # Actualizar estado a ERROR en tabla específica
+                form_config = forms_manager.get_form_config(form_uuid)
+                ControlModel = get_control_table_model(form_config.control_table, db.engine)
+                
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
-                        control.estado_etl = EstadoETLEnum.ERROR
+                        control.estado_etl = EstadoETLEnum.ERROR.value
                         control.error_message = error_msg
                         session.commit()
                 
@@ -332,24 +355,27 @@ class DbInsertWorker:
             error_msg = f"Error en db_insert: {str(e)}"
             etl_logger.error(f"[db_insert] _id={_id} - {error_msg}", exc_info=True)
             
-            # Actualizar retry_count y estado en BD
+            # Actualizar retry_count y estado en BD (tabla específica)
             retry_count = 0
             try:
+                form_config = forms_manager.get_form_config(form_uuid)
+                ControlModel = get_control_table_model(form_config.control_table, db.engine)
+                
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
                         control.retry_count += 1
-                        retry_count = control.retry_count
                         control.last_error_stage = 'db_insert'
                         control.error_message = error_msg
+                        retry_count = control.retry_count
                         
                         if retry_count >= config.MAX_RETRIES:
-                            control.estado_etl = EstadoETLEnum.ERROR
+                            control.estado_etl = EstadoETLEnum.ERROR.value
                             etl_logger.error(
                                 f"[db_insert] _id={_id} alcanzó MAX_RETRIES={config.MAX_RETRIES}"
                             )
                         else:
-                            control.estado_etl = EstadoETLEnum.PENDIENTE
+                            control.estado_etl = EstadoETLEnum.PENDIENTE.value
                         
                         session.commit()
             except Exception as db_error:

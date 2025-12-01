@@ -27,20 +27,35 @@ app = FastAPI(
 async def startup_event():
     """
     Evento de inicio: 
-    1. Cargar mapeos YAML a Redis cache
-    2. Recuperar mensajes con ERROR de la BD y republicarlos
+    1. Cargar configuración de formularios
+    2. Cargar mapeos YAML de todos los formularios
+    3. Recuperar mensajes con ERROR
     """
     etl_logger.info("Iniciando servidor RENAGRO ETL API...")
     
     try:
-        # 1. Cargar mapeos master y YAML
-        etl_logger.info("Cargando mapeos YAML...")
-        mapping_loader.load_master()
-        mapping_loader.load_all_mappings(force_reload=False)
+        # 1. Cargar configuración de formularios
+        from .forms_manager import forms_manager
+        from pathlib import Path
         
-        etl_logger.info(f"Mapeos cargados: {len(mapping_loader.entity_mappings)} entidades")
+        etl_logger.info("Cargando configuración de formularios...")
+        forms = forms_manager.list_active_forms()
+        etl_logger.info(f"{len(forms)} formularios activos")
         
-        # 2. Recuperar mensajes fallidos de la BD
+        # 2. Cargar mapeos YAML para cada formulario
+        for form in forms:
+            mapping_path = forms_manager.get_mapping_path(form)
+            
+            if not mapping_path.exists():
+                etl_logger.warning(f"Directorio de mapeos no existe: {mapping_path}")
+                continue
+            
+            try:
+                mapping_loader.load_form_mappings(form.uuid, mapping_path)
+            except Exception as e:
+                etl_logger.error(f"Error cargando mapeos para {form.uuid}: {e}")
+        
+        # 3. Recuperar mensajes fallidos de la BD
         etl_logger.info("Recuperando mensajes con estado ERROR...")
         recovered = await recover_failed_messages()
         etl_logger.info(f"Recuperación completada: {recovered} mensajes republicados")
@@ -48,8 +63,10 @@ async def startup_event():
         if config.DEBUG_CLI:
             from rich.console import Console
             console = Console()
-            console.print(f"\n[green]✅ Servidor iniciado - {len(mapping_loader.entity_mappings)} mapeos YAML cargados[/green]")
-            console.print(f"[cyan]Redis cache: {'Habilitado' if config.REDIS_ENABLED else 'Deshabilitado'}[/cyan]")
+            console.print(f"\n[green]✅ Servidor iniciado - {len(forms)} formularios configurados[/green]")
+            for form in forms:
+                mappings_count = len(mapping_loader.get_form_mappings(form.uuid))
+                console.print(f"   {form.uuid}: {mappings_count} entidades")
             console.print(f"[yellow]Mensajes recuperados: {recovered}[/yellow]\n")
     
     except Exception as e:
@@ -153,19 +170,39 @@ async def process_boleta(
         
         etl_logger.info(f"API - _id={_id} recibido desde {username}")
         
-        # VALIDAR DUPLICADOS ANTES DE ENCOLAR
+        # VALIDAR FORMULARIO POR UUID
+        from .forms_manager import forms_manager
         from .database import db
-        from .models import ControlEnviosBoletas
+        from sqlalchemy import text
+        
+        is_valid, form_config, error = forms_manager.validate_json(json_data)
+        
+        if not is_valid:
+            etl_logger.error(f"API - _id={_id} rechazado: {error}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error
+            )
+        
+        etl_logger.info(f"API - _id={_id} identificado como formulario '{form_config.name}' (UUID: {form_config.uuid})")
+        
+        # VALIDAR DUPLICADOS EN TABLA DE CONTROL CORRESPONDIENTE
+        from .models import get_control_table_model
+        
+        ControlModel = get_control_table_model(form_config.control_table, db.engine)
         
         with db.get_session() as session:
-            existing = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+            existing = session.query(ControlModel).filter_by(_id=_id).first()
             
             if existing:
-                etl_logger.warning(f"API - _id={_id} duplicado rechazado (ya existe en BD)")
+                etl_logger.warning(f"API - _id={_id} duplicado rechazado en {form_config.control_table}")
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail=f"Registro duplicado: _id={_id} ya existe en la base de datos"
+                    detail=f"Registro duplicado: _id={_id} ya existe en {form_config.control_table}"
                 )
+        
+        # Agregar metadato del formulario al mensaje
+        json_data['__form_uuid__'] = form_config.uuid
         
         # Publicar a cola json_save
         success = await rabbitmq_client.publish_message(
