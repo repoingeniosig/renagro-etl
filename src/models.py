@@ -25,6 +25,10 @@ class EstadoEnvioEnum(enum.Enum):
     PROCESADO = "PROCESADO"
 
 
+# Cache de modelos generados dinámicamente
+_control_table_models_cache = {}
+
+
 def get_control_table_model(table_name: str, engine):
     """
     Crea dinámicamente un modelo SQLAlchemy para una tabla de control
@@ -35,17 +39,33 @@ def get_control_table_model(table_name: str, engine):
         engine: Engine de SQLAlchemy para reflexión
     
     Returns:
-        Clase modelo SQLAlchemy
+        Clase modelo SQLAlchemy (cacheada)
     """
+    # Retornar del cache si ya existe
+    if table_name in _control_table_models_cache:
+        return _control_table_models_cache[table_name]
+    
     metadata = MetaData(schema='sc_renagro_mag')
     table = Table(table_name, metadata, autoload_with=engine)
     
-    class ControlEnvios(Base):
-        __table__ = table
-        __mapper_args__ = {'primary_key': [table.c._id]}
+    # Crear clase con nombre único
+    class_name = f'Control_{table_name}'
     
-    ControlEnvios.__name__ = f'Control_{table_name}'
-    return ControlEnvios
+    # Usar type() para crear la clase dinámicamente
+    ControlModel = type(
+        class_name,
+        (Base,),
+        {
+            '__table__': table,
+            '__mapper_args__': {'primary_key': [table.c._id]},
+            '__module__': __name__
+        }
+    )
+    
+    # Guardar en cache
+    _control_table_models_cache[table_name] = ControlModel
+    
+    return ControlModel
 
 
 class ControlEnviosBoletas(Base):
