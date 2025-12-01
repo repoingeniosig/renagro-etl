@@ -285,8 +285,37 @@ class MappingLoader:
                 continue
             
             try:
-                # Convertir Path a string para load_entity_mapping
-                mapping = self.load_entity_mapping(str(yaml_file))
+                # Cargar directamente desde la ruta absoluta
+                if not yaml_file.exists():
+                    raise FileNotFoundError(f"Archivo de mapeo no encontrado: {yaml_file}")
+                
+                with open(yaml_file, 'r', encoding='utf-8') as f:
+                    data = yaml.safe_load(f)
+                
+                # Convertir fields a objetos FieldMapping
+                fields = {}
+                for field_name, field_config in data.get('fields', {}).items():
+                    fields[field_name] = FieldMapping(
+                        source=field_config['source'],
+                        type=field_config['type'],
+                        default=field_config.get('default'),
+                        convert=field_config.get('convert'),
+                        repeat_filter=field_config.get('repeat_filter'),
+                        extract=field_config.get('extract'),
+                        parent_key=field_config.get('parent_key')
+                    )
+                
+                mapping = EntityMapping(
+                    version=data.get('version', '1.0'),
+                    entity=data.get('entity'),
+                    table=data.get('table'),
+                    fields=fields,
+                    conversions=data.get('conversions'),
+                    repeat=data.get('repeat'),
+                    parent_key=data.get('parent_key'),
+                    raw_data=data
+                )
+                
                 entity_mappings[mapping.entity] = mapping
                 etl_logger.debug(f"  - {mapping.entity} cargado")
             except Exception as e:
