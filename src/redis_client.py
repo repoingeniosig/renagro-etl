@@ -105,10 +105,11 @@ class RedisClient:
             
             if cached_data:
                 mappings = pickle.loads(cached_data)
-                etl_logger.debug(f"Mapeos de {form_uuid} cargados desde Redis ({len(mappings)} entidades)")
+                entity_count = len(mappings.get('entity_mappings', {})) if isinstance(mappings, dict) else len(mappings)
+                etl_logger.debug(f"Mapeos de {form_uuid} cargados desde Redis ({entity_count} entidades)")
                 
                 if config.DEBUG_CLI:
-                    console.print(f"✅ Mapeos de {form_uuid} desde Redis ({len(mappings)} entidades)")
+                    console.print(f"✅ Mapeos de {form_uuid} desde Redis ({entity_count} entidades)")
                 
                 return mappings
             else:
@@ -147,10 +148,11 @@ class RedisClient:
                 value=serialized_data
             )
             
-            etl_logger.debug(f"Mapeos de {form_uuid} guardados en Redis ({len(mappings)} entidades)")
+            entity_count = len(mappings.get('entity_mappings', {})) if isinstance(mappings, dict) else len(mappings)
+            etl_logger.debug(f"Mapeos de {form_uuid} guardados en Redis ({entity_count} entidades)")
             
             if config.DEBUG_CLI:
-                console.print(f"✅ Mapeos de {form_uuid} guardados en Redis ({len(mappings)} entidades)")
+                console.print(f"✅ Mapeos de {form_uuid} guardados en Redis ({entity_count} entidades)")
             
             return True
         

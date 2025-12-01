@@ -262,12 +262,17 @@ class MappingLoader:
         with open(master_file, 'r', encoding='utf-8') as f:
             master_data = yaml.safe_load(f)
         
-        # Extraer orden de procesamiento
+        # Extraer orden de procesamiento (formato nuevo con processing_order)
         processing_order = []
-        for group in master_data.get('processing_order', []):
-            entities = group.get('entities', [])
-            if entities:
-                processing_order.append(entities)
+        if 'processing_order' in master_data:
+            for group in master_data.get('processing_order', []):
+                entities = group.get('entities', [])
+                if entities:
+                    processing_order.append(entities)
+        else:
+            # Formato legacy: el master.yml es un dict simple {entity: file.yaml}
+            # No hay orden específico, solo cargar todas las entidades
+            processing_order = []
         
         self.form_processing_orders[form_uuid] = processing_order
         
@@ -290,10 +295,10 @@ class MappingLoader:
         self.form_mappings[form_uuid] = entity_mappings
         etl_logger.info(f"Formulario {form_uuid}: {len(entity_mappings)} entidades cargadas desde disco")
         
-        # Guardar en Redis
+        # Guardar en Redis (convertir EntityMapping a dict para serialización)
         from .redis_client import redis_client
         cache_data = {
-            'entity_mappings': entity_mappings,
+            'entity_mappings': entity_mappings,  # Redis client manejará la serialización
             'processing_order': processing_order
         }
         redis_client.set_form_mappings(form_uuid, cache_data)

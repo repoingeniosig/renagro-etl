@@ -98,12 +98,12 @@ class JsonSaveWorker:
                         control.error_message = error_msg
                         
                         if retry_count >= config.MAX_RETRIES:
-                            control.estado_etl = EstadoETLEnum.ERROR
+                            control.estado_etl = EstadoETLEnum.ERROR.value
                             etl_logger.error(
                                 f"[json_save] _id={_id} alcanzó MAX_RETRIES={config.MAX_RETRIES}"
                             )
                         else:
-                            control.estado_etl = EstadoETLEnum.PENDIENTE
+                            control.estado_etl = EstadoETLEnum.PENDIENTE.value
                         
                         session.commit()
             except Exception as db_error:
@@ -245,7 +245,7 @@ class EtlTransformWorker:
                                 f"[etl_transform] _id={_id} alcanzó MAX_RETRIES={config.MAX_RETRIES}"
                             )
                         else:
-                            control.estado_etl = EstadoETLEnum.PENDIENTE
+                            control.estado_etl = EstadoETLEnum.PENDIENTE.value
                         
                         session.commit()
             except Exception as db_error:
