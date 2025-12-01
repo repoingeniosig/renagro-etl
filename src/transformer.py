@@ -202,9 +202,25 @@ class JSONTransformer:
                 # Obtener el valor del JSON normalmente
                 value = JSONTransformer.get_value_by_path(json_data, field_mapping.source)
                 
+                # NUEVO: Manejar extract_position para coordenadas (lat lon alt hdop)
+                if hasattr(field_mapping, 'extract_position') and field_mapping.extract_position is not None and value is not None:
+                    if isinstance(value, str):
+                        # Dividir el string por espacios y extraer la posición
+                        parts = value.split()
+                        try:
+                            position = int(field_mapping.extract_position)
+                            if 0 <= position < len(parts):
+                                value = parts[position]
+                            else:
+                                value = None  # Posición fuera de rango
+                        except (ValueError, IndexError):
+                            value = None
+                    else:
+                        value = None  # extract_position solo funciona con strings
+                
                 # Si hay un extract sin repeat_filter, extraer el subcampo del valor obtenido
                 # Caso: source="group[0]" obtiene un objeto, extract="campo" obtiene el valor del campo
-                if field_mapping.extract and value is not None:
+                elif field_mapping.extract and value is not None:
                     if isinstance(value, dict):
                         # El valor es un objeto, extraer el campo especificado
                         value = value.get(field_mapping.extract)
@@ -326,7 +342,9 @@ class JSONTransformer:
                 if parent_field:
                     row[parent_field] = parent_id
             
-            return [row] if row else []
+            # SIEMPRE retornar [row] si es un diccionario válido
+            # No usar `if row` porque un dict con defaults es válido
+            return [row] if isinstance(row, dict) else []
             
             rows.append(row)
         

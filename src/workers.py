@@ -172,12 +172,18 @@ class EtlTransformWorker:
             # Transformar datos según mapeos
             transformations = {}
             
+            etl_logger.debug(f"[etl_transform] _id={_id} - Mapeos disponibles: {list(entity_mappings.keys())}")
+            etl_logger.debug(f"[etl_transform] _id={_id} - Processing order: {processing_order}")
+            
             for group in processing_order:
                 for entity_name in group:
                     if entity_name not in entity_mappings:
+                        etl_logger.debug(f"[etl_transform] _id={_id} - Saltando {entity_name} (no existe en mapeos)")
                         continue
                     
                     entity_mapping = entity_mappings[entity_name]
+                    
+                    etl_logger.debug(f"[etl_transform] _id={_id} - Transformando {entity_name} (repeat={entity_mapping.repeat is not None})")
                     
                     rows = JSONTransformer.transform_entity_with_repeats(
                         data,
@@ -185,22 +191,26 @@ class EtlTransformWorker:
                         parent_id=None
                     )
                     
+                    etl_logger.debug(f"[etl_transform] _id={_id} - {entity_name} generó {len(rows) if rows else 0} filas (rows={rows})")
+                    
                     if rows:
                         transformations[entity_name] = rows
-                        etl_logger.debug(f"[etl_transform] _id={_id} - {entity_name}: {len(rows)} registros")
+                        etl_logger.debug(f"[etl_transform] _id={_id} - {entity_name}: {len(rows)} registros agregados")
             
             if not transformations:
-                etl_logger.warning(f"[etl_transform] _id={_id} - Sin datos para insertar")
+                error_msg = f"No se generaron datos para insertar (mapeos no coinciden con JSON)"
+                etl_logger.error(f"[etl_transform] _id={_id} - {error_msg}")
                 
-                # Actualizar estado a PROCESADO (sin datos) en tabla específica
+                # Actualizar estado a ERROR en tabla específica
                 form_config = forms_manager.get_form_config(form_uuid)
                 ControlModel = get_control_table_model(form_config.control_table, db.engine)
                 
                 with db.get_session() as session:
                     control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
-                        control.estado_etl = EstadoETLEnum.PROCESADO.value
-                        control.procesado_at = datetime.now()
+                        control.estado_etl = EstadoETLEnum.ERROR.value
+                        control.error_mensaje = error_msg
+                        control.error_at = datetime.now()
                         session.commit()
                 
                 return  # No continuar pipeline

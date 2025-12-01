@@ -25,6 +25,7 @@ class FieldMapping:
     convert: Optional[Dict[str, Any]] = None
     repeat_filter: Optional[Dict[str, Any]] = None  # Filtro para repeat groups
     extract: Optional[str] = None  # Campo a extraer del repeat filtrado
+    extract_position: Optional[int] = None  # Posición en string separado por espacios (coordenadas)
     parent_key: Optional[str] = None  # Clave del padre para FKs
     
 
