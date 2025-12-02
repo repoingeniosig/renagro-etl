@@ -1,0 +1,49 @@
+version: 1.0
+entity: terrenos_simplificado
+table: terrenos_simplificado
+
+repeat:
+  source: "begin_group_cHTUxd4dE/cobertura_repeat"
+
+# id de boleta
+parent_keys:
+  - field: bosi_id
+    from_entity: boletas-simplificada
+
+fields:
+
+  # ID de referencia a tabla padre (generado automáticamente)
+  bosi_id:
+    source: ""
+    type: integer
+    default: null
+
+  tesi_cobertura_tierra:
+    source: "begin_group_cHTUxd4dE/cobertura_repeat/ter_cobertura_tierra"
+    type: string
+    default: null
+
+  tesi_superficie:
+    source: "begin_group_cHTUxd4dE/cobertura_repeat/superficie_cobertura_tierra"
+    type: float
+    default: null
+
+  tesi_superficie_unidad:
+    source: "begin_group_cHTUxd4dE/cobertura_repeat/superficie_cobertura_unidad"
+    type: string
+    default: null
+
+  tesi_reg_usu:
+    source: ""
+    type: integer
+    default: 999
+
+  tesi_reg_fecha:
+    source: "_submission_time"
+    type: datetime
+    default: null
+
+  tesi_estado:
+    source: ""
+    type: integer
+    default: 11
