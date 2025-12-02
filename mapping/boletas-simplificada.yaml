@@ -34,12 +34,12 @@ fields:
     default: null
 
   bosi_superficie:
-    source: "gru_generales/ter_superficie"
+    source: "gru_superficie/ter_superficie"
     type: float
     default: null
 
   bosi_unidad:
-    source: "gru_generales/unidad"
+    source: "gru_superficie/unidad"
     type: string
     default: null
 
