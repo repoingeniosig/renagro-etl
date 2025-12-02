@@ -1,6 +1,6 @@
 version: 1.0
-entity: boletas-simplificada
-table: boletas-simplificada
+entity: boletas_simplificada
+table: boletas_simplificada
 
 fields:
   bosi_provincia:
