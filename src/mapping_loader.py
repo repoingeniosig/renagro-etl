@@ -215,15 +215,20 @@ class MappingLoader:
             que puede ser procesado en paralelo
         """
         # Orden definido según dependencias de FK
+        # IMPORTANTE: Asegurarse de que las entidades en master.yml estén incluidas aquí
         return [
-            # Grupo 1: Tablas sin dependencias
+            # Grupo 1: Tablas principales sin dependencias (formulario completo)
             ['bovinos', 'pecuario_otros', 'pollos', 'porcinos', 'personas'],
             # Grupo 2: Boletas (depende de los IDs del grupo 1)
             ['boletas'],
-            # Grupo 3: Tablas que dependen de boletas
+            # Grupo 3: Tablas que dependen de boletas (formulario completo)
             ['miembros_hogar', 'terrenos'],
-            # Grupo 4: Tablas que dependen de terrenos
-            ['cultivos', 'forestales']
+            # Grupo 4: Tablas que dependen de terrenos (formulario completo)
+            ['cultivos', 'forestales'],
+            # Grupo 5: Formulario simplificado - Tabla principal
+            ['boletas-simplificada'],
+            # Grupo 6: Formulario simplificado - Tablas dependientes
+            ['terrenos_simplificado']
         ]
 
 

@@ -151,7 +151,11 @@ class EtlTransformWorker:
                 mapping_loader.load_master()
                 mapping_loader.load_all_mappings(force_reload=False)
             
+            # Log de mapeos cargados
+            etl_logger.info(f"[etl_transform] _id={_id} - Mapeos disponibles: {list(mapping_loader.entity_mappings.keys())}")
+            
             processing_order = mapping_loader.get_processing_order()
+            etl_logger.info(f"[etl_transform] _id={_id} - Orden de procesamiento: {processing_order}")
             
             # Transformar datos según mapeos
             transformations = {}
@@ -159,8 +163,10 @@ class EtlTransformWorker:
             for group in processing_order:
                 for entity_name in group:
                     if entity_name not in mapping_loader.entity_mappings:
+                        etl_logger.debug(f"[etl_transform] _id={_id} - Entidad '{entity_name}' no está en mapeos cargados, saltando...")
                         continue
                     
+                    etl_logger.info(f"[etl_transform] _id={_id} - Transformando entidad '{entity_name}'...")
                     entity_mapping = mapping_loader.entity_mappings[entity_name]
                     
                     rows = JSONTransformer.transform_entity_with_repeats(
@@ -171,10 +177,32 @@ class EtlTransformWorker:
                     
                     if rows:
                         transformations[entity_name] = rows
-                        etl_logger.debug(f"[etl_transform] _id={_id} - {entity_name}: {len(rows)} registros")
+                        etl_logger.info(f"[etl_transform] _id={_id} - ✅ {entity_name}: {len(rows)} registros generados")
+                    else:
+                        etl_logger.warning(f"[etl_transform] _id={_id} - ⚠️  {entity_name}: 0 registros (posible array vacío o datos faltantes)")
             
             if not transformations:
-                etl_logger.warning(f"[etl_transform] _id={_id} - Sin datos para insertar")
+                # IMPORTANTE: Si NO hay transformaciones, puede ser por dos razones:
+                # 1. Los mapeos no están cargados correctamente (ERROR)
+                # 2. El formulario tiene arrays vacíos pero es válido (PROCESADO sin datos)
+                
+                # Verificar si hay mapeos cargados
+                if not mapping_loader.entity_mappings:
+                    error_msg = "No hay mapeos cargados - revisar master.yml y archivos YAML"
+                    etl_logger.error(f"[etl_transform] _id={_id} - {error_msg}")
+                    
+                    with db.get_session() as session:
+                        control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                        if control:
+                            control.estado_etl = EstadoETLEnum.ERROR
+                            control.error_message = error_msg
+                            control.last_error_stage = 'etl_transform'
+                            session.commit()
+                    
+                    raise Exception(error_msg)
+                
+                # Caso válido: formulario procesado pero sin datos en arrays repetidos
+                etl_logger.warning(f"[etl_transform] _id={_id} - Sin datos para insertar (arrays vacíos o campos opcionales sin valores)")
                 
                 # Actualizar estado a PROCESADO (sin datos)
                 with db.get_session() as session:
@@ -182,6 +210,7 @@ class EtlTransformWorker:
                     if control:
                         control.estado_etl = EstadoETLEnum.PROCESADO
                         control.procesado_at = datetime.now()
+                        control.error_message = "Procesado sin datos: arrays vacíos o campos opcionales"
                         session.commit()
                 
                 return  # No continuar pipeline

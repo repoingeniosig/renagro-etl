@@ -395,6 +395,10 @@ VALUES
     {values_str}{returning_clause};
         '''.strip()
         
+        # Logging del SQL generado (siempre en INFO para debugging)
+        etl_logger.info(f"[Executor] SQL generado para {entity_name} ({len(rows)} filas)")
+        etl_logger.debug(f"[Executor] SQL completo:\n{sql[:1000]}")
+        
         if config.DEBUG_CLI:
             console.print(f"\n--- SQL para {entity_name} ---")
             console.print(sql[:500] + "..." if len(sql) > 500 else sql)
@@ -414,17 +418,33 @@ VALUES
         """
         Obtiene el campo de clave primaria para una entidad
         """
+        # Mapeo explícito de entidades a sus PKs
+        pk_map = {
+            'boletas': 'bol_id',
+            'boletas-simplificada': 'bosi_id',
+            'terrenos': 'ter_id',
+            'terrenos_simplificado': 'tesi_id',
+            'cultivos': 'cul_id',
+            'forestales': 'for_id',
+            'bovinos': 'bov_id',
+            'porcinos': 'por_id',
+            'pollos': 'pol_id',
+            'pecuario_otros': 'peot_id',
+            'personas': 'per_id',
+            'miembros_hogar': 'miho_id'
+        }
+        
+        # Intentar obtener desde el mapeo explícito
+        if entity_name in pk_map:
+            return pk_map[entity_name]
+        
         # Intentar obtener desde el mapa construido
         if entity_name in self._parent_child_map:
             return self._parent_child_map[entity_name]['pk_field']
         
         # Fallback: usar prefijo de la entidad + _id
-        # terrenos → ter_id, boletas → bol_id
-        if entity_name == 'pecuario_otros':
-            return 'peot_id'
-        elif entity_name == 'miembros_hogar':
-            return 'miho_id'
-        
+        # Advertencia: esto puede fallar si el nombre no sigue la convención
+        etl_logger.warning(f"[Executor] PK no encontrada para '{entity_name}', usando fallback")
         prefix = entity_name[:3] if len(entity_name) >= 3 else entity_name
         return f"{prefix}_id"
     
