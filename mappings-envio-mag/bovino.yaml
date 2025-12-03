@@ -1,0 +1,199 @@
+version: 1.0
+entity: PecuarioBovinoDto
+table: bovinos
+
+fields:
+  isBovinoRegistroProduccion:
+    source: "neo_is_registro_produccion"
+    type: boolean
+    default: false
+  
+  terneros:
+    source: "bov_ternero"
+    type: integer
+    default: null
+
+  toretes:
+    source: "bov_torete"
+    type: integer
+    default: null
+
+  toros:
+    source: "bov_toro"
+    type: integer
+    default: null
+
+  subtotalMachos:
+    source: "bov_subtotal_macho"
+    type: integer
+    default: null
+
+  terneras:
+    source: "bov_ternera"
+    type: integer
+    default: null
+
+  vaconas:
+    source: "bov_vacona"
+    type: integer
+    default: null
+
+  vacasEnProduccion:
+    source: "bov_vacas_en_produ"
+    type: integer
+    default: null
+
+  vacasSecas:
+    source: "bov_vacas_seca"
+    type: integer
+    default: null
+
+  subtotalHembras:
+    source: "bov_subtotal_hembra"
+    type: integer
+    default: null
+
+  totalGanado:
+    source: "bov_total_ganado"
+    type: integer
+    default: null
+
+  propositoParaLechePropio:
+    source: "bov_prop_para_leche_propio"
+    type: integer
+    default: null
+
+  propositoParaCarnePropio:
+    source: "bov_prop_para_carne_propio"
+    type: integer
+    default: null
+
+  doblePropositoPropio:
+    source: "bov_doble_prop_propio"
+    type: integer
+    default: null
+
+  subtotalPropio:
+    source: "bov_subtotal_propio"
+    type: integer
+    default: null
+
+  propositoParaLecheAjeno:
+    source: "bov_prop_para_leche_ajeno"
+    type: integer
+    default: null
+
+  propositoParaCarneAjeno:
+    source: "bov_prop_para_carne_ajeno"
+    type: integer
+    default: null
+
+  doblePropositoAjeno:
+    source: "bov_doble_prop_ajeno"
+    type: integer
+    default: null
+
+  subtotalAjenos:
+    source: "bov_subtotal_ajeno"
+    type: integer
+    default: null
+
+  noSabeProposito:
+    source: "bov_no_sabe_prop"
+    type: integer
+    default: null
+
+  totalGanadoProposito:
+    source: "bov_total_ganado_prop"
+    type: integer
+    default: null
+
+  isVacaOrdeniadaAyer:
+    source: "bov_is_vaca_ordeniada_ayer"
+    type: boolean
+    default: false
+
+  litrosLecheObtenido:
+    source: "bov_litros_leche_obtenido"
+    type: integer
+    default: null
+
+  principalFormaReproduccion:
+    source: "bov_prin_forma_reproduccion"
+    type: string
+    default: null
+  
+  isVacunaBrucelosis:
+    source: "bov_is_vacuna_brucelosi"
+    type: boolean
+    default: false
+
+  isVacunaCarbunco:
+    source: "bov_is_vacuna_carbunco"
+    type: boolean
+    default: false
+
+  isVacunaFiebreAftosa:
+    source: "bov_is_vacuna_fiebre_aftosa"
+    type: boolean
+    default: false
+
+  isVacunaIBR:
+    source: "bov_is_vacuna_ibr"
+    type: boolean
+    default: false
+
+  isVacunaPapilomatosisBovina:
+    source: "bov_is_vacuna_papilomatosis"
+    type: boolean
+    default: false
+
+  isNingunaVacuna:
+    source: "bov_is_ninguna_vacuna"
+    type: boolean
+    default: false
+
+  isNoSabeVacuna:
+    source: "bov_is_no_sabe_vacuna"
+    type: boolean
+    default: false
+
+  isOtraVacuna: 
+    source: "bov_otra_vacuna"
+    type: boolean
+    default: false
+
+  otraVacuna:
+    source: "bov_otra_vacuna"
+    type: string
+    default: null
+
+  principalProduccionGanado:
+    source: "bov_prin_produ_ganado"
+    type: string
+    default: null
+
+  ordeniadora:
+    source: "bov_ordeniadora"
+    type: string
+    default: null
+
+  tanqueEnfriamiento:
+    source: "bov_tanque_enfriamiento"
+    type: string
+    default: null
+
+  isDescansoAlimentoBovino:
+    source: "neo_is_infraestructura_descanso"
+    type: boolean
+    default: false
+
+  numeroGalpones:
+    source: "bov_galpones_numero"
+    type: integer
+    default: null
+
+  capacidadTotalExplotacion:
+    source: "bov_capacidad_total_explo"
+    type: integer
+    default: null

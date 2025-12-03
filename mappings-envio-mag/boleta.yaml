@@ -1,0 +1,863 @@
+version: 1
+entity: CreateBoletaDto
+table: boletas
+
+fields:
+  boletaIdLevanta:
+    source: "bol_id_levanta"
+    type: string
+    default: null
+
+  estadoBoleta:
+    source: "bol_estado_boleta"
+    type: string
+    default: null
+
+  provincia:
+    source: "bol_provincia"
+    type: string
+    default: null
+
+  canton:
+    source: "bol_canton"
+    type: string
+    default: null
+
+  parroquia:
+    source: "bol_parroquia"
+    type: string
+    default: null
+
+  sectorMuestreo:
+    source: "bol_sector_muestreo"
+    type: string
+    default: null
+
+  poligono:
+    source: "bol_poligono"
+    type: integer    
+    default: null
+
+  numeroUPA:
+    source: "bol_numero_UPA"
+    type: string
+    default: null
+
+  codigoEncuestador:
+    source: "bol_codigo_encuestador"
+    type: string
+    default: null
+
+  numeroBoleta:
+    source: "bol_numero_boleta"
+    type: integer
+    default: null
+
+  codigoUPA:
+    source: "bol_codigo_UPA"
+    type: string
+    default: null
+  
+  isUsoDeSuelo:
+    source: "neo_is_uso_suelo_agricola" 
+    type: boolean
+    default: false
+
+  isViveTerrenoEntrevista:
+    source: "neo_is_vive_terreno_entrevista"
+    type: boolean
+    default: false
+
+  provinciaVive:
+    source: "bol_provincia_vive"
+    type: string
+    default: null
+
+  cantonVive:
+    source: "bol_canton_vive"
+    type: string
+    default: null
+
+  parroquiaVive:
+    source: "bol_parroquia_vive"
+    type: string
+    default: null
+
+  distanciaAlDomicilio:
+    source: "bol_distancia_al_domicilio"
+    type: float
+    default: null
+  
+  isTelefonoConvencional:
+    source: "neo_is_telefono_convencional"
+    type: boolean
+    default: false
+
+  telefonoConvencional:
+    source: "bol_telefono_convencional"
+    type: string
+    default: null
+
+  isTelefonoCelular:
+    source: "neo_is_telefono_celular"
+    type: boolean
+    default: false
+
+  telefonoCelular:
+    source: "bol_telefono_celular"
+    type: string
+    default: null
+
+  isDireccionEmail:
+    source: "neo_is_direccion_email"
+    type: boolean
+    default: false
+
+  direccionEmail:
+    source: "bol_direccion_email"
+    type: string
+    default: null
+
+  isInternet:
+    source: "bol_is_internet"
+    type: boolean
+    default: false
+
+  isComputadora:
+    source: "bol_is_computadora"
+    type: boolean
+    default: false
+
+  isServicioHigienico:
+    source: "bol_is_servicio_higienico"
+    type: boolean
+    default: false
+
+  isAguaPorTuberia:
+    source: "bol_is_agua_por_tuberia"
+    type: boolean
+    default: false
+
+  isAguaOtroMedio:
+    source: "bol_is_agua_otro_medio"
+    type: boolean
+    default: false
+
+  isEnergiaElectrica:
+    source: "bol_is_energia_electrica"
+    type: boolean
+    default: false
+
+  isAsistenciaTecnica:
+    source: "bol_is_asistencia_tecnica"
+    type: boolean
+    default: false
+
+  isLegalizacionTierra:
+    source: "bol_is_legalizacion_tierra"
+    type: boolean
+    default: false
+
+  isAsesoramientoTecnico:
+    source: "bol_is_asesoramiento_tecnico"
+    type: boolean
+    default: false
+
+  isKitAgricola:
+    source: "bol_is_kit_agricola"
+    type: boolean
+    default: false
+
+  isVacunaAgrocalidad:
+    source: "bol_is_vacuna_agrocalidad"
+    type: boolean
+    default: false
+
+  isAccesoRiego:
+    source: "bol_is_acc_riego"
+    type: boolean
+    default: false
+
+  isAgriculturaFamiliarCamp:
+    source: "bol_is_agri_familiar_camp"
+    type: boolean
+    default: false
+
+  isMaquinaria:
+    source: "bol_is_maquinaria"
+    type: boolean
+    default: false
+
+  isInfraestructura:
+    source: "bol_is_infraestructura"
+    type: boolean
+    default: false
+
+  isEspacioComercio:
+    source: "bol_is_espacio_comercio"
+    type: boolean
+    default: false
+
+  isCredito:
+    source: "bol_is_credito"
+    type: boolean
+    default: false
+
+  isOtroBeneficioEstado:
+    source: "neo_is_otro_beneficio"
+    type: boolean
+    default: false
+
+  otroBeneficioEstado:
+    source: "bol_otro_beneficio_estado"
+    type: string
+    default: null
+
+  isNinguno:
+    source: "bol_is_ninguno"
+    type: boolean
+    default: false
+
+  isPerteneceAsociacionCoop:
+    source: "bol_is_pert_asociacion_coop"
+    type: boolean
+    default: false
+
+  tipoDeMiembro:
+    source: "bol_tipo_de_miembro"
+    type: string
+    default: null
+
+  nombreAsociacionCoop:
+    source: "bol_nombre_asociacion_coop"
+    type: string
+    default: null
+
+  respuestaNegativaMiembro:
+    source: "bol_respuesta_negativa_miembro"
+    type: string
+    default: null
+  
+  motosierra:
+    source: "bol_motosierra"
+    type: string
+    default: null
+
+  tractorForestal:
+    source: "bol_tractor_forestal"
+    type: string
+    default: null
+
+  empacadoraForestal:
+    source: "bol_empacadora_forestal"
+    type: string
+    default: null
+
+  otroMaquinariaEquipoAcceso:
+    source: "bol_otro_maquinaria_equipo_acc"
+    type: string
+    default: null
+
+  otroMaquinariaEquipo:
+    source: "bol_otro_maquinaria_equipo"
+    type: string
+    default: null
+  
+  isPecuarioEnTerreno:
+    source: "neo_is_pecuario_terreno" 
+    type: boolean
+    default: false
+
+  isBovinoEnTerreno:
+    source: "neo_is_bovino_terreno"
+    type: boolean
+    default: false
+
+  isExisteGanadoPorcino:
+    source: "neo_is_porcino_terreno"
+    type: boolean
+    default: false
+
+  isPoseePollo:
+    source: "neo_is_pollo_terreno"
+    type: boolean
+    default: false
+
+  isIncorporaAbono:
+    source: "bol_is_incorpora_abono"
+    type: boolean
+    default: false
+
+  isEvitaErosion:
+    source: "bol_is_evita_erosion"
+    type: boolean
+    default: false
+
+  isRotaCultivo:
+    source: "bol_is_rota_cultivo"
+    type: boolean
+    default: false
+
+  isPastoreoRotativo:
+    source: "bol_is_pastoreo_rotativo"
+    type: boolean
+    default: false
+
+  isNoRealizaMejora:
+    source: "bol_is_no_realiza_mejora"
+    type: boolean
+    default: false
+
+  isOtraPracticaMejora:
+    source: "bol_is_otra_practica_mejora"
+    type: boolean
+    default: false
+
+  otraPracticaMejora:
+    source: "bol_otra_practica_mejora"
+    type: string
+    default: null
+  
+  manejoResiduoAnimal:
+    source: "bol_manejo_residuo_animal"
+    type: string
+    default: null
+
+  otroManejoResiduoAnimal:
+    source: "bol_manejo_res_animal_otro"
+    type: string
+    default: null
+
+  manejoResiduoAgricola:
+    source: "bol_manejo_residuo_agricola"
+    type: string
+    default: null
+
+  otroManejoResiduoAgricola:
+    source: "bol_manejo_res_agricola_otro"
+    type: string
+    default: null
+
+  isTratamientoAgua:
+    source: "bol_is_tratamiento_de_agua"
+    type: boolean
+    default: false
+
+  manejoEnvase:
+    source: "bol_prin_manejo_envase"
+    type: string
+    default: null
+
+  manejoEnvaseOtro:
+    source: "bol_manejo_envase_otro"
+    type: string
+    default: null
+  
+  isBodega:
+    source: "bol_is_bodega"
+    type: boolean
+    default: false
+
+  isSilo:
+    source: "bol_is_silo"
+    type: boolean
+    default: false
+
+  isEmpacador:
+    source: "bol_is_empacador"
+    type: boolean
+    default: false
+
+  isReservorio:
+    source: "bol_is_reservorio"
+    type: boolean
+    default: false
+
+  isCuartoMaquinariaRiego:
+    source: "bol_is_cuarto_maquinaria_riego"
+    type: boolean
+    default: false
+
+  isInvernadero:
+    source: "bol_is_invernadero"
+    type: boolean
+    default: false
+
+  isConstruccionSecado:
+    source: "bol_is_construccion_secado"
+    type: boolean
+    default: false
+
+  isInfraestructuraNinguno:
+    source: "bol_is_infraestructura_ninguno"
+    type: boolean
+    default: false
+
+  isInfraestructuraOtra:
+    source: "neo_is_infraestructura_otra" 
+    type: boolean
+    default: false
+
+  infraestructuraOtra:
+    source: "bol_infraestructura_otra"
+    type: string
+    default: null
+  
+  isTerrenoAccedeRiego:
+    source: "bol_is_terreno_accede_riego"
+    type: boolean
+    default: false
+
+  fuenteAguaRiego:
+    source: "bol_fuente_agua_riego"
+    type: string
+    default: null
+
+  sistemaAguaRiego:
+    source: "bol_sistema_agua_riego"
+    type: string
+    default: null
+
+  tractorRueda:
+    source: "bol_tractor_rueda"
+    type: string
+    default: null
+
+  tractorJardin:
+    source: "bol_tractor_jardin"
+    type: string
+    default: null
+
+  tractorOruga:
+    source: "bol_tractor_oruga"
+    type: string
+    default: null
+
+  motocultor:
+    source: "bol_motocultor"
+    type: string
+    default: null
+
+  bombaEstacionariaFumiga:
+    source: "bol_bomba_estacionaria_fumiga"
+    type: string
+    default: null
+
+  plantaElectricaTermica:
+    source: "bol_planta_electrica_termica"
+    type: string
+    default: null
+
+  secadora:
+    source: "bol_secadora"
+    type: string
+    default: null
+
+  motoguadania:
+    source: "bol_motoguadania"
+    type: string
+    default: null
+
+  arado:
+    source: "bol_arado"
+    type: string
+    default: null
+
+  cosechadora:
+    source: "bol_cosechadora"
+    type: string
+    default: null
+
+  carreton:
+    source: "bol_carreton"
+    type: string
+    default: null
+
+  desgranadora:
+    source: "bol_desgranadora"
+    type: string
+    default: null
+
+  empacadora:
+    source: "bol_empacadora"
+    type: string
+    default: null
+
+  ensiladora:
+    source: "bol_ensiladora"
+    type: string
+    default: null
+
+  enfardadora:
+    source: "bol_enfardadora"
+    type: string
+    default: null
+
+  fangueadora:
+    source: "bol_fangueadora"
+    type: string
+    default: null
+
+  fertilizadora:
+    source: "bol_fertilizadora"
+    type: string
+    default: null
+
+  fumigadora:
+    source: "bol_fumigadora"
+    type: string
+    default: null
+
+  romplow:
+    source: "bol_romplow"
+    type: string
+    default: null
+
+  rastra:
+    source: "bol_rastra"
+    type: string
+    default: null
+
+  rotocultor:
+    source: "bol_rotocultor"
+    type: string
+    default: null
+
+  sembradora:
+    source: "bol_sembradora"
+    type: string
+    default: null
+
+  segadora:
+    source: "bol_segadora"
+    type: string
+    default: null
+
+  subsoladora:
+    source: "bol_subsoladora"
+    type: string
+    default: null
+
+  surcadora:
+    source: "bol_surcadora"
+    type: string
+    default: null
+
+  trilladora:
+    source: "bol_trilladora"
+    type: string
+    default: null
+
+  bombaAgua:
+    source: "bol_bomba_agua"
+    type: string
+    default: null
+
+  bombaMochila:
+    source: "bol_bomba_mochila"
+    type: string
+    default: null
+
+  bombaMochilaMotor:
+    source: "bol_bomba_mochila_motor"
+    type: string
+    default: null
+
+  autoconsumoAgricola:
+    source: "bol_autoconsumo_agricola"
+    type: string
+    default: null
+
+  autoconsumoBovina:
+    source: "bol_autoconsumo_bovina"
+    type: string
+    default: null
+
+  autoconsumoPorcicola:
+    source: "bol_autoconsumo_porcicola"
+    type: string
+    default: null
+
+  autoconsumoAvicola:
+    source: "bol_autoconsumo_avicola"
+    type: string
+    default: null
+
+  autoconsumoOtrasAves:
+    source: "bol_autoconsumo_otras_ave"
+    type: string
+    default: null
+
+  autoconsumoOvinoCaprino:
+    source: "bol_autoconsumo_ovino_caprino"
+    type: string
+    default: null
+
+  autoconsumoCuyesConejos:
+    source: "bol_autoconsumo_cuyes_conejo"
+    type: string
+    default: null
+
+  autoconsumoApicola:
+    source: "bol_autoconsumo_apicola"
+    type: string
+    default: null
+
+  autoconsumoForestal:
+    source: "bol_autoconsumo_forestal"
+    type: string
+    default: null
+
+  compradorAgricola:
+    source: "bol_comprador_agricola"
+    type: string
+    default: null
+
+  compradorBovina:
+    source: "bol_comprador_bovina"
+    type: string
+    default: null
+
+  compradorPorcicola:
+    source: "bol_comprador_porcicola"
+    type: string
+    default: null
+
+  compradorAvicola:
+    source: "bol_comprador_avicola"
+    type: string
+    default: null
+
+  compradorOtrasAves:
+    source: "bol_comprador_otras_ave"
+    type: string
+    default: null
+
+  compradorOvinoCaprino:
+    source: "bol_comprador_ovino_caprino"
+    type: string
+    default: null
+
+  compradorCuyesConejos:
+    source: "bol_comprador_cuyes_conejo"
+    type: string
+    default: null
+
+  compradorApicola:
+    source: "bol_comprador_apicola"
+    type: string
+    default: null
+
+  compradorForestal:
+    source: "bol_comprador_forestal"
+    type: string
+    default: null
+
+  sitioAgricola:
+    source: "bol_sitio_agricola"
+    type: string
+    default: null
+
+  sitioBovina:
+    source: "bol_sitio_bovina"
+    type: string
+    default: null
+
+  sitioPorcicola:
+    source: "bol_sitio_porcicola"
+    type: string
+    default: null
+
+  sitioAvicola:
+    source: "bol_sitio_avicola"
+    type: string
+    default: null
+
+  sitioOtrasAves:
+    source: "bol_sitio_otras_ave"
+    type: string
+    default: null
+
+  sitioOvinoCaprino:
+    source: "bol_sitio_ovino_caprino"
+    type: string
+    default: null
+
+  sitioCuyesConejos:
+    source: "bol_sitio_cuyes_conejo"
+    type: string
+    default: null
+
+  sitioApicola:
+    source: "bol_sitio_apicola"
+    type: string
+    default: null
+ 
+  sitioForestal:
+    source: "bol_sitio_forestal"
+    type: string
+    default: null
+
+  isExtensionAgropecuaria:
+    source: "neo_is_extension_agricola" 
+    type: boolean
+    default: false
+
+  extencionAgricolaRecibida:
+    source: "bol_exten_agricola_recibida"
+    type: string
+    default: null
+
+  extencionAgricolaInstitucion:
+    source: "bol_exten_agricola_institu"
+    type: string
+    default: null
+
+  otraExtencionAgricolaInstitucion:
+    source: "bol_otra_exten_agri_inst"
+    type: string
+    default: null
+
+  necesidadConocimientos:
+    source: "bol_necesidad_conocimiento"
+    type: string
+    default: null
+
+  otraNecesidadConocimientos:
+    source: "bol_otra_nece_conoci"
+    type: string
+    default: null
+
+  isGestionFinanciamiento:
+    source: "bol_is_gestion_financiamiento"
+    type: boolean
+    default: false
+
+  isPrestamoGestiono:
+    source: "neo_is_obtuvo_prestamo" 
+    type: boolean
+    default: false
+
+  prestamoPersona:
+    source: "bol_prestamo_persona"
+    type: string
+    default: null
+
+  prestamoFuente:
+    source: "bol_prestamo_fuente"
+    type: string
+    default: null
+
+  otroPrestamoFuente:
+    source: "bol_otro_prest_fuen"
+    type: string
+    default: null
+
+  prestamoDestino:
+    source: "bol_prestamo_destino"
+    type: string
+    default: null
+
+  otroPrestamoDestino:
+    source: "bol_otro_prest_dest"
+    type: string
+    default: null
+
+  prestamoNegacion:
+    source: "bol_prestamo_negacion"
+    type: string
+    default: null
+
+  otroPrestamoNegacion:
+    source: "bol_otro_prest_nega"
+    type: string
+    default: null
+
+  prestamoRazonNoGestiono:
+    source: "bol_prestamo_razon_no_gestiono"
+    type: string
+    default: null
+
+  otraRazonNoGestionoPrestamo:
+    source: "bol_otra_razon_no_ges_presta"
+    type: string
+    default: null
+  
+  permanenteHombreNumero:
+    source: "bol_permanente_hombre_numero"
+    type: integer
+    default: null
+
+  permanenteHombreSalario:
+    source: "bol_permanente_hombre_salario"
+    type: integer
+    default: null
+
+  permanenteMujerNumero:
+    source: "bol_permanente_mujer_numero"
+    type: integer
+    default: null
+
+  permanenteMujerSalario:
+    source: "bol_permanente_mujer_salario"
+    type: integer
+    default: null
+
+  ocasionalHombreNumero:
+    source: "bol_ocasional_hombre_numero"
+    type: integer
+    default: null
+
+  isHombrePagoEfectivo:
+    source: "neo_is_pago_efectivo_hombre" 
+    type: boolean
+    default: false
+
+  ocacionalHombreSalario:
+    source: "bol_ocasional_hombre_salario"
+    type: integer
+    default: null
+
+  ocasionalMujerNumero:
+    source: "bol_ocasional_mujer_numero"
+    type: integer
+    default: null
+
+  isMujerPagoEfectivo:
+    source: "neo_is_pago_efectivo_mujer" 
+    type: boolean
+    default: false
+
+  ocacionalMujerSalario:
+    source: "bol_ocasional_mujer_salario"
+    type: integer
+    default: null
+ 
+  isInformanteProductor:
+    source: "neo_is_informante_productor" 
+    type: boolean
+    default: false
+
+  informanteTelefono:
+    source: "bol_informante_telefono"
+    type: string
+    default: null
+
+  informanteRelacion:
+    source: "bol_informante_relacion"
+    type: string
+    default: null
+  
+  longitud:
+    source: "bol_longitud"
+    type: float
+    default: null
+
+  latitud:
+    source: "bol_latitud"
+    type: float
+    default: null
+  altitud:
+    source: "bol_altitud"
+    type: float
+    default: null

@@ -1,0 +1,169 @@
+version: 1.0
+entity: PecuarioOtroDto
+table: pecuarios_otros
+
+fields:
+  isGanadoOvino:
+    source: "neo_is_ovino"
+    type: boolean
+    default: false
+
+  ganadoOvino:
+    source: "peot_ganado_ovino"
+    type: integer
+    default: null
+
+  isGanadoCaprino:
+    source: "neo_is_caprino"
+    type: boolean
+    default: false
+
+  ganadoCaprino:
+    source: "peot_ganado_caprino"
+    type: integer
+    default: null
+
+  isGanadoCaballar:
+    source: "neo_is_caballar"
+    type: boolean
+    default: false
+
+  ganadoCaballar:
+    source: "peot_ganado_caballar"
+    type: integer
+    default: null
+
+  isGanadoMular:
+    source: "neo_is_mular"
+    type: boolean
+    default: false
+
+  ganadoMular:
+    source: "peot_ganado_mular"
+    type: integer
+    default: null
+
+  isAsnos:
+    source: "neo_is_asno"
+    type: boolean
+    default: false
+
+  ganadoAsnos:
+    source: "peot_ganado_asno"
+    type: integer
+    default: null
+
+  isColmenasAbejasMeliferas:
+    source: "neo_is_colmena_mielifera"
+    type: boolean
+    default: false
+
+  colmenasAbejasMeliferas:
+    source: "peot_colmena_abeja_melifera"
+    type: integer
+    default: null
+
+  isColmenasAbejasMeliponas:
+    source: "neo_is_colmena_melipona"
+    type: boolean
+    default: false
+
+  colmenasAbejasMeliponas:
+    source: "peot_colmena_abeja_melipona"
+    type: integer
+    default: null
+
+  isAlpacas:
+    source: "neo_is_alpaca"
+    type: boolean
+    default: false
+
+  alpacas:
+    source: "peot_alpaca"
+    type: integer
+    default: null
+
+  isLlamas:
+    source: "neo_is_llama"
+    type: boolean
+    default: false
+
+  llamas:
+    source: "peot_llama"
+    type: integer
+    default: null
+
+  isCuyes:
+    source: "neo_is_cuy"
+    type: boolean
+    default: false
+
+  cuyes:
+    source: "peot_cuy"
+    type: integer
+    default: null
+
+  isConejos:
+    source: "neo_is_conejo"
+    type: boolean
+    default: false
+
+  conejos:
+    source: "peot_conejo"
+    type: integer
+    default: null
+
+  isPavos:
+    source: "neo_is_pavo"
+    type: boolean
+    default: false
+
+  pavos:
+    source: "peot_pavo"
+    type: integer
+    default: null
+
+  isAvestruces:
+    source: "neo_is_avestruz"
+    type: boolean
+    default: false
+
+  avestruces:
+    source: "peot_avestruce"
+    type: integer
+    default: null
+
+  isCodornices:
+    source: "neo_is_codorniz"
+    type: boolean
+    default: false
+
+  codornices:
+    source: "peot_codornice"
+    type: integer
+    default: null
+
+  isPatos:
+    source: "neo_is_pato"
+    type: boolean
+    default: false
+
+  patos:
+    source: "peot_pato"
+    type: integer
+    default: null
+
+  isOtrasEspecies:
+    source: "neo_is_otra_especie"
+    type: boolean
+    default: false
+
+  otraEspecieNombre:
+    source: "peot_otra_especie_nombre"
+    type: string
+    default: null
+
+  otrasEspecies:
+    source: "peot_otra_especie"
+    type: integer
+    default: null

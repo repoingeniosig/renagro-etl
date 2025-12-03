@@ -1,0 +1,124 @@
+version: 1.0
+entity: PecuarioPorcinoDto
+table: porcinos
+
+fields:
+  isLlevaRegistroPorcino:
+    source: "neo_is_registro_produccion"
+    type: boolean
+    default: false
+  
+  menos2MesMachoPorcino:
+    source: "por_menos_dos_mes_macho_por"
+    type: integer
+    default: null
+
+  mas2MesMachoPorcino:
+    source: "por_mas_dos_mes_macho_por"
+    type: integer
+    default: null
+
+  totalMachoPorcino:
+    source: "por_total_macho_por"
+    type: integer
+    default: null
+
+  reproductorMachoPorcino:
+    source: "por_reproductor_macho_por"
+    type: integer
+    default: null
+
+  propioMachoPorcino:
+    source: "por_propio_macho_por"
+    type: integer
+    default: null
+
+  menos2MesesHembrasPorcino:
+    source: "por_menos_dos_mes_hembra_por"
+    type: integer
+    default: null
+
+  mas2MesHembraPorcino:
+    source: "por_mas_dos_mes_hembra_por"
+    type: integer
+    default: null
+
+  totalHembraPorcino:
+    source: "por_total_hembra_por"
+    type: integer
+    default: null
+
+  reproductorHembraPorcino:
+    source: "por_reproductor_hembra_por"
+    type: integer
+    default: null
+
+  propioHembraPorcino:
+    source: "por_propio_hembra_por"
+    type: integer
+    default: null
+
+  fuenteReprodruccionPorcina:
+    source: "por_fuente_reprodruccion_por"
+    type: string
+    default: null
+
+  isPestePorcinaClasica:
+    source: "por_is_peste_por_clasica"
+    type: boolean
+    default: false
+
+  isColibacilosisDiarrea:
+    source: "por_is_colibacilosis_diarrea"
+    type: boolean
+    default: false
+
+  isPasteurellaNeumonia:
+    source: "por_is_pasteurella_neumonia"
+    type: boolean
+    default: false
+
+  isNeumoniaPorcinaEnzootica:
+    source: "por_is_neumonia_por_enzootica"
+    type: boolean
+    default: false
+
+  isParvovirusMoquera:
+    source: "por_is_parvovirus_moquera"
+    type: boolean
+    default: false
+
+  isFiebreAftosa:
+    source: "por_is_fiebre_aftosa"
+    type: boolean
+    default: false
+
+  isOtra:
+    source: "por_is_otra"
+    type: boolean
+    default: false
+
+  isNinguna:
+    source: "por_is_ninguna"
+    type: boolean
+    default: false
+
+  isNoSabeNoResponde:
+    source: "por_is_no_sabe_no_responde"
+    type: boolean
+    default: false
+
+  isDescansoAlimentoPorcino:
+    source: "neo_is_infraestructura_descanso"
+    type: boolean
+    default: false
+
+  galponExistentePorcino:
+    source: "por_galpon_existente_por"
+    type: integer
+    default: null
+
+  capacidadExplotacionCerdos:
+    source: "por_capaci_explot_cerdo"
+    type: integer
+    default: null

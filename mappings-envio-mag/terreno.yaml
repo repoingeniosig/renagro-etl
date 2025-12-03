@@ -1,0 +1,70 @@
+version: 1.0
+entity: TerrenoDto
+table: terrenos
+
+fields:
+  terrenoNo:
+    source: "ter_terreno_numero"
+    type: integer
+    default: 0
+
+  tenencia:
+    source: "ter_tenencia"
+    type: string
+    default: null
+
+  accesoTierra:
+    source: "ter_acceso_tierra"
+    type: string
+    default: null
+
+  coberturaTierra:
+    source: "ter_cobertura_tierra"
+    type: string
+    default: null
+
+  superficieUnidad:
+    source: "ter_superficie_unidad"
+    type: string
+    default: null
+
+  superficie:
+    source: "ter_superficie"
+    type: float
+    default: null
+
+  isInfraestructura:
+    source: "ter_is_infraestructura"
+    type: boolean
+    convert:
+      contains_option: "infraestructura_agropecuaria"
+    default: false
+
+  isManoDeObra:
+    source: "ter_is_mano_de_obra"
+    type: boolean
+    convert:
+      contains_option: "mano_de_obra"
+    default: false
+
+  isMaquinariaImplementos:
+    source: "ter_is_maquinaria_implemento"
+    type: boolean
+    convert:
+      contains_option: "maquinaria_pos_implementos"
+    default: false
+
+  isTerrenoPrincipal:
+    source: "ter_is_terreno_principal"
+    type: boolean
+    default: false
+
+  isCultivoEnTerrenos:
+    source: "ter_is_cultivo_en_terreno"
+    type: boolean
+    default: false
+
+  isPoseeEspeciesForestales:
+    source: "neo_is_especie_forestal"
+    type: boolean
+    default: false

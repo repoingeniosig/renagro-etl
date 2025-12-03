@@ -1,0 +1,50 @@
+version: 1.0
+entity: PersonaDto
+table: personas
+
+fields:
+  isPersonaNatural:
+    source: "per_persona_natural"
+    type: boolean
+    default: false
+
+  primerNombre:
+    source: "per_primer_nombre"
+    type: string
+    default: null
+
+  segundoNombre:
+    source: "per_segundo_nombre"
+    type: string
+    default: null
+
+  primerApellido:
+    source: "per_primer_apellido"
+    type: string
+    default: null
+
+  segundoApellido:
+    source: "per_segundo_apellido"
+    type: string
+    default: null
+
+  isPersonaJuridica:
+    source: "neo_is_persona_juridica"
+    type: boolean
+    default: false
+
+  razonSocial:
+    source: "per_razon_social"
+    type: string
+    default: null
+
+  tipoIdentificacion:
+    source: "per_tipo_identificacion"
+    type: string
+    default: null
+    
+  identificacion:
+    source: "per_identificacion"
+    type: string
+    default: null
+

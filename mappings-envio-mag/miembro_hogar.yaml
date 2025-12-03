@@ -1,0 +1,79 @@
+version: 1.0
+entity: MiembroHogarDto
+table: miembros_hogar
+
+fields:
+  noHogar:
+    source: "miho_hogar_numero"
+    type: integer
+    default: null
+  
+  primerNombre:
+    source: "miho_primer_nombre"
+    type: string
+    default: null
+  
+  primerApellido:
+    source: "miho_primer_apellido"
+    type: string
+    default: null
+  
+  tipoIdentificacion:
+    source: "miho_tipo_identificacion"
+    type: string
+    default: null
+  
+  identificacion:
+    source: "miho_identificacion"
+    type: string
+    default: null
+  
+  relacionPersonaProd:
+    source: "miho_relacion_persona_prod"
+    type: string
+    default: null
+  
+  manejoTerrenos:
+    source: "miho_manejo_terrenos"
+    type: string
+    default: null
+  
+  edad:
+    source: "miho_edad"
+    type: integer
+    default: 0
+  
+  genero:
+    source: "miho_genero"
+    type: string
+    default: null
+  
+  autoidentificacion:
+    source: "miho_autoidentificacion"
+    type: string
+    default: null
+  
+  nivelInstruccion:
+    source: "miho_nivel_instruccion"
+    type: string
+    default: null
+  
+  anioMasAltoAprobado:
+    source: "miho_anio_mas_alto_aprob"
+    type: integer
+    default: null
+  
+  numeroHorasSemanales:
+    source: "miho_numero_horas_semanales"
+    type: integer
+    default: null
+  
+  isFueRemunerado:
+    source: "miho_is_fue_remunerado"
+    type: boolean
+    default: false
+  
+  horasOtrasResponsabilidades:
+    source: "miho_horas_otras_resp"
+    type: integer
+    default: null

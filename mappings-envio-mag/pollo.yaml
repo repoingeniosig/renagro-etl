@@ -1,0 +1,129 @@
+version: 1.0
+entity: PecuarioPolloDto
+table: pollos
+
+fields:
+  isLlevaRegistroPollo:
+    source: "neo_is_registro_produccion"
+    type: boolean
+    default: false
+
+  isNewcastleEnfermedad:
+    source: "pol_is_newcastle_enfer"
+    type: boolean
+    default: false
+
+  isSalmonellaEnfermedad:
+    source: "pol_is_salmonella_enfer"
+    type: boolean
+    default: false
+
+  isGumboroEnfermedad:
+    source: "pol_is_gumboro_enfer"
+    type: boolean
+    default: false
+
+  isTRTEnfermedad:
+    source: "pol_is_trt_enfer"
+    type: boolean
+    default: false
+
+  isBronquitisEnfermedad:
+    source: "pol_is_bronquitis_enfer"
+    type: boolean
+    default: false
+
+  isMycoplasmaEnfermedad:
+    source: "pol_is_mycoplasma_enfer"
+    type: boolean
+    default: false
+
+  isLlaringotraqueitisEnfermedad:
+    source: "pol_is_llaringotraqueitis_enf"
+    type: boolean
+    default: false
+
+  isNingunaEnfermedad:
+    source: "pol_is_ninguna_enfer"
+    type: boolean
+    default: false
+
+  isOtrasEnfermedad:
+    source: "neo_is_otra_enfer"
+    type: boolean
+    default: false
+
+  otraEnfermedad:
+    source: "pol_otra_enfermedad"
+    type: string
+    default: null
+
+  isPollosCorresponde:
+    source: "pol_is_pollos_corresponde"
+    type: boolean
+    default: false
+  
+  numAvesTraspatio:
+    source: "pol_num_aves_traspatio"
+    type: integer
+    default: null
+
+  numBroilers:
+    source: "pol_num_broiler"
+    type: integer
+    default: null
+
+  numReproLivianos:
+    source: "pol_num_repro_liviano"
+    type: integer
+    default: null
+
+  numReproPesados:
+    source: "pol_num_repro_pesado"
+    type: integer
+    default: null
+
+  numPonedoras:
+    source: "pol_num_ponedora"
+    type: integer
+    default: null
+
+  numCiclosBroilers:
+    source: "pol_num_ciclos_broiler"
+    type: integer
+    default: null
+
+  numCiclosReproPesados:
+    source: "pol_num_ciclos_repro_pesado"
+    type: integer
+    default: null
+
+  numCiclosReproLivianos:
+    source: "pol_num_ciclos_repro_liviano"
+    type: integer
+    default: null
+
+  numCiclosPonedoras:
+    source: "pol_num_ciclos_ponedora"
+    type: integer
+    default: null
+
+  razonNoRegistro:
+    source: "pol_razon_no_registro"
+    type: string
+    default: null
+
+  otraRazonNoRegistro:
+    source: "pol_otra_razon_no_registro"
+    type: string
+    default: null
+  
+  galponesPollos:
+    source: "pol_galpones_pollo"
+    type: integer
+    default: null
+
+  explotacionPollos:
+    source: "pol_explotacion_pollo"
+    type: integer
+    default: null

@@ -1,0 +1,34 @@
+version: 1.0
+entity: CultivoForestalDto
+table: forestales
+
+fields:
+  nombreEspecieForestal:
+    source: "for_nombre_especie"
+    type: string
+    default: null
+
+  otroNombreEspecieForestal:
+    source: "for_otro_nombre_especie"
+    type: string
+    default: null
+
+  edadEspecieForestal:
+    source: "for_edad_especie"
+    type: integer
+    default: 0
+
+  superficiePlantada:
+    source: "for_superficie_plantada"
+    type: float
+    default: null
+
+  superficiePlantadaUnidad:
+    source: "for_superficie_plantada_unidad"
+    type: string
+    default: null
+
+  principalDestinoDeUso:
+    source: "for_principal_destino_uso"
+    type: string
+    default: null

@@ -1,0 +1,99 @@
+version: 1.0
+entity: CultivoDto
+table: cultivos
+
+fields:
+  nombreCultivo:
+    source: "cul_nombre_cultivo"
+    type: string
+    default: null
+
+  otroNombreCultivo:
+    source: "cul_otro_nombre_cultivo"
+    type: string
+    default: null
+
+  superficiePlantada:
+    source: "cul_superficie_plantada"
+    type: float
+    default: null
+
+  superficiePlantadaUnidad:
+    source: "cul_superficie_plantada_unidad"
+    type: string
+    default: null
+
+  superficieRiego:
+    source: "cul_superficie_riego"
+    type: float
+    default: null
+
+  superficieRiegoUnidad:
+    source: "cul_superficie_riego_unidad"
+    type: string
+    default: null
+
+  metodoDeRiego:
+    source: "cul_metodo_de_riego"
+    type: string
+    default: null
+
+  cultivoAsociado:
+    source: "cul_cultivo_asociado"
+    type: string
+    default: null
+
+  formaCultivar:
+    source: "cul_forma_cultivar"
+    type: string
+    default: null
+
+  isControlPlagasQuimico:
+    source: "cul_is_control_plagas_quimico"
+    type: boolean
+    default: false
+
+  isControlPlagasOrganico:
+    source: "cul_is_control_plagas_organico"
+    type: boolean
+    default: false
+
+  sacosDeUreaUsado:
+    source: "cul_sacos_de_urea_usado"
+    type: integer
+    default: null
+
+  isUsoFertilizanteQuimico:
+    source: "cul_is_uso_fert_quimico"
+    type: boolean
+    default: false
+
+  isUsoFertilizanteOrganico:
+    source: "cul_is_uso_fert_organico"
+    type: boolean
+    default: false
+
+  isUsoSemillaNativaCampesina:
+    source: "cul_is_uso_semilla_nativa_camp"
+    type: boolean
+    default: false
+
+  isUsoMaterialVegetativo:
+    source: "cul_is_uso_material_vegetativo"
+    type: boolean
+    default: false
+
+  isCertificacionOrganica:
+    source: "cul_is_certificacion_organica"
+    type: boolean
+    default: false
+
+  isSeguroAgricola:
+    source: "cul_is_seguro_agricola"
+    type: boolean
+    default: false
+
+  isLlevaRegistroProduccion:
+    source: "cul_is_lleva_registro_prod"
+    type: boolean
+    default: false
