@@ -269,9 +269,14 @@ class JSONTransformer:
                 rows = []
                 for terreno_index, terreno in enumerate(terrenos):
                     # Obtener cultivos/forestales de este terreno específico
-                    # El path relativo después de terrenos_repeat
-                    child_relative_path = repeat_path.split('/terrenos_repeat/')[1]
-                    child_items = JSONTransformer.get_value_by_path(terreno, child_relative_path)
+                    # KoboToolbox guarda la ruta completa como clave, no como estructura anidada
+                    # Intentar primero con el path completo (clave directa)
+                    child_items = terreno.get(repeat_path)
+                    
+                    # Si no existe, intentar con path relativo (estructura anidada)
+                    if child_items is None:
+                        child_relative_path = repeat_path.split('/terrenos_repeat/')[1]
+                        child_items = JSONTransformer.get_value_by_path(terreno, child_relative_path)
                     
                     if child_items and isinstance(child_items, list):
                         for item in child_items:
