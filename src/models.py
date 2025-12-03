@@ -28,7 +28,7 @@ class ControlEnviosBoletas(Base):
     Tabla de control para almacenar los JSONs recibidos de KoboToolbox
     y controlar su procesamiento ETL
     """
-    __tablename__ = 'control_envios_boletas_simplificadas'
+    __tablename__ = 'control_envios_boletas'
     __table_args__ = {'schema': 'sc_renagro_mag'}
     
     _id = Column('_id', Integer, primary_key=True, nullable=False, comment='ID único del envío proveniente del campo _id del JSON de KoboToolbox')
