@@ -86,9 +86,12 @@ class RedisClient:
         """Verifica si Redis está habilitado y disponible"""
         return self._enabled and self._redis_client is not None
     
-    def get_cached_mappings(self) -> Optional[Dict[str, Any]]:
+    def get_cached_mappings(self, cache_prefix: str = "etl") -> Optional[Dict[str, Any]]:
         """
         Obtiene los mapeos cacheados desde Redis
+        
+        Args:
+            cache_prefix: Prefijo para la clave de cache (etl o envio_mag)
         
         Returns:
             Diccionario con los mapeos o None si no existen/falló
@@ -99,7 +102,7 @@ class RedisClient:
             return None
         
         try:
-            key = "renagro:mappings"
+            key = f"renagro:mappings:{cache_prefix}"
             cached_data = self._redis_client.get(key)
             
             if cached_data:
@@ -132,32 +135,31 @@ class RedisClient:
             
             return None
     
-    def set_cached_mappings(self, mappings: Dict[str, Any]) -> bool:
+    def set_cached_mappings(self, mappings: Dict[str, Any], cache_prefix: str = "etl") -> bool:
         """
-        Guarda los mapeos en cache de Redis
+        Guarda los mapeos en Redis cache
         
         Args:
             mappings: Diccionario con los mapeos a cachear
-            
+            cache_prefix: Prefijo para la clave de cache (etl o envio_mag)
+        
         Returns:
             True si se guardó exitosamente, False en caso contrario
         """
-        if not self.is_enabled():
-            if config.DEBUG_CLI:
-                console.print("Redis no disponible, omitiendo guardado en cache")
+        if not self._enabled or not self._redis_client:
             return False
         
         try:
-            key = "renagro:mappings"
+            key = f"renagro:mappings:{cache_prefix}"
             
             # Serializar con pickle
-            serialized_data = pickle.dumps(mappings)
+            cached_data = pickle.dumps(mappings)
             
-            # Guardar en Redis con TTL
+            # Guardar con TTL
             self._redis_client.setex(
                 name=key,
                 time=config.REDIS_TTL,
-                value=serialized_data
+                value=cached_data
             )
             
             etl_logger.debug(f"Mapeos guardados en Redis cache ({len(mappings)} entidades, TTL={config.REDIS_TTL}s)")
@@ -167,12 +169,11 @@ class RedisClient:
             
             return True
             
-        except (RedisError, pickle.PickleError) as e:
-            etl_logger.warning(f"Error guardando en cache de Redis: {e}")
+        except (RedisError, ConnectionError) as e:
+            etl_logger.warning(f"Error guardando cache en Redis: {e}")
             
             if config.DEBUG_CLI:
-                console.print(f"⚠️  Error guardando en cache de Redis: {e}")
-                console.print("El proceso continuará normalmente usando disco")
+                console.print(f"⚠️  Error guardando cache en Redis: {e}")
             
             return False
         except Exception as e:
@@ -183,10 +184,12 @@ class RedisClient:
             
             return False
     
-    def invalidate_cache(self) -> bool:
+    def invalidate_cache(self, cache_prefix: str = None) -> bool:
         """
-        Invalida el cache de mapeos
-        Útil cuando se actualizan los archivos YAML
+        Invalida el cache de mapeos en Redis
+        
+        Args:
+            cache_prefix: Prefijo específico a invalidar (etl, envio_mag) o None para todos
         
         Returns:
             True si se invalidó exitosamente
@@ -196,11 +199,20 @@ class RedisClient:
             return False
         
         try:
-            key = "renagro:mappings"
-            result = self._redis_client.delete(key)
+            deleted = 0
             
-            if result > 0:
-                etl_logger.info("Cache de mapeos invalidado")
+            if cache_prefix:
+                # Invalidar solo el cache específico
+                key = f"renagro:mappings:{cache_prefix}"
+                deleted = self._redis_client.delete(key)
+            else:
+                # Invalidar todos los caches de mapeos
+                for prefix in ['etl', 'envio_mag']:
+                    key = f"renagro:mappings:{prefix}"
+                    deleted += self._redis_client.delete(key)
+            
+            if deleted > 0:
+                etl_logger.info(f"Cache de mapeos invalidado ({deleted} claves eliminadas)")
                 return True
             else:
                 logger.info("ℹ️  No había cache para invalidar")
@@ -213,9 +225,12 @@ class RedisClient:
             logger.error(f"❌ Error inesperado invalidando cache: {e}")
             return False
     
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self, cache_prefix: str = None) -> Dict[str, Any]:
         """
         Obtiene estadísticas del cache
+        
+        Args:
+            cache_prefix: Prefijo específico (etl, envio_mag) o None para todos
         
         Returns:
             Diccionario con información sobre el cache
@@ -223,8 +238,7 @@ class RedisClient:
         stats = {
             'enabled': self.is_enabled(),
             'connected': False,
-            'has_cache': False,
-            'ttl': None
+            'caches': {}
         }
         
         if not self.is_enabled():
@@ -235,13 +249,22 @@ class RedisClient:
             self._redis_client.ping()
             stats['connected'] = True
             
-            # Verificar si existe cache
-            key = "renagro:mappings"
-            stats['has_cache'] = self._redis_client.exists(key) > 0
+            # Obtener stats para cada prefijo
+            prefixes = [cache_prefix] if cache_prefix else ['etl', 'envio_mag']
             
-            # Obtener TTL restante
-            if stats['has_cache']:
-                stats['ttl'] = self._redis_client.ttl(key)
+            for prefix in prefixes:
+                key = f"renagro:mappings:{prefix}"
+                exists = self._redis_client.exists(key) > 0
+                
+                stats['caches'][prefix] = {
+                    'has_cache': exists,
+                    'ttl': self._redis_client.ttl(key) if exists else None
+                }
+            
+            # Compatibilidad con código antiguo
+            if 'etl' in stats['caches']:
+                stats['has_cache'] = stats['caches']['etl']['has_cache']
+                stats['ttl'] = stats['caches']['etl']['ttl']
             
         except Exception as e:
             logger.error(f"Error obteniendo estadísticas: {e}")

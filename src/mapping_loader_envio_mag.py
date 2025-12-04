@@ -37,6 +37,7 @@ class MappingLoaderEnvioMAG:
     def __init__(self, mapping_dir: Path = None):
         self.mapping_dir = mapping_dir or config.MAPPING_ENVIO_MAG_DIR
         self.loaded_mappings: Dict[str, EntityMappingEnvioMAG] = {}
+        self.cache_prefix = "envio_mag"
     
     def load_yaml_file(self, yaml_file: str) -> EntityMappingEnvioMAG:
         """
@@ -48,10 +49,10 @@ class MappingLoaderEnvioMAG:
         Returns:
             EntityMappingEnvioMAG con la configuración cargada
         """
-        # Verificar si ya está cargado en caché
+        # Verificar si ya está cargado en caché de memoria
         if yaml_file in self.loaded_mappings:
             if config.DEBUG_CLI:
-                etl_logger.debug(f"[MappingLoaderEnvioMAG] Usando caché para {yaml_file}")
+                etl_logger.debug(f"[MappingLoaderEnvioMAG] Usando caché de memoria para {yaml_file}")
             return self.loaded_mappings[yaml_file]
         
         yaml_path = self.mapping_dir / yaml_file
@@ -114,16 +115,44 @@ class MappingLoaderEnvioMAG:
                 references.append(field_mapping.reference)
         return references
     
-    def load_all_mappings_recursive(self, start_file: str = 'main.yml') -> Dict[str, EntityMappingEnvioMAG]:
+    def load_all_mappings_recursive(self, start_file: str = 'main.yml', use_redis_cache: bool = True) -> Dict[str, EntityMappingEnvioMAG]:
         """
         Carga todos los mapeos de forma recursiva a partir de un archivo inicial
+        Intenta cargar desde Redis cache primero, si falla carga desde disco
         
         Args:
             start_file: Archivo YAML inicial (por defecto main.yml)
+            use_redis_cache: Si True, intenta usar Redis cache
         
         Returns:
             Diccionario con todos los mapeos cargados {filename: EntityMappingEnvioMAG}
         """
+        # Intentar cargar desde Redis cache primero
+        if use_redis_cache and config.REDIS_ENABLED:
+            try:
+                from .redis_client import redis_client
+                
+                if config.DEBUG_CLI:
+                    etl_logger.debug(f"[MappingLoaderEnvioMAG] Intentando cargar desde Redis cache...")
+                
+                cached_mappings = redis_client.get_cached_mappings(self.cache_prefix)
+                if cached_mappings:
+                    # Convertir dict cached a EntityMappingEnvioMAG
+                    for key, value in cached_mappings.items():
+                        if isinstance(value, EntityMappingEnvioMAG):
+                            self.loaded_mappings[key] = value
+                    
+                    if self.loaded_mappings:
+                        if config.DEBUG_CLI:
+                            etl_logger.debug(
+                                f"[MappingLoaderEnvioMAG] Cargados {len(self.loaded_mappings)} mapeos desde Redis"
+                            )
+                        return self.loaded_mappings
+            except Exception as e:
+                if config.DEBUG_CLI:
+                    etl_logger.debug(f"[MappingLoaderEnvioMAG] Error con Redis cache: {e}")
+        
+        # Cargar desde disco
         visited = set()
         to_process = [start_file]
         
@@ -145,7 +174,16 @@ class MappingLoaderEnvioMAG:
                     to_process.append(ref)
         
         if config.DEBUG_CLI:
-            etl_logger.debug(f"[MappingLoaderEnvioMAG] Cargados {len(self.loaded_mappings)} archivos de mapeo")
+            etl_logger.debug(f"[MappingLoaderEnvioMAG] Cargados {len(self.loaded_mappings)} archivos de mapeo desde disco")
+        
+        # Guardar en Redis cache para futuras ejecuciones
+        if use_redis_cache and config.REDIS_ENABLED:
+            try:
+                from .redis_client import redis_client
+                redis_client.set_cached_mappings(self.loaded_mappings, self.cache_prefix)
+            except Exception as e:
+                if config.DEBUG_CLI:
+                    etl_logger.debug(f"[MappingLoaderEnvioMAG] Error guardando en Redis cache: {e}")
         
         return self.loaded_mappings
 

@@ -50,6 +50,7 @@ class MappingLoader:
         self.mapping_dir = mapping_dir or config.MAPPING_DIR
         self.master_config = None
         self.entity_mappings: Dict[str, EntityMapping] = {}
+        self.cache_prefix = "etl"
     
     def load_master(self) -> Dict[str, str]:
         """
@@ -133,7 +134,7 @@ class MappingLoader:
                 if config.DEBUG_CLI:
                     console.print("🔍 Intentando cargar mapeos desde Redis cache...")
                 
-                cached_mappings = redis_client.get_cached_mappings()
+                cached_mappings = redis_client.get_cached_mappings(self.cache_prefix)
                 if cached_mappings:
                     self.entity_mappings = cached_mappings
                     return self.entity_mappings
@@ -175,7 +176,7 @@ class MappingLoader:
                 if config.DEBUG_CLI:
                     console.print("💾 Guardando mapeos en Redis cache...")
                 
-                success = redis_client.set_cached_mappings(self.entity_mappings)
+                success = redis_client.set_cached_mappings(self.entity_mappings, self.cache_prefix)
                 if not success:
                     if config.DEBUG_CLI:
                         console.print("⚠️  No se pudo guardar en cache, pero el proceso continúa")

@@ -30,10 +30,13 @@ def main():
         console.print(f"\n📊 Estado actual del cache:")
         console.print(f"   Redis habilitado: {stats_before['enabled']}")
         console.print(f"   Redis conectado: {stats_before['connected']}")
-        console.print(f"   Tiene cache: {stats_before['has_cache']}")
         
-        if stats_before['has_cache']:
-            console.print(f"   TTL restante: {stats_before['ttl']}s")
+        if stats_before.get('caches'):
+            for prefix, cache_info in stats_before['caches'].items():
+                console.print(f"\n   Cache '{prefix}':")
+                console.print(f"      Tiene cache: {cache_info['has_cache']}")
+                if cache_info['has_cache']:
+                    console.print(f"      TTL restante: {cache_info['ttl']}s")
         
         if not stats_before['enabled']:
             console.print("\n[yellow]⚠️  Redis no está habilitado en la configuración[/yellow]")
@@ -45,7 +48,13 @@ def main():
             console.print(f"   Verifique que Redis esté corriendo en {redis_client._redis_client}")
             return
         
-        if not stats_before['has_cache']:
+        # Verificar si hay algún cache
+        has_any_cache = any(
+            cache_info['has_cache'] 
+            for cache_info in stats_before.get('caches', {}).values()
+        )
+        
+        if not has_any_cache:
             console.print("\n[yellow]ℹ️  No hay cache para invalidar[/yellow]")
             return
         
