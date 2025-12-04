@@ -31,8 +31,15 @@ def setup_logger(name: str = 'renagro_etl') -> logging.Logger:
     if logger.handlers:
         return logger
     
+    # Determinar nombre de archivo según el logger
+    if name == 'worker_envio_mag':
+        log_file = log_dir / 'worker_envio_mag.log'
+        error_log_file = log_dir / 'worker_envio_mag_errors.log'
+    else:
+        log_file = log_dir / 'etl_process.log'
+        error_log_file = log_dir / 'etl_errors.log'
+    
     # Handler para archivo con rotación semanal (cada lunes)
-    log_file = log_dir / 'etl_process.log'
     file_handler = TimedRotatingFileHandler(
         filename=log_file,
         when='W0',  # W0 = cada lunes
@@ -44,7 +51,6 @@ def setup_logger(name: str = 'renagro_etl') -> logging.Logger:
     file_handler.setLevel(logging.DEBUG)
     
     # Handler para archivo de errores con rotación semanal
-    error_log_file = log_dir / 'etl_errors.log'
     error_handler = TimedRotatingFileHandler(
         filename=error_log_file,
         when='W0',
@@ -72,3 +78,6 @@ def setup_logger(name: str = 'renagro_etl') -> logging.Logger:
 
 # Logger global
 etl_logger = setup_logger('renagro_etl')
+
+# Logger para worker de envío a MAG
+envio_mag_logger = setup_logger('worker_envio_mag')

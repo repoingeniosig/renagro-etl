@@ -80,7 +80,12 @@ class Config:
     # Rutas del proyecto
     BASE_DIR = Path(__file__).parent.parent
     MAPPING_DIR = BASE_DIR / 'mapping'
+    MAPPING_ENVIO_MAG_DIR = BASE_DIR / 'mappings-envio-mag'
     LOG_DIR = BASE_DIR / os.getenv('LOG_DIR', 'logs')
+    
+    # MAG Envio Configuration
+    BATCH_SIZE_SEND_MAG = int(os.getenv('BATCH_SIZE_SEND_MAG', 1000))
+    DEBUG_JSON_OUTPUT = os.getenv('DEBUG_JSON_OUTPUT', 'false').lower() in ('true', '1', 'yes')
     
 
 # Instancia global de configuración

@@ -1,0 +1,359 @@
+"""
+Transformador de datos de BD a JSON para envío a MAG
+Construye la estructura JSON según los mapeos YAML
+"""
+from typing import Dict, Any, List, Optional
+from decimal import Decimal
+
+from .config import config
+from .logger import etl_logger
+from .mapping_loader_envio_mag import EntityMappingEnvioMAG, FieldMappingEnvioMAG, mapping_loader_envio_mag
+
+
+class JSONBuilderEnvioMAG:
+    """Constructor de JSON para envío a MAG"""
+    
+    @staticmethod
+    def convert_value(value: Any, field_mapping: FieldMappingEnvioMAG) -> Any:
+        """
+        Convierte un valor de BD al tipo esperado en el JSON
+        
+        Args:
+            value: Valor de la base de datos
+            field_mapping: Mapeo del campo con información de tipo y conversión
+        
+        Returns:
+            Valor convertido
+        """
+        if value is None:
+            return field_mapping.default
+        
+        # Aplicar conversión personalizada si existe
+        if field_mapping.convert:
+            for conversion_type, conversion_param in field_mapping.convert.items():
+                if conversion_type == 'contains_option':
+                    # Verificar si la opción está presente en el valor
+                    if isinstance(value, str):
+                        # El valor puede ser multi-select separado por espacios
+                        return conversion_param in value.split()
+                    return False
+        
+        # Convertir según el tipo
+        try:
+            if field_mapping.type == 'integer':
+                if isinstance(value, str):
+                    value = value.strip()
+                    if value == '':
+                        return field_mapping.default
+                return int(value) if value is not None else field_mapping.default
+            elif field_mapping.type == 'float':
+                if isinstance(value, Decimal):
+                    return float(value)
+                if isinstance(value, str):
+                    value = value.strip()
+                    if value == '':
+                        return field_mapping.default
+                return float(value) if value is not None else field_mapping.default
+            elif field_mapping.type == 'boolean':
+                if isinstance(value, bool):
+                    return value
+                if isinstance(value, str):
+                    return value.lower() in ('true', '1', 'yes', 'si', 'sí', 't')
+                return bool(value) if value is not None else field_mapping.default
+            elif field_mapping.type == 'string':
+                return str(value) if value is not None else field_mapping.default
+            else:
+                return value
+        except (ValueError, TypeError):
+            return field_mapping.default
+    
+    @staticmethod
+    def build_object_from_mapping(
+        data_row: Dict[str, Any],
+        entity_mapping: EntityMappingEnvioMAG,
+        related_data: Dict[str, List[Dict[str, Any]]] = None
+    ) -> Dict[str, Any]:
+        """
+        Construye un objeto JSON a partir de un registro de BD y su mapeo
+        
+        Args:
+            data_row: Registro de la base de datos
+            entity_mapping: Mapeo de la entidad
+            related_data: Datos relacionados ya consultados {field_name: [registros]}
+        
+        Returns:
+            Objeto JSON construido
+        """
+        result = {}
+        
+        for json_field_name, field_mapping in entity_mapping.fields.items():
+            # Si tiene reference, es un objeto o array anidado
+            if field_mapping.reference:
+                # Cargar el mapeo referenciado
+                referenced_mapping = mapping_loader_envio_mag.load_yaml_file(field_mapping.reference)
+                
+                if field_mapping.type == 'array':
+                    # Es un array de objetos
+                    result[json_field_name] = JSONBuilderEnvioMAG._build_array_field(
+                        data_row,
+                        json_field_name,
+                        referenced_mapping,
+                        related_data
+                    )
+                else:
+                    # Es un objeto único
+                    result[json_field_name] = JSONBuilderEnvioMAG._build_object_field(
+                        data_row,
+                        json_field_name,
+                        referenced_mapping,
+                        related_data
+                    )
+            else:
+                # Es un campo simple
+                db_column = field_mapping.source
+                value = data_row.get(db_column)
+                result[json_field_name] = JSONBuilderEnvioMAG.convert_value(
+                    value,
+                    field_mapping.type,
+                    field_mapping.default
+                )
+        
+        return result
+    
+    @staticmethod
+    def _build_array_field(
+        parent_row: Dict[str, Any],
+        field_name: str,
+        referenced_mapping: EntityMappingEnvioMAG,
+        related_data: Dict[str, List[Dict[str, Any]]]
+    ) -> List[Dict[str, Any]]:
+        """
+        Construye un campo de tipo array
+        
+        Args:
+            parent_row: Registro padre
+            field_name: Nombre del campo en el JSON
+            referenced_mapping: Mapeo de la entidad referenciada
+            related_data: Datos relacionados
+        
+        Returns:
+            Lista de objetos JSON
+        """
+        if not related_data or field_name not in related_data:
+            return []
+        
+        # Obtener los registros relacionados con este padre
+        parent_id = parent_row.get('id')  # Asumimos que el padre tiene un campo 'id'
+        related_rows = related_data.get(field_name, [])
+        
+        # Filtrar los que pertenecen a este padre
+        # Buscar la FK apropiada (puede ser boleta_id, terreno_id, etc.)
+        fk_column = None
+        for col in related_rows[0].keys() if related_rows else []:
+            if col.endswith('_id') and col != 'id':
+                # Podría ser la FK, verificar si coincide con el ID del padre
+                # Por ahora, asumimos que es boleta_id para el primer nivel
+                # y terreno_id, etc., para niveles anidados
+                fk_column = col
+                break
+        
+        if not fk_column:
+            fk_column = 'boleta_id'  # Default
+        
+        filtered_rows = [row for row in related_rows if row.get(fk_column) == parent_id]
+        
+        # Construir cada objeto del array
+        array_result = []
+        for row in filtered_rows:
+            obj = JSONBuilderEnvioMAG.build_object_from_mapping(
+                row,
+                referenced_mapping,
+                related_data
+            )
+            array_result.append(obj)
+        
+        return array_result
+    
+    @staticmethod
+    def _build_object_field(
+        parent_row: Dict[str, Any],
+        field_name: str,
+        referenced_mapping: EntityMappingEnvioMAG,
+        related_data: Dict[str, List[Dict[str, Any]]]
+    ) -> Dict[str, Any]:
+        """
+        Construye un campo de tipo objeto
+        
+        Args:
+            parent_row: Registro padre
+            field_name: Nombre del campo en el JSON
+            referenced_mapping: Mapeo de la entidad referenciada
+            related_data: Datos relacionados
+        
+        Returns:
+            Objeto JSON
+        """
+        # Para objetos únicos (no arrays), los datos pueden estar en la misma fila
+        # o en una tabla relacionada con relación 1:1
+        
+        # Primero intentar construir desde la misma fila (campos embebidos)
+        obj = JSONBuilderEnvioMAG.build_object_from_mapping(
+            parent_row,
+            referenced_mapping,
+            related_data
+        )
+        
+        return obj
+    
+    @staticmethod
+    def build_json_for_boleta(
+        boleta_row: Dict[str, Any],
+        main_mapping: EntityMappingEnvioMAG,
+        all_related_data: Dict[str, Dict[int, List[Dict[str, Any]]]]
+    ) -> Dict[str, Any]:
+        """
+        Construye el JSON completo para una boleta
+        
+        Args:
+            boleta_row: Registro de la boleta
+            main_mapping: Mapeo principal (main.yml)
+            all_related_data: Todos los datos relacionados agrupados
+                {field_name: {boleta_id: [registros]}}
+        
+        Returns:
+            JSON completo de la boleta
+        """
+        boleta_id = boleta_row.get('id')
+        
+        # Preparar related_data para esta boleta específica
+        related_data_for_boleta = {}
+        for field_name, grouped_data in all_related_data.items():
+            related_data_for_boleta[field_name] = grouped_data.get(boleta_id, [])
+        
+        # Construir el JSON principal
+        json_result = JSONBuilderEnvioMAG.build_object_from_mapping(
+            boleta_row,
+            main_mapping,
+            related_data_for_boleta
+        )
+        
+        return json_result
+    
+    @staticmethod
+    def build_nested_structure(
+        parent_row: Dict[str, Any],
+        entity_mapping: EntityMappingEnvioMAG,
+        all_fetched_data: Dict[str, List[Dict[str, Any]]],
+        parent_id_field: str = 'id',
+        parent_table_name: str = 'boletas'
+    ) -> Dict[str, Any]:
+        """
+        Construye una estructura anidada recursivamente
+        
+        Args:
+            parent_row: Registro padre
+            entity_mapping: Mapeo de la entidad
+            all_fetched_data: Todos los datos fetched de BD {table_name: [rows]}
+            parent_id_field: Nombre del campo ID en el registro padre
+            parent_table_name: Nombre de la tabla padre (para determinar FK)
+        
+        Returns:
+            Estructura JSON completa con todos los niveles anidados
+        """
+        result = {}
+        parent_id = parent_row.get(parent_id_field)
+        
+        for json_field_name, field_mapping in entity_mapping.fields.items():
+            if field_mapping.reference:
+                # Cargar mapeo referenciado
+                referenced_mapping = mapping_loader_envio_mag.load_yaml_file(field_mapping.reference)
+                table_name = referenced_mapping.table
+                
+                # Obtener datos de esta tabla
+                table_data = all_fetched_data.get(table_name, [])
+                
+                if field_mapping.type == 'array':
+                    # Es un array de objetos - filtrar por FK
+                    # Determinar nombre de columna FK basado en la tabla padre
+                    if parent_table_name == 'boletas':
+                        fk_column = 'boleta_id'
+                    elif parent_table_name == 'terrenos':
+                        fk_column = 'terreno_id'
+                    elif parent_table_name == 'personas':
+                        fk_column = 'persona_id'
+                    else:
+                        # Usar patrón genérico: tabla sin 's' + '_id'
+                        fk_column = f"{parent_table_name.rstrip('s')}_id"
+                    
+                    # Filtrar registros que pertenecen a este padre
+                    filtered_rows = []
+                    for row in table_data:
+                        if row.get(fk_column) == parent_id:
+                            filtered_rows.append(row)
+                    
+                    # Construir cada elemento del array recursivamente
+                    array_result = []
+                    for row in filtered_rows:
+                        nested_obj = JSONBuilderEnvioMAG.build_nested_structure(
+                            row,
+                            referenced_mapping,
+                            all_fetched_data,
+                            'id',
+                            table_name
+                        )
+                        array_result.append(nested_obj)
+                    
+                    result[json_field_name] = array_result
+                    
+                else:
+                    # Es un objeto único (no array)
+                    # Intentar construir desde la misma fila padre (campos embebidos)
+                    # Si la tabla referenciada es diferente, buscar el registro relacionado
+                    if table_name != entity_mapping.table:
+                        # Es una tabla diferente, buscar el registro relacionado
+                        # Típicamente será una relación 1:1
+                        # Determinar FK
+                        if parent_table_name == 'boletas':
+                            fk_column = 'boleta_id'
+                        else:
+                            fk_column = f"{parent_table_name.rstrip('s')}_id"
+                        
+                        # Buscar el registro relacionado
+                        related_row = None
+                        for row in table_data:
+                            if row.get(fk_column) == parent_id:
+                                related_row = row
+                                break
+                        
+                        if related_row:
+                            nested_obj = JSONBuilderEnvioMAG.build_nested_structure(
+                                related_row,
+                                referenced_mapping,
+                                all_fetched_data,
+                                'id',
+                                table_name
+                            )
+                        else:
+                            # No hay registro relacionado, usar default
+                            nested_obj = field_mapping.default if field_mapping.default is not None else {}
+                    else:
+                        # Es la misma tabla (campos embebidos), construir desde parent_row
+                        nested_obj = JSONBuilderEnvioMAG.build_nested_structure(
+                            parent_row,
+                            referenced_mapping,
+                            all_fetched_data,
+                            parent_id_field,
+                            parent_table_name
+                        )
+                    
+                    result[json_field_name] = nested_obj
+            else:
+                # Campo simple
+                db_column = field_mapping.source
+                value = parent_row.get(db_column)
+                result[json_field_name] = JSONBuilderEnvioMAG.convert_value(
+                    value,
+                    field_mapping
+                )
+        
+        return result
