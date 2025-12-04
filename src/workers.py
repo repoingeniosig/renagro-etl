@@ -408,17 +408,66 @@ class DbInsertWorker:
             # NO re-raise - el mensaje ya se manejó (retry o DLQ)
 
 
+class EnvioMagWorker:
+    """
+    Worker para procesamiento de envío a MAG
+    Construye JSONs desde BD y los prepara para envío
+    """
+    
+    @staticmethod
+    async def process_message(data: Dict[str, Any]):
+        """
+        Procesa registros pendientes y construye JSONs
+        Este worker NO usa colas, procesa directamente desde BD
+        """
+        from .logger import envio_mag_logger
+        from .batch_processor_envio_mag import batch_processor_envio_mag
+        
+        try:
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG - INICIANDO")
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info(f"Tamaño de lote: {config.BATCH_SIZE_SEND_MAG}")
+            envio_mag_logger.info(f"Debug JSON Output: {config.DEBUG_JSON_OUTPUT}")
+            envio_mag_logger.info(f"Schema BD: {config.DB_SCHEMA}")
+            
+            # Procesar todos los registros pendientes
+            total_processed = batch_processor_envio_mag.process_all_pending()
+            
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info(f"WORKER ENVIO MAG - FINALIZADO")
+            envio_mag_logger.info(f"Total de registros procesados: {total_processed}")
+            envio_mag_logger.info("=" * 80)
+            
+        except Exception as e:
+            envio_mag_logger.error(f"Error en worker envio_mag: {e}", exc_info=True)
+            raise
+
+
 # Función principal para ejecutar un worker específico
 async def run_worker(worker_type: str):
     """
     Ejecuta un worker específico
     
     Args:
-        worker_type: Tipo de worker (json_save, etl_transform, db_insert)
+        worker_type: Tipo de worker (json_save, etl_transform, db_insert, envio_mag)
     """
     etl_logger.info(f"Iniciando worker: {worker_type}")
     
-    # Mapeo de workers
+    # Worker especial envio_mag (no usa colas)
+    if worker_type == 'envio_mag':
+        try:
+            await EnvioMagWorker.process_message({})
+        except KeyboardInterrupt:
+            from .logger import envio_mag_logger
+            envio_mag_logger.info("Worker envio_mag detenido por usuario")
+        except Exception as e:
+            from .logger import envio_mag_logger
+            envio_mag_logger.error(f"Error en worker envio_mag: {e}", exc_info=True)
+            raise
+        return
+    
+    # Mapeo de workers normales (basados en colas)
     workers = {
         'json_save': (config.QUEUE_JSON_SAVE, JsonSaveWorker.process_message),
         'etl_transform': (config.QUEUE_ETL_TRANSFORM, EtlTransformWorker.process_message),
@@ -449,7 +498,7 @@ async def run_worker(worker_type: str):
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Uso: python -m src.workers <worker_type>")
-        print("Worker types: json_save, etl_transform, db_insert")
+        print("Worker types: json_save, etl_transform, db_insert, envio_mag")
         sys.exit(1)
     
     worker_type = sys.argv[1]
