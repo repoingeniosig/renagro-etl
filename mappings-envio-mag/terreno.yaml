@@ -64,7 +64,19 @@ fields:
     type: boolean
     default: false
 
+  # reference se refiere al archivo yaml del cual deberia basarse para completar este array
+  # type puede ser array o puede ser object
+  cultivos:
+    reference: cultivo.yaml
+    type: array
+    default: []
+  
   isPoseeEspeciesForestales:
     source: "neo_is_especie_forestal"
     type: boolean
     default: false
+  
+  cultivosForestales:
+    reference: cultivo_forestal.yaml
+    type: array
+    default: []

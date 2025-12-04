@@ -1,5 +1,5 @@
 version: 1.0
-entity: PersonaNaturalDto
+entity: PersonaInformanteDto
 table: personas
 
 fields:

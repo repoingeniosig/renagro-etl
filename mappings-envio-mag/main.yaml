@@ -62,6 +62,16 @@ fields:
     source: "neo_is_uso_suelo_agricola" 
     type: boolean
     default: false
+  
+  terrenos:
+    reference: terreno.yaml
+    type: array
+    default: []
+  
+  personaProductora:
+    reference: persona.yaml
+    type: array
+    default: {}
 
   isViveTerrenoEntrevista:
     source: "neo_is_vive_terreno_entrevista"
@@ -273,15 +283,35 @@ fields:
     type: boolean
     default: false
 
+  bovino:
+    reference: bovino.yaml
+    type: object
+    default: {}
+
   isExisteGanadoPorcino:
     source: "neo_is_porcino_terreno"
     type: boolean
     default: false
 
+  porcino:
+    reference: porcino.yaml
+    type: object
+    default: {}
+
   isPoseePollo:
     source: "neo_is_pollo_terreno"
     type: boolean
     default: false
+
+  pollo:
+    reference: pollo.yaml
+    type: object
+    default: {}
+  
+  pecuarioOtro:
+    reference: pecuario_otro.yaml
+    type: object
+    default: {}
 
   isIncorporaAbono:
     source: "bol_is_incorpora_abono"
@@ -833,10 +863,20 @@ fields:
     type: integer
     default: null
  
+  miembroHogar:
+    reference: miembro_hogar.yaml
+    type: array
+    default: []
+
   isInformanteProductor:
     source: "neo_is_informante_productor" 
     type: boolean
     default: false
+
+  personaInformante:
+    reference: persona_informante.yaml
+    type: array
+    default: []
 
   informanteTelefono:
     source: "bol_informante_telefono"
@@ -857,7 +897,9 @@ fields:
     source: "bol_latitud"
     type: float
     default: null
+  
   altitud:
     source: "bol_altitud"
     type: float
     default: null
+
