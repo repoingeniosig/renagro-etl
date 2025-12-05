@@ -104,3 +104,4 @@ errors/
 docker/
 
 .worker_pids
+temp_json_output

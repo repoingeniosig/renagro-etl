@@ -3,7 +3,6 @@ entity: PecuarioPorcinoDto
 table: porcinos
 
 database_id: por_id
-parent_id: bol_id
 
 fields:
   isLlevaRegistroPorcino:

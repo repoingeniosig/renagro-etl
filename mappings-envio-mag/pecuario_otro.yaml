@@ -3,7 +3,6 @@ entity: PecuarioOtroDto
 table: pecuarios_otros
 
 database_id: peot_id
-parent_id: bol_id
 
 fields:
   isGanadoOvino:

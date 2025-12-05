@@ -3,7 +3,6 @@ entity: PecuarioBovinoDto
 table: bovinos
 
 database_id: bov_id
-parent_id: bol_id
 
 fields:
   isBovinoRegistroProduccion:

@@ -2,8 +2,7 @@ version: 1.0
 entity: PersonaDto
 table: personas
 
-database_id: per_id
-parent_id: bol_id
+c: per_id
 
 fields:
   isPersonaNatural:
