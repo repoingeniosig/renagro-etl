@@ -28,6 +28,8 @@ class EntityMappingEnvioMAG:
     entity: str
     table: str
     fields: Dict[str, FieldMappingEnvioMAG]
+    database_id: Optional[str] = None  # Nombre del campo PK en BD (ej: "bol_id", "ter_id")
+    parent_id: Optional[str] = None  # Nombre del campo FK en BD para filtrar (ej: "bol_id", "ter_id")
     raw_data: Dict[str, Any] = None  # Datos raw del YAML
 
 
@@ -82,6 +84,8 @@ class MappingLoaderEnvioMAG:
             entity=data.get('entity', ''),
             table=data.get('table', ''),
             fields=fields,
+            database_id=data.get('database_id'),
+            parent_id=data.get('parent_id'),
             raw_data=data
         )
         

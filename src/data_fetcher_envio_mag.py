@@ -2,7 +2,7 @@
 Extractor de datos de la base de datos para envío a MAG
 Consulta las tablas de la BD y combina los resultados en memoria
 """
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -18,66 +18,58 @@ class DataFetcherEnvioMAG:
     def __init__(self, session: Session):
         self.session = session
         self.schema = config.DB_SCHEMA
+        # Cache SQL: {(table_name, parent_fk_column, tuple(sorted_ids)): [rows]}
+        self.sql_cache: Dict[Tuple, List[Dict[str, Any]]] = {}
     
-    def fetch_table_data(self, table_name: str, boleta_ids: List[int]) -> List[Dict[str, Any]]:
+    def _make_cache_key(
+        self,
+        table_name: str,
+        parent_fk_column: str,
+        parent_ids: List[int]
+    ) -> Tuple:
         """
-        Obtiene datos de una tabla para un conjunto de boleta_ids
+        Genera una clave única para el cache SQL
         
         Args:
-            table_name: Nombre de la tabla a consultar
-            boleta_ids: Lista de IDs de boletas a consultar
+            table_name: Nombre de la tabla
+            parent_fk_column: Nombre de la columna FK
+            parent_ids: Lista de IDs
         
         Returns:
-            Lista de registros como diccionarios
+            Tupla que sirve como clave de cache
         """
-        if not boleta_ids:
-            return []
-        
-        # Construir query SQL
-        placeholders = ','.join([f':id{i}' for i in range(len(boleta_ids))])
-        query = f"""
-            SELECT * FROM "{self.schema}".{table_name}
-            WHERE boleta_id IN ({placeholders})
-        """
-        
-        # Crear parámetros
-        params = {f'id{i}': boleta_id for i, boleta_id in enumerate(boleta_ids)}
-        
-        if config.DEBUG:
-            etl_logger.debug(f"[DataFetcherEnvioMAG] Query: {table_name} - IDs: {len(boleta_ids)}")
-        
-        # Ejecutar query
-        result = self.session.execute(text(query), params)
-        
-        # Convertir resultados a diccionarios
-        rows = []
-        for row in result:
-            rows.append(dict(row._mapping))
-        
-        if config.DEBUG_CLI:
-            etl_logger.debug(f"[DataFetcherEnvioMAG] Obtenidos {len(rows)} registros de {table_name}")
-        
-        return rows
+        return (table_name, parent_fk_column, tuple(sorted(parent_ids)))
     
-    def fetch_related_data(
+    def fetch_table_data(
         self,
         table_name: str,
         parent_ids: List[int],
-        parent_fk_column: str = 'boleta_id'
+        parent_fk_column: str,
+        use_cache: bool = True
     ) -> List[Dict[str, Any]]:
         """
-        Obtiene datos de una tabla relacionada usando una FK
+        Obtiene datos de una tabla usando un FK para filtrar (genérico)
         
         Args:
             table_name: Nombre de la tabla a consultar
-            parent_ids: Lista de IDs del padre
-            parent_fk_column: Nombre de la columna FK en la tabla hija
+            parent_ids: Lista de IDs para filtrar
+            parent_fk_column: Nombre de la columna FK para filtrar
+            use_cache: Si debe usar/guardar en cache SQL
         
         Returns:
             Lista de registros como diccionarios
         """
         if not parent_ids:
             return []
+        
+        # Verificar cache
+        cache_key = self._make_cache_key(table_name, parent_fk_column, parent_ids)
+        if use_cache and cache_key in self.sql_cache:
+            if config.DEBUG_CLI:
+                etl_logger.debug(
+                    f"[DataFetcherEnvioMAG] Cache HIT: {table_name} - {parent_fk_column}"
+                )
+            return self.sql_cache[cache_key]
         
         # Construir query SQL
         placeholders = ','.join([f':id{i}' for i in range(len(parent_ids))])
@@ -89,8 +81,10 @@ class DataFetcherEnvioMAG:
         # Crear parámetros
         params = {f'id{i}': parent_id for i, parent_id in enumerate(parent_ids)}
         
-        if config.DEBUG:
-            etl_logger.debug(f"[DataFetcherEnvioMAG] Related query: {table_name} - FK: {parent_fk_column}")
+        if config.DEBUG_CLI:
+            etl_logger.debug(
+                f"[DataFetcherEnvioMAG] Query: {table_name} - FK: {parent_fk_column} - IDs: {len(parent_ids)}"
+            )
         
         # Ejecutar query
         result = self.session.execute(text(query), params)
@@ -103,24 +97,16 @@ class DataFetcherEnvioMAG:
         if config.DEBUG_CLI:
             etl_logger.debug(f"[DataFetcherEnvioMAG] Obtenidos {len(rows)} registros de {table_name}")
         
+        # Guardar en cache
+        if use_cache:
+            self.sql_cache[cache_key] = rows
+        
         return rows
-    
-    def fetch_boletas_data(self, boleta_ids: List[int]) -> List[Dict[str, Any]]:
-        """
-        Obtiene los datos principales de las boletas
-        
-        Args:
-            boleta_ids: Lista de IDs de boletas
-        
-        Returns:
-            Lista de registros de boletas
-        """
-        return self.fetch_table_data('boletas', boleta_ids)
     
     def group_by_parent_id(
         self,
         data: List[Dict[str, Any]],
-        parent_fk: str = 'boleta_id'
+        parent_fk: str
     ) -> Dict[int, List[Dict[str, Any]]]:
         """
         Agrupa registros por su ID padre
@@ -143,44 +129,71 @@ class DataFetcherEnvioMAG:
     
     def fetch_all_related_tables(
         self,
-        all_mappings: Dict[str, Any],
-        boleta_ids: List[int]
+        all_mappings: Dict[str, EntityMappingEnvioMAG],
+        root_ids: List[int],
+        root_mapping: EntityMappingEnvioMAG
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Obtiene todos los datos de todas las tablas definidas en los mapeos
+        Obtiene todos los datos de todas las tablas definidas en los mapeos de forma recursiva
         
         Args:
             all_mappings: Todos los mapeos cargados {yaml_file: EntityMappingEnvioMAG}
-            boleta_ids: Lista de IDs de boletas
+            root_ids: Lista de IDs de la entidad raíz (ej: boleta_ids)
+            root_mapping: Mapeo de la entidad raíz (ej: main.yml)
         
         Returns:
             Diccionario {table_name: [registros]}
         """
         all_data = {}
         
-        # Obtener tablas únicas de todos los mapeos
-        tables_info = {}
+        # Obtener tablas únicas de todos los mapeos (excepto la raíz)
+        # Agrupar por tabla para identificar duplicados
+        table_to_mappings: Dict[str, List[Tuple[str, EntityMappingEnvioMAG]]] = {}
+        
         for yaml_file, entity_mapping in all_mappings.items():
-            if entity_mapping.table and entity_mapping.table not in ('boletas',):
-                tables_info[entity_mapping.table] = {
-                    'yaml_file': yaml_file,
-                    'entity': entity_mapping.entity
-                }
+            if entity_mapping.table and entity_mapping.table != root_mapping.table:
+                if entity_mapping.table not in table_to_mappings:
+                    table_to_mappings[entity_mapping.table] = []
+                table_to_mappings[entity_mapping.table].append((yaml_file, entity_mapping))
         
         if config.DEBUG_CLI:
             etl_logger.debug(
-                f"[DataFetcherEnvioMAG] Tablas a consultar: {list(tables_info.keys())}"
+                f"[DataFetcherEnvioMAG] Tablas únicas a consultar: {list(table_to_mappings.keys())}"
             )
+            for table_name, mappings in table_to_mappings.items():
+                if len(mappings) > 1:
+                    yaml_files = [m[0] for m in mappings]
+                    etl_logger.debug(
+                        f"[DataFetcherEnvioMAG] ⚠️  Tabla '{table_name}' usada por múltiples YAMLs: {yaml_files}"
+                    )
         
-        # Consultar cada tabla
-        for table_name, info in tables_info.items():
+        # Nivel 1: Consultar tablas directamente relacionadas con la raíz
+        for table_name, mappings_list in table_to_mappings.items():
+            # Usar el primer mapping para obtener parent_id
+            yaml_file, entity_mapping = mappings_list[0]
+            
+            # Si no tiene parent_id, asumir que usa el database_id de la raíz
+            parent_fk_column = entity_mapping.parent_id or root_mapping.database_id
+            
+            if not parent_fk_column:
+                etl_logger.warning(
+                    f"[DataFetcherEnvioMAG] Tabla {table_name} no tiene parent_id definido"
+                )
+                continue
+            
             try:
-                data = self.fetch_related_data(table_name, boleta_ids, 'boleta_id')
+                # Intentar primero como hijo directo de la raíz
+                data = self.fetch_table_data(
+                    table_name,
+                    root_ids,
+                    parent_fk_column,
+                    use_cache=True  # Usar cache para evitar duplicados
+                )
                 all_data[table_name] = data
                 
-                if config.DEBUG:
+                if config.DEBUG_CLI:
                     etl_logger.debug(
-                        f"[DataFetcherEnvioMAG] Tabla {table_name}: {len(data)} registros"
+                        f"[DataFetcherEnvioMAG] Tabla {table_name}: {len(data)} registros (FK: {parent_fk_column})"
                     )
             except Exception as e:
                 etl_logger.warning(
@@ -188,47 +201,65 @@ class DataFetcherEnvioMAG:
                 )
                 all_data[table_name] = []
         
-        # Ahora consultar tablas de segundo nivel (ej: cultivos bajo terrenos)
-        # Necesitamos IDs de las tablas padres (ej: terreno_ids)
-        for table_name, info in tables_info.items():
-            # Obtener el mapeo de esta tabla
-            mapping = all_mappings.get(info['yaml_file'])
-            if not mapping:
-                continue
-            
+        # Nivel 2+: Consultar tablas de niveles más profundos (ej: cultivos bajo terrenos)
+        for yaml_file, entity_mapping in all_mappings.items():
             # Ver si tiene referencias (tablas hijas)
-            for field_name, field_mapping in mapping.fields.items():
+            for field_name, field_mapping in entity_mapping.fields.items():
                 if field_mapping.reference and field_mapping.type == 'array':
                     from .mapping_loader_envio_mag import mapping_loader_envio_mag
                     
                     child_mapping = mapping_loader_envio_mag.load_yaml_file(field_mapping.reference)
                     child_table = child_mapping.table
                     
-                    if child_table and child_table not in all_data:
-                        # Obtener IDs de los padres de esta tabla
-                        parent_data = all_data.get(table_name, [])
-                        if parent_data:
-                            parent_ids = [row['id'] for row in parent_data if 'id' in row]
-                            
-                            # Determinar FK column
-                            fk_column = f"{table_name.rstrip('s')}_id"
-                            
-                            try:
-                                child_data = self.fetch_related_data(
-                                    child_table,
-                                    parent_ids,
-                                    fk_column
-                                )
-                                all_data[child_table] = child_data
-                                
-                                if config.DEBUG:
-                                    etl_logger.debug(
-                                        f"[DataFetcherEnvioMAG] Tabla hija {child_table}: {len(child_data)} registros"
-                                    )
-                            except Exception as e:
-                                etl_logger.warning(
-                                    f"[DataFetcherEnvioMAG] Error consultando tabla hija {child_table}: {e}"
-                                )
-                                all_data[child_table] = []
+                    if not child_table or child_table in all_data:
+                        # Ya consultada o no tiene tabla
+                        continue
+                    
+                    # Obtener IDs de los padres de esta tabla
+                    parent_table = entity_mapping.table
+                    parent_data = all_data.get(parent_table, [])
+                    
+                    if not parent_data:
+                        continue
+                    
+                    # Usar database_id del padre para extraer IDs
+                    parent_db_id = entity_mapping.database_id
+                    if not parent_db_id:
+                        etl_logger.warning(
+                            f"[DataFetcherEnvioMAG] Tabla padre {parent_table} no tiene database_id"
+                        )
+                        continue
+                    
+                    parent_ids = [row[parent_db_id] for row in parent_data if parent_db_id in row]
+                    
+                    if not parent_ids:
+                        continue
+                    
+                    # Usar parent_id del hijo
+                    child_fk_column = child_mapping.parent_id
+                    if not child_fk_column:
+                        etl_logger.warning(
+                            f"[DataFetcherEnvioMAG] Tabla hija {child_table} no tiene parent_id"
+                        )
+                        continue
+                    
+                    try:
+                        child_data = self.fetch_table_data(
+                            child_table,
+                            parent_ids,
+                            child_fk_column,
+                            use_cache=True
+                        )
+                        all_data[child_table] = child_data
+                        
+                        if config.DEBUG_CLI:
+                            etl_logger.debug(
+                                f"[DataFetcherEnvioMAG] Tabla hija {child_table}: {len(child_data)} registros (FK: {child_fk_column})"
+                            )
+                    except Exception as e:
+                        etl_logger.warning(
+                            f"[DataFetcherEnvioMAG] Error consultando tabla hija {child_table}: {e}"
+                        )
+                        all_data[child_table] = []
         
         return all_data

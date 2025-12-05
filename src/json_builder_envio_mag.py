@@ -243,24 +243,23 @@ class JSONBuilderEnvioMAG:
     def build_nested_structure(
         parent_row: Dict[str, Any],
         entity_mapping: EntityMappingEnvioMAG,
-        all_fetched_data: Dict[str, List[Dict[str, Any]]],
-        parent_id_field: str = 'id',
-        parent_table_name: str = 'boletas'
+        all_fetched_data: Dict[str, List[Dict[str, Any]]]
     ) -> Dict[str, Any]:
         """
-        Construye una estructura anidada recursivamente
+        Construye una estructura anidada recursivamente usando database_id y parent_id de los mapeos
         
         Args:
             parent_row: Registro padre
             entity_mapping: Mapeo de la entidad
             all_fetched_data: Todos los datos fetched de BD {table_name: [rows]}
-            parent_id_field: Nombre del campo ID en el registro padre
-            parent_table_name: Nombre de la tabla padre (para determinar FK)
         
         Returns:
             Estructura JSON completa con todos los niveles anidados
         """
         result = {}
+        
+        # Obtener el ID del padre usando database_id del mapping
+        parent_id_field = entity_mapping.database_id or 'id'
         parent_id = parent_row.get(parent_id_field)
         
         for json_field_name, field_mapping in entity_mapping.fields.items():
@@ -273,17 +272,16 @@ class JSONBuilderEnvioMAG:
                 table_data = all_fetched_data.get(table_name, [])
                 
                 if field_mapping.type == 'array':
-                    # Es un array de objetos - filtrar por FK
-                    # Determinar nombre de columna FK basado en la tabla padre
-                    if parent_table_name == 'boletas':
-                        fk_column = 'boleta_id'
-                    elif parent_table_name == 'terrenos':
-                        fk_column = 'terreno_id'
-                    elif parent_table_name == 'personas':
-                        fk_column = 'persona_id'
-                    else:
-                        # Usar patrón genérico: tabla sin 's' + '_id'
-                        fk_column = f"{parent_table_name.rstrip('s')}_id"
+                    # Es un array de objetos - filtrar por parent_id del mapeo referenciado
+                    fk_column = referenced_mapping.parent_id
+                    
+                    if not fk_column:
+                        if config.DEBUG_CLI:
+                            etl_logger.warning(
+                                f"[JSONBuilderEnvioMAG] Tabla {table_name} no tiene parent_id definido"
+                            )
+                        result[json_field_name] = field_mapping.default if field_mapping.default is not None else []
+                        continue
                     
                     # Filtrar registros que pertenecen a este padre
                     filtered_rows = []
@@ -297,9 +295,7 @@ class JSONBuilderEnvioMAG:
                         nested_obj = JSONBuilderEnvioMAG.build_nested_structure(
                             row,
                             referenced_mapping,
-                            all_fetched_data,
-                            'id',
-                            table_name
+                            all_fetched_data
                         )
                         array_result.append(nested_obj)
                     
@@ -312,11 +308,15 @@ class JSONBuilderEnvioMAG:
                     if table_name != entity_mapping.table:
                         # Es una tabla diferente, buscar el registro relacionado
                         # Típicamente será una relación 1:1
-                        # Determinar FK
-                        if parent_table_name == 'boletas':
-                            fk_column = 'boleta_id'
-                        else:
-                            fk_column = f"{parent_table_name.rstrip('s')}_id"
+                        fk_column = referenced_mapping.parent_id
+                        
+                        if not fk_column:
+                            if config.DEBUG_CLI:
+                                etl_logger.warning(
+                                    f"[JSONBuilderEnvioMAG] Objeto {table_name} no tiene parent_id definido"
+                                )
+                            result[json_field_name] = field_mapping.default if field_mapping.default is not None else {}
+                            continue
                         
                         # Buscar el registro relacionado
                         related_row = None
@@ -329,9 +329,7 @@ class JSONBuilderEnvioMAG:
                             nested_obj = JSONBuilderEnvioMAG.build_nested_structure(
                                 related_row,
                                 referenced_mapping,
-                                all_fetched_data,
-                                'id',
-                                table_name
+                                all_fetched_data
                             )
                         else:
                             # No hay registro relacionado, usar default
@@ -341,9 +339,7 @@ class JSONBuilderEnvioMAG:
                         nested_obj = JSONBuilderEnvioMAG.build_nested_structure(
                             parent_row,
                             referenced_mapping,
-                            all_fetched_data,
-                            parent_id_field,
-                            parent_table_name
+                            all_fetched_data
                         )
                     
                     result[json_field_name] = nested_obj

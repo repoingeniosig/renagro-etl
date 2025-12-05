@@ -62,7 +62,7 @@ class BatchProcessorEnvioMAG:
         Obtiene todos los datos necesarios para un lote de boletas
         
         Args:
-            boleta_ids: Lista de IDs de boletas
+            boleta_ids: Lista de IDs de boletas (_id de control_envios_boletas)
         
         Returns:
             Tupla (boletas_data, all_related_data)
@@ -72,8 +72,17 @@ class BatchProcessorEnvioMAG:
         with db.get_session() as session:
             fetcher = DataFetcherEnvioMAG(session)
             
-            # Obtener datos principales de boletas
-            boletas_data = fetcher.fetch_boletas_data(boleta_ids)
+            # Cargar mapeo principal para obtener database_id
+            main_mapping = mapping_loader_envio_mag.load_main_mapping()
+            parent_fk_column = main_mapping.database_id or 'bol_id'
+            
+            # Obtener datos principales de boletas usando database_id dinámico
+            boletas_data = fetcher.fetch_table_data(
+                main_mapping.table,
+                boleta_ids,
+                parent_fk_column,
+                use_cache=True
+            )
             
             if config.DEBUG_CLI:
                 envio_mag_logger.debug(f"[BatchProcessorEnvioMAG] Obtenidas {len(boletas_data)} boletas")
@@ -82,7 +91,11 @@ class BatchProcessorEnvioMAG:
             all_mappings = mapping_loader_envio_mag.load_all_mappings_recursive('main.yml')
             
             # Obtener todos los datos de tablas relacionadas
-            all_related_data = fetcher.fetch_all_related_tables(all_mappings, boleta_ids)
+            all_related_data = fetcher.fetch_all_related_tables(
+                all_mappings,
+                boleta_ids,
+                main_mapping
+            )
         
         return boletas_data, all_related_data
     
@@ -104,13 +117,11 @@ class BatchProcessorEnvioMAG:
         # Cargar mapeo principal
         main_mapping = mapping_loader_envio_mag.load_main_mapping()
         
-        # Construir JSON usando el builder
+        # Construir JSON usando el builder (ahora sin parámetros hardcodeados)
         json_result = JSONBuilderEnvioMAG.build_nested_structure(
             boleta_row,
             main_mapping,
-            all_related_data,
-            'id',
-            'boletas'
+            all_related_data
         )
         
         return json_result
@@ -158,6 +169,10 @@ class BatchProcessorEnvioMAG:
         envio_mag_logger.info(f"[BatchProcessorEnvioMAG] Procesando {len(boleta_ids)} boletas")
         
         try:
+            # Cargar mapeo principal para obtener database_id
+            main_mapping = mapping_loader_envio_mag.load_main_mapping()
+            db_id_field = main_mapping.database_id or 'bol_id'
+            
             # Obtener todos los datos necesarios
             boletas_data, all_related_data = self.fetch_all_data_for_batch(boleta_ids)
             
@@ -167,7 +182,8 @@ class BatchProcessorEnvioMAG:
             
             for boleta_row in boletas_data:
                 try:
-                    boleta_id = boleta_row.get('id')
+                    # Usar database_id del mapping en lugar de 'id' hardcodeado
+                    boleta_id = boleta_row.get(db_id_field)
                     
                     # Construir JSON
                     json_data = self.build_json_for_boleta(boleta_row, all_related_data)
@@ -177,7 +193,7 @@ class BatchProcessorEnvioMAG:
                     
                     # Agregar a la lista con metadata
                     json_list.append({
-                        '_id': boleta_row.get('id'),  # ID de control_envios_boletas
+                        '_id': boleta_row.get(db_id_field),  # ID de control_envios_boletas
                         'boleta_id': boleta_id,  # ID de la boleta en tabla boletas
                         'json_data': json_data
                     })
