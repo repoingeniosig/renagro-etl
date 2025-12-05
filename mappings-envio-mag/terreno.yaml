@@ -2,6 +2,8 @@ version: 1.0
 entity: TerrenoDto
 table: terrenos
 
+database_id: ter_id
+
 fields:
   terrenoNo:
     source: "ter_terreno_numero"

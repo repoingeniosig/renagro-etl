@@ -2,6 +2,8 @@ version: 1.0
 entity: PecuarioBovinoDto
 table: bovinos
 
+database_id: bov_id
+
 fields:
   isBovinoRegistroProduccion:
     source: "neo_is_registro_produccion"

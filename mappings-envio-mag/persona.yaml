@@ -2,6 +2,8 @@ version: 1.0
 entity: PersonaDto
 table: personas
 
+database_id: per_id
+
 fields:
   isPersonaNatural:
     source: "per_persona_natural"

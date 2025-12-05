@@ -2,6 +2,8 @@ version: 1.0
 entity: PecuarioOtroDto
 table: pecuarios_otros
 
+database_id: peot_id
+
 fields:
   isGanadoOvino:
     source: "neo_is_ovino"

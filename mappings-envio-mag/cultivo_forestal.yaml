@@ -2,6 +2,8 @@ version: 1.0
 entity: CultivoForestalDto
 table: forestales
 
+database_id: for_id
+
 fields:
   nombreEspecieForestal:
     source: "for_nombre_especie"

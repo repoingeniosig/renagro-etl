@@ -2,6 +2,8 @@ version: 1.0
 entity: PecuarioPolloDto
 table: pollos
 
+database_id: pol_id
+
 fields:
   isLlevaRegistroPollo:
     source: "neo_is_registro_produccion"

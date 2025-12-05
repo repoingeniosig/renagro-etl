@@ -2,6 +2,8 @@ version: 1
 entity: CreateBoletaDto
 table: boletas
 
+database_id: bol_id
+
 fields:
   boletaIdLevanta:
     source: "bol_id_levanta"

@@ -2,6 +2,8 @@ version: 1.0
 entity: MiembroHogarDto
 table: miembros_hogar
 
+database_id: miho_id
+
 fields:
   noHogar:
     source: "miho_hogar_numero"

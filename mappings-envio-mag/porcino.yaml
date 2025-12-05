@@ -2,6 +2,8 @@ version: 1.0
 entity: PecuarioPorcinoDto
 table: porcinos
 
+database_id: por_id
+
 fields:
   isLlevaRegistroPorcino:
     source: "neo_is_registro_produccion"

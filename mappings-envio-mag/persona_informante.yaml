@@ -2,6 +2,8 @@ version: 1.0
 entity: PersonaInformanteDto
 table: personas
 
+database_id: per_id
+
 fields:
   primerNombre:
     source: "per_primer_nombre"

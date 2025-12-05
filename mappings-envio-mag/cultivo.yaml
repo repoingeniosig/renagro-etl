@@ -2,6 +2,8 @@ version: 1.0
 entity: CultivoDto
 table: cultivos
 
+database_id: cul_id
+
 fields:
   nombreCultivo:
     source: "cul_nombre_cultivo"
