@@ -131,7 +131,8 @@ class DataFetcherEnvioMAG:
         self,
         all_mappings: Dict[str, EntityMappingEnvioMAG],
         root_ids: List[int],
-        root_mapping: EntityMappingEnvioMAG
+        root_mapping: EntityMappingEnvioMAG,
+        root_data: List[Dict[str, Any]] = None
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
         Obtiene todos los datos de todas las tablas definidas en los mapeos de forma recursiva
@@ -140,11 +141,44 @@ class DataFetcherEnvioMAG:
             all_mappings: Todos los mapeos cargados {yaml_file: EntityMappingEnvioMAG}
             root_ids: Lista de IDs de la entidad raíz (ej: boleta_ids)
             root_mapping: Mapeo de la entidad raíz (ej: main.yml)
+            root_data: Datos de la tabla raíz ya consultados (para extraer FKs de campos con source)
         
         Returns:
             Diccionario {table_name: [registros]}
         """
         all_data = {}
+        
+        # Analizar campos del root_mapping para detectar relaciones con 'source'
+        # Ejemplo: personaProductora: {reference: persona.yaml, source: per_id, type: object}
+        source_based_queries: Dict[str, Tuple[str, List[int]]] = {}  # {table_name: (fk_column, [ids])}
+        
+        if root_data:
+            for field_name, field_mapping in root_mapping.fields.items():
+                if field_mapping.reference and field_mapping.source and field_mapping.type == 'object':
+                    # Cargar mapeo referenciado para obtener tabla y database_id
+                    from .mapping_loader_envio_mag import mapping_loader_envio_mag
+                    referenced_mapping = mapping_loader_envio_mag.load_yaml_file(field_mapping.reference)
+                    
+                    if referenced_mapping.table and referenced_mapping.database_id:
+                        # Extraer valores únicos de la columna 'source' de root_data
+                        source_values = set()
+                        for row in root_data:
+                            value = row.get(field_mapping.source)
+                            if value is not None:
+                                source_values.add(value)
+                        
+                        if source_values:
+                            source_based_queries[referenced_mapping.table] = (
+                                referenced_mapping.database_id,
+                                list(source_values)
+                            )
+                            
+                            if config.DEBUG_CLI:
+                                etl_logger.debug(
+                                    f"[DataFetcherEnvioMAG] Detectada relación con source: "
+                                    f"{field_name} → {referenced_mapping.table}.{referenced_mapping.database_id} "
+                                    f"({len(source_values)} valores únicos)"
+                                )
         
         # Obtener tablas únicas de todos los mapeos (excepto la raíz)
         # Agrupar por tabla para identificar duplicados
@@ -169,6 +203,31 @@ class DataFetcherEnvioMAG:
         
         # Nivel 1: Consultar tablas directamente relacionadas con la raíz
         for table_name, mappings_list in table_to_mappings.items():
+            # Verificar si esta tabla tiene una consulta basada en 'source'
+            if table_name in source_based_queries:
+                fk_column, ids_to_query = source_based_queries[table_name]
+                
+                try:
+                    data = self.fetch_table_data(
+                        table_name,
+                        ids_to_query,
+                        fk_column,
+                        use_cache=True
+                    )
+                    all_data[table_name] = data
+                    
+                    if config.DEBUG_CLI:
+                        etl_logger.debug(
+                            f"[DataFetcherEnvioMAG] Tabla {table_name}: {len(data)} registros (por source - FK: {fk_column})"
+                        )
+                except Exception as e:
+                    etl_logger.warning(
+                        f"[DataFetcherEnvioMAG] Error consultando tabla {table_name}: {e}"
+                    )
+                    all_data[table_name] = []
+                
+                continue  # Ya consultada, skip normal flow
+            
             # Usar el primer mapping para obtener parent_id
             yaml_file, entity_mapping = mappings_list[0]
             

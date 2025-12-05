@@ -135,10 +135,12 @@ class BatchProcessorEnvioMAG:
             all_mappings = mapping_loader_envio_mag.load_all_mappings_recursive('main.yml')
             
             # Obtener todos los datos de tablas relacionadas
+            # Pasar main_table_data para que pueda extraer FKs de campos con 'source'
             all_related_data = fetcher.fetch_all_related_tables(
                 all_mappings,
                 control_ids,  # Usar los mismos IDs para consultar tablas relacionadas
-                main_mapping
+                main_mapping,
+                root_data=main_table_data  # ← NUEVO: Pasar datos de tabla principal
             )
         
         return main_table_data, all_related_data

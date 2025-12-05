@@ -2,7 +2,7 @@ version: 1.0
 entity: PersonaDto
 table: personas
 
-c: per_id
+database_id: per_id
 
 fields:
   isPersonaNatural:

@@ -303,17 +303,57 @@ class JSONBuilderEnvioMAG:
                     
                 else:
                     # Es un objeto único (no array)
-                    # Intentar construir desde la misma fila padre (campos embebidos)
-                    # Si la tabla referenciada es diferente, buscar el registro relacionado
-                    if table_name != entity_mapping.table:
-                        # Es una tabla diferente, buscar el registro relacionado
-                        # Típicamente será una relación 1:1
+                    # Verificar si tiene 'source' definido
+                    if field_mapping.source:
+                        # Caso: Relación por FK en parent_row
+                        # Ejemplo: boletas.per_id → personas.per_id (database_id)
+                        # source = per_id (columna en tabla actual)
+                        # database_id de referenced_mapping = per_id (PK en tabla referenciada)
+                        
+                        fk_value = parent_row.get(field_mapping.source)
+                        
+                        if not fk_value:
+                            # No hay FK, usar default
+                            result[json_field_name] = field_mapping.default if field_mapping.default is not None else {}
+                            continue
+                        
+                        # Buscar registro en tabla referenciada por database_id
+                        db_id_column = referenced_mapping.database_id
+                        
+                        if not db_id_column:
+                            if config.DEBUG_CLI:
+                                etl_logger.warning(
+                                    f"[JSONBuilderEnvioMAG] Tabla {table_name} no tiene database_id definido"
+                                )
+                            result[json_field_name] = field_mapping.default if field_mapping.default is not None else {}
+                            continue
+                        
+                        # Buscar el registro donde database_id == fk_value
+                        related_row = None
+                        for row in table_data:
+                            if row.get(db_id_column) == fk_value:
+                                related_row = row
+                                break
+                        
+                        if related_row:
+                            nested_obj = JSONBuilderEnvioMAG.build_nested_structure(
+                                related_row,
+                                referenced_mapping,
+                                all_fetched_data
+                            )
+                        else:
+                            # No hay registro relacionado, usar default
+                            nested_obj = field_mapping.default if field_mapping.default is not None else {}
+                    
+                    elif table_name != entity_mapping.table:
+                        # Caso: Sin source, tabla diferente, usar parent_id
+                        # Es una tabla diferente, buscar el registro relacionado por parent_id
                         fk_column = referenced_mapping.parent_id
                         
                         if not fk_column:
                             if config.DEBUG_CLI:
                                 etl_logger.warning(
-                                    f"[JSONBuilderEnvioMAG] Objeto {table_name} no tiene parent_id definido"
+                                    f"[JSONBuilderEnvioMAG] Objeto {table_name} no tiene parent_id definido ni source"
                                 )
                             result[json_field_name] = field_mapping.default if field_mapping.default is not None else {}
                             continue
