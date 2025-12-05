@@ -877,8 +877,8 @@ fields:
 
   personaInformante:
     reference: persona_informante.yaml
-    type: array
-    default: []
+    type: object
+    default: {}
 
   informanteTelefono:
     source: "bol_informante_telefono"
