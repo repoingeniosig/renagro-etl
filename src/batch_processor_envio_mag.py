@@ -13,6 +13,7 @@ from .database import db
 from .mapping_loader_envio_mag import mapping_loader_envio_mag
 from .data_fetcher_envio_mag import DataFetcherEnvioMAG
 from .json_builder_envio_mag import JSONBuilderEnvioMAG
+from .structure_loader import structure_loader
 
 
 class BatchProcessorEnvioMAG:
@@ -23,6 +24,9 @@ class BatchProcessorEnvioMAG:
         self.debug_json_output = config.DEBUG_JSON_OUTPUT
         self.temp_output_dir = config.BASE_DIR / 'temp_json_output'
         
+        # Cargar configuración desde structure.yaml
+        self.target_config = structure_loader.get_target_data_to_send()
+        
         # Crear directorio temporal si DEBUG_JSON_OUTPUT está activo
         if self.debug_json_output:
             self.temp_output_dir.mkdir(exist_ok=True, parents=True)
@@ -31,22 +35,38 @@ class BatchProcessorEnvioMAG:
     
     def get_pending_boletas_ids(self) -> List[int]:
         """
-        Obtiene los IDs de boletas pendientes de enviar a MAG
+        Obtiene los IDs pendientes desde la tabla de control configurada en structure.yaml
         
         Returns:
-            Lista de IDs (_id de control_envios_boletas) pendientes
+            Lista de IDs (según id_column) pendientes
         """
+        # Construir condiciones WHERE dinámicamente
+        where_conditions = []
+        params = {'batch_size': self.batch_size}
+        
+        for filter_obj in self.target_config.control_table_filters:
+            where_conditions.append(f"{filter_obj.column} = :{filter_obj.column}")
+            params[filter_obj.column] = filter_obj.value
+        
+        where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+        
         query = f"""
-            SELECT _id
-            FROM "{config.DB_SCHEMA}".control_envios_boletas
-            WHERE estado_etl = 'PROCESADO'
-              AND envio_datos_procesados = 'PENDIENTE'
-            ORDER BY _id ASC
+            SELECT {self.target_config.id_column}
+            FROM "{config.DB_SCHEMA}".{self.target_config.control_table}
+            WHERE {where_clause}
+            ORDER BY {self.target_config.id_column} ASC
             LIMIT :batch_size
         """
         
+        if config.DEBUG_CLI:
+            envio_mag_logger.debug(
+                f"[BatchProcessorEnvioMAG] Query control: "
+                f"SELECT {self.target_config.id_column} FROM {self.target_config.control_table} "
+                f"WHERE {where_clause} LIMIT {self.batch_size}"
+            )
+        
         with db.get_session() as session:
-            result = session.execute(text(query), {'batch_size': self.batch_size})
+            result = session.execute(text(query), params)
             ids = [row[0] for row in result]
         
         if config.DEBUG_CLI:
@@ -56,36 +76,50 @@ class BatchProcessorEnvioMAG:
     
     def fetch_all_data_for_batch(
         self,
-        boleta_ids: List[int]
+        control_ids: List[int]
     ) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
         """
-        Obtiene todos los datos necesarios para un lote de boletas
+        Obtiene todos los datos necesarios para un lote
         
         Args:
-            boleta_ids: Lista de IDs de boletas (_id de control_envios_boletas)
+            control_ids: Lista de IDs desde tabla de control (ej: _id de control_envios_boletas)
+                        Estos IDs coinciden con el database_id del main.yml
         
         Returns:
-            Tupla (boletas_data, all_related_data)
-            - boletas_data: Lista de registros de boletas
+            Tupla (main_table_data, all_related_data)
+            - main_table_data: Lista de registros de la tabla principal (ej: boletas)
             - all_related_data: Dict {table_name: [registros]}
         """
         with db.get_session() as session:
             fetcher = DataFetcherEnvioMAG(session)
             
-            # Cargar mapeo principal para obtener database_id
+            # Cargar mapeo principal para obtener database_id y tabla
             main_mapping = mapping_loader_envio_mag.load_main_mapping()
-            parent_fk_column = main_mapping.database_id or 'bol_id'
+            main_table = main_mapping.table
+            main_db_id = main_mapping.database_id
             
-            # Obtener datos principales de boletas usando database_id dinámico
-            boletas_data = fetcher.fetch_table_data(
-                main_mapping.table,
-                boleta_ids,
-                parent_fk_column,
+            if not main_db_id:
+                raise ValueError(f"El archivo main.yml no tiene database_id definido")
+            
+            if config.DEBUG_CLI:
+                envio_mag_logger.debug(
+                    f"[BatchProcessorEnvioMAG] Empatando {self.target_config.id_column} "
+                    f"de {self.target_config.control_table} con {main_db_id} de {main_table}"
+                )
+            
+            # Obtener datos principales usando database_id del main.yml
+            # Los control_ids ya coinciden con main_db_id (ej: _id == bol_id)
+            main_table_data = fetcher.fetch_table_data(
+                main_table,
+                control_ids,
+                main_db_id,  # Filtrar por database_id (ej: bol_id)
                 use_cache=True
             )
             
             if config.DEBUG_CLI:
-                envio_mag_logger.debug(f"[BatchProcessorEnvioMAG] Obtenidas {len(boletas_data)} boletas")
+                envio_mag_logger.debug(
+                    f"[BatchProcessorEnvioMAG] Obtenidos {len(main_table_data)} registros de {main_table}"
+                )
             
             # Cargar mapeos recursivamente
             all_mappings = mapping_loader_envio_mag.load_all_mappings_recursive('main.yml')
@@ -93,22 +127,22 @@ class BatchProcessorEnvioMAG:
             # Obtener todos los datos de tablas relacionadas
             all_related_data = fetcher.fetch_all_related_tables(
                 all_mappings,
-                boleta_ids,
+                control_ids,  # Usar los mismos IDs para consultar tablas relacionadas
                 main_mapping
             )
         
-        return boletas_data, all_related_data
+        return main_table_data, all_related_data
     
-    def build_json_for_boleta(
+    def build_json_for_record(
         self,
-        boleta_row: Dict[str, Any],
+        main_row: Dict[str, Any],
         all_related_data: Dict[str, List[Dict[str, Any]]]
     ) -> Dict[str, Any]:
         """
-        Construye el JSON completo para una boleta
+        Construye el JSON completo para un registro
         
         Args:
-            boleta_row: Registro de boleta de BD
+            main_row: Registro de la tabla principal (ej: boleta de BD)
             all_related_data: Todos los datos relacionados {table_name: [registros]}
         
         Returns:
@@ -119,25 +153,29 @@ class BatchProcessorEnvioMAG:
         
         # Construir JSON usando el builder (ahora sin parámetros hardcodeados)
         json_result = JSONBuilderEnvioMAG.build_nested_structure(
-            boleta_row,
+            main_row,
             main_mapping,
             all_related_data
         )
         
         return json_result
     
-    def save_debug_json(self, boleta_id: int, json_data: Dict[str, Any]):
+    def save_debug_json(self, record_id: int, json_data: Dict[str, Any]):
         """
         Guarda el JSON en archivo para debugging
         
         Args:
-            boleta_id: ID de la boleta
+            record_id: ID del registro (ej: boleta_id, solicitud_id, etc.)
             json_data: JSON construido
         """
         if not self.debug_json_output:
             return
         
-        output_file = self.temp_output_dir / f"boleta_{boleta_id}.json"
+        # Usar nombre genérico basado en la tabla principal
+        main_mapping = mapping_loader_envio_mag.load_main_mapping()
+        entity_name = main_mapping.entity.replace('Dto', '').replace('Create', '').lower()
+        
+        output_file = self.temp_output_dir / f"{entity_name}_{record_id}.json"
         
         try:
             with open(output_file, 'w', encoding='utf-8') as f:
@@ -150,7 +188,7 @@ class BatchProcessorEnvioMAG:
     
     def process_batch(self) -> Tuple[int, List[Dict[str, Any]]]:
         """
-        Procesa un lote de boletas pendientes
+        Procesa un lote de registros pendientes
         
         Returns:
             Tupla (total_procesados, json_list)
@@ -159,42 +197,48 @@ class BatchProcessorEnvioMAG:
         """
         envio_mag_logger.info("[BatchProcessorEnvioMAG] Iniciando procesamiento de lote")
         
-        # Obtener IDs pendientes
-        boleta_ids = self.get_pending_boletas_ids()
+        # Obtener IDs pendientes desde tabla de control
+        control_ids = self.get_pending_boletas_ids()
         
-        if not boleta_ids:
+        if not control_ids:
             envio_mag_logger.info("[BatchProcessorEnvioMAG] No hay registros pendientes")
             return 0, []
         
-        envio_mag_logger.info(f"[BatchProcessorEnvioMAG] Procesando {len(boleta_ids)} boletas")
+        envio_mag_logger.info(
+            f"[BatchProcessorEnvioMAG] Procesando {len(control_ids)} registros "
+            f"desde {self.target_config.control_table}"
+        )
         
         try:
             # Cargar mapeo principal para obtener database_id
             main_mapping = mapping_loader_envio_mag.load_main_mapping()
-            db_id_field = main_mapping.database_id or 'bol_id'
+            db_id_field = main_mapping.database_id
+            
+            if not db_id_field:
+                raise ValueError("El archivo main.yml no tiene database_id definido")
             
             # Obtener todos los datos necesarios
-            boletas_data, all_related_data = self.fetch_all_data_for_batch(boleta_ids)
+            main_table_data, all_related_data = self.fetch_all_data_for_batch(control_ids)
             
-            # Construir JSONs para cada boleta
+            # Construir JSONs para cada registro
             json_list = []
             successful_count = 0
             
-            for boleta_row in boletas_data:
+            for main_row in main_table_data:
                 try:
                     # Usar database_id del mapping en lugar de 'id' hardcodeado
-                    boleta_id = boleta_row.get(db_id_field)
+                    record_id = main_row.get(db_id_field)
                     
                     # Construir JSON
-                    json_data = self.build_json_for_boleta(boleta_row, all_related_data)
+                    json_data = self.build_json_for_record(main_row, all_related_data)
                     
                     # Guardar para debug si está habilitado
-                    self.save_debug_json(boleta_id, json_data)
+                    self.save_debug_json(record_id, json_data)
                     
                     # Agregar a la lista con metadata
                     json_list.append({
-                        '_id': boleta_row.get(db_id_field),  # ID de control_envios_boletas
-                        'boleta_id': boleta_id,  # ID de la boleta en tabla boletas
+                        'control_id': record_id,  # ID de la tabla de control
+                        'record_id': record_id,  # ID del registro en tabla principal
                         'json_data': json_data
                     })
                     
@@ -202,20 +246,20 @@ class BatchProcessorEnvioMAG:
                     
                     if config.DEBUG_CLI:
                         envio_mag_logger.debug(
-                            f"[BatchProcessorEnvioMAG] JSON construido para boleta_id={boleta_id}"
+                            f"[BatchProcessorEnvioMAG] JSON construido para {db_id_field}={record_id}"
                         )
                 
                 except Exception as e:
-                    boleta_id = boleta_row.get('id', 'unknown')
+                    record_id = main_row.get(db_id_field, 'unknown')
                     envio_mag_logger.error(
-                        f"[BatchProcessorEnvioMAG] Error construyendo JSON para boleta_id={boleta_id}: {e}",
+                        f"[BatchProcessorEnvioMAG] Error construyendo JSON para {db_id_field}={record_id}: {e}",
                         exc_info=True
                     )
-                    # Continuar con la siguiente boleta
+                    # Continuar con el siguiente registro
                     continue
             
             envio_mag_logger.info(
-                f"[BatchProcessorEnvioMAG] Lote procesado: {successful_count}/{len(boleta_ids)} exitosos"
+                f"[BatchProcessorEnvioMAG] Lote procesado: {successful_count}/{len(control_ids)} exitosos"
             )
             
             return successful_count, json_list

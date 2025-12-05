@@ -1,0 +1,14 @@
+version: 1
+
+target_data_to_send:
+  mapping: mappings-envio-mag
+  id_column: _id
+  control_table: control_envios_boletas
+  control_table_filters:
+    - column: 'estado_etl'
+      value: 'PROCESADO'
+      type: 'enum'
+    - column: 'envio_datos_procesados'
+      value: 'PENDIENTE'
+      type: 'enum'
+  
