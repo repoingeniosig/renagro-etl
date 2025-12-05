@@ -3,6 +3,7 @@ entity: PersonaDto
 table: personas
 
 database_id: per_id
+parent_id: bol_id
 
 fields:
   isPersonaNatural:

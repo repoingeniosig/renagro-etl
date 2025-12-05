@@ -3,6 +3,7 @@ entity: MiembroHogarDto
 table: miembros_hogar
 
 database_id: miho_id
+parent_id: bol_id
 
 fields:
   noHogar:

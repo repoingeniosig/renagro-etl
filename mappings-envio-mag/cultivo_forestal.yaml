@@ -3,6 +3,7 @@ entity: CultivoForestalDto
 table: forestales
 
 database_id: for_id
+parent_id: ter_id
 
 fields:
   nombreEspecieForestal:

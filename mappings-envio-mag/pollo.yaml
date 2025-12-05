@@ -3,6 +3,7 @@ entity: PecuarioPolloDto
 table: pollos
 
 database_id: pol_id
+parent_id: bol_id
 
 fields:
   isLlevaRegistroPollo:

@@ -3,6 +3,7 @@ entity: TerrenoDto
 table: terrenos
 
 database_id: ter_id
+parent_id: bol_id
 
 fields:
   terrenoNo:
