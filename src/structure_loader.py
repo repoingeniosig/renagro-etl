@@ -21,11 +21,23 @@ class ControlTableFilter:
 
 @dataclass
 class TargetDataToSend:
-    """Configuración de datos a enviar"""
-    mapping: str  # Nombre de carpeta con YAMLs (ej: "mappings-envio-mag")
-    control_table: str  # Tabla de control (ej: "control_envios_boletas")
-    id_column: str  # Columna con IDs a empatar con database_id del main.yml (ej: "_id")
-    control_table_filters: List[ControlTableFilter]  # Filtros para la tabla de control
+    """
+    Configuración de datos a enviar
+    
+    Attributes:
+        mapping: Nombre de carpeta con YAMLs (ej: "mappings-envio-mag")
+        control_table: Tabla de control (ej: "control_envios_boletas")
+        control_table_id: Columna en control_table con IDs a extraer (ej: "_id")
+                         IMPORTANTE: Los valores de esta columna deben coincidir con
+                         los valores del database_id del main.yml
+                         Ejemplo: control_envios_boletas._id == boletas.bol_id
+        control_table_filters: Filtros para consultar registros pendientes
+                              Se construye: WHERE col1=val1 AND col2=val2 ...
+    """
+    mapping: str
+    control_table: str
+    control_table_id: str
+    control_table_filters: List[ControlTableFilter]
 
 
 class StructureLoader:
@@ -70,7 +82,7 @@ class StructureLoader:
             raise ValueError("No se encontró 'target_data_to_send' en structure.yaml")
         
         # Validar campos requeridos
-        required_fields = ['mapping', 'control_table', 'id_column']
+        required_fields = ['mapping', 'control_table', 'control_table_id']
         for field in required_fields:
             if field not in target_config:
                 raise ValueError(f"Campo requerido '{field}' no encontrado en target_data_to_send")
@@ -92,7 +104,7 @@ class StructureLoader:
         self._target_data = TargetDataToSend(
             mapping=target_config['mapping'],
             control_table=target_config['control_table'],
-            id_column=target_config['id_column'],
+            control_table_id=target_config['control_table_id'],
             control_table_filters=filters
         )
         
@@ -101,7 +113,7 @@ class StructureLoader:
                 f"[StructureLoader] Target configurado: "
                 f"mapping={self._target_data.mapping}, "
                 f"control_table={self._target_data.control_table}, "
-                f"id_column={self._target_data.id_column}, "
+                f"control_table_id={self._target_data.control_table_id}, "
                 f"filters={len(self._target_data.control_table_filters)}"
             )
         

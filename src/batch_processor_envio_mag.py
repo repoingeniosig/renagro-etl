@@ -51,17 +51,17 @@ class BatchProcessorEnvioMAG:
         where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
         
         query = f"""
-            SELECT {self.target_config.id_column}
+            SELECT {self.target_config.control_table_id}
             FROM "{config.DB_SCHEMA}".{self.target_config.control_table}
             WHERE {where_clause}
-            ORDER BY {self.target_config.id_column} ASC
+            ORDER BY {self.target_config.control_table_id} ASC
             LIMIT :batch_size
         """
         
         if config.DEBUG_CLI:
             envio_mag_logger.debug(
                 f"[BatchProcessorEnvioMAG] Query control: "
-                f"SELECT {self.target_config.id_column} FROM {self.target_config.control_table} "
+                f"SELECT {self.target_config.control_table_id} FROM {self.target_config.control_table} "
                 f"WHERE {where_clause} LIMIT {self.batch_size}"
             )
         
@@ -81,9 +81,17 @@ class BatchProcessorEnvioMAG:
         """
         Obtiene todos los datos necesarios para un lote
         
+        Flujo:
+        1. Extraer IDs desde control_table usando id_column (ej: _id de control_envios_boletas)
+        2. Usar esos IDs para consultar la tabla principal del main.yml
+        3. La consulta se hace por database_id del main.yml (ej: bol_id de boletas)
+        4. Los valores de id_column deben coincidir con database_id (ej: _id == bol_id)
+        
         Args:
-            control_ids: Lista de IDs desde tabla de control (ej: _id de control_envios_boletas)
-                        Estos IDs coinciden con el database_id del main.yml
+            control_ids: Lista de IDs extraídos de control_table.id_column
+                        Estos valores coinciden con main_table.database_id
+                        Ejemplo: [237, 238, 240] de control_envios_boletas._id
+                                == boletas.bol_id
         
         Returns:
             Tupla (main_table_data, all_related_data)
@@ -103,16 +111,18 @@ class BatchProcessorEnvioMAG:
             
             if config.DEBUG_CLI:
                 envio_mag_logger.debug(
-                    f"[BatchProcessorEnvioMAG] Empatando {self.target_config.id_column} "
-                    f"de {self.target_config.control_table} con {main_db_id} de {main_table}"
+                    f"[BatchProcessorEnvioMAG] Usando IDs de {self.target_config.control_table}.{self.target_config.control_table_id} "
+                    f"para consultar {main_table}.{main_db_id}"
                 )
             
-            # Obtener datos principales usando database_id del main.yml
-            # Los control_ids ya coinciden con main_db_id (ej: _id == bol_id)
+            # Consultar tabla principal usando database_id del main.yml
+            # Los control_ids (de control_table.id_column) deben tener los mismos valores
+            # que main_table.database_id
+            # Ejemplo: control_envios_boletas._id == boletas.bol_id
             main_table_data = fetcher.fetch_table_data(
                 main_table,
                 control_ids,
-                main_db_id,  # Filtrar por database_id (ej: bol_id)
+                main_db_id,  # Filtrar por database_id (ej: WHERE bol_id IN (...))
                 use_cache=True
             )
             
