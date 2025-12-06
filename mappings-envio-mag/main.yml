@@ -2,8 +2,7 @@ version: 1
 entity: CreateBoletaDto
 table: boletas
 
-database_id: bol_id
-control_table_id: bol_id_levanta
+database_id: bol_uuid
 
 fields:
   boletaIdLevanta:

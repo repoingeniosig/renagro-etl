@@ -44,13 +44,24 @@ class EntityMapping:
 
 
 class MappingLoader:
-    """Cargador de archivos YAML de mapeo"""
+    """Cargador de archivos YAML de mapeo - soporta subdirectorios dinámicos"""
     
-    def __init__(self, mapping_dir: Path = None):
-        self.mapping_dir = mapping_dir or config.MAPPING_DIR
+    def __init__(self, mapping_dir: Path = None, form_mapping_dir: str = None):
+        """
+        Args:
+            mapping_dir: Directorio base de mappings (por defecto config.BASE_DIR / 'mappings')
+            form_mapping_dir: Subdirectorio específico del formulario (ej: 'boletas', 'boletas-procesos')
+        """
+        if form_mapping_dir:
+            # Usar subdirectorio específico del formulario
+            self.mapping_dir = config.BASE_DIR / 'mappings' / form_mapping_dir
+        else:
+            # Fallback al directorio configurado (legacy)
+            self.mapping_dir = mapping_dir or config.MAPPING_DIR
+        
         self.master_config = None
         self.entity_mappings: Dict[str, EntityMapping] = {}
-        self.cache_prefix = "etl"
+        self.cache_prefix = f"etl:{form_mapping_dir}" if form_mapping_dir else "etl"
     
     def load_master(self) -> Dict[str, str]:
         """
