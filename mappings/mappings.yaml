@@ -1,0 +1,8 @@
+
+mapping_folders:
+  - folder: boletas
+    main_file: master.yml
+    control_table: control_envios_boletas
+    form_id: 
+    
+  
