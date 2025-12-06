@@ -9,7 +9,7 @@ target_data_to_send:
   
   # Nombre de la columna en control_table que contiene los IDs únicos
   # Estos IDs deben coincidir con el database_id del main.yml
-  # Ejemplo: control_envios_boletas.uuid_boleta == boletas.bol_uuid
+  # Ejemplo: control_envios_boletas.uuid_boleta == boletas.bol_id_levanta
   control_table_id: uuid_boleta
   
   # Filtros para consultar registros pendientes en control_table
