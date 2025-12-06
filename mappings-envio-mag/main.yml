@@ -3,6 +3,7 @@ entity: CreateBoletaDto
 table: boletas
 
 database_id: bol_id
+control_table_id: bol_id_levanta
 
 fields:
   boletaIdLevanta:
