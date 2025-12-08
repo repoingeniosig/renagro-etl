@@ -45,18 +45,24 @@ echo "📤 Iniciando worker envio_mag..."
 python3 -m src.workers envio_mag > logs/worker_envio_mag.log 2>&1 &
 ENVIO_MAG_PID=$!
 
+echo "🚀 Iniciando worker envio_mag_sender..."
+python3 -m src.workers envio_mag_sender > logs/worker_envio_mag_sender.log 2>&1 &
+ENVIO_MAG_SENDER_PID=$!
+
 echo ""
 echo "✅ Todos los workers iniciados:"
-echo "   json_save      -> PID $JSON_SAVE_PID"
-echo "   etl_transform  -> PID $ETL_TRANSFORM_PID"
-echo "   db_insert      -> PID $DB_INSERT_PID"
-echo "   envio_mag      -> PID $ENVIO_MAG_PID"
+echo "   json_save          -> PID $JSON_SAVE_PID"
+echo "   etl_transform      -> PID $ETL_TRANSFORM_PID"
+echo "   db_insert          -> PID $DB_INSERT_PID"
+echo "   envio_mag          -> PID $ENVIO_MAG_PID"
+echo "   envio_mag_sender   -> PID $ENVIO_MAG_SENDER_PID"
 echo ""
 echo "📊 Para ver logs en tiempo real:"
 echo "   tail -f logs/worker_json_save.log"
 echo "   tail -f logs/worker_etl_transform.log"
 echo "   tail -f logs/worker_db_insert.log"
 echo "   tail -f logs/worker_envio_mag.log"
+echo "   tail -f logs/worker_envio_mag_sender.log"
 echo ""
 echo "🛑 Para detener todos los workers:"
 echo "   ./stop_workers.sh"
@@ -67,6 +73,7 @@ echo $JSON_SAVE_PID > .worker_pids
 echo $ETL_TRANSFORM_PID >> .worker_pids
 echo $DB_INSERT_PID >> .worker_pids
 echo $ENVIO_MAG_PID >> .worker_pids
+echo $ENVIO_MAG_SENDER_PID >> .worker_pids
 
 # Esperar a que el usuario presione Ctrl+C
 wait
