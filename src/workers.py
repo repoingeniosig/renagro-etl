@@ -9,12 +9,36 @@ from typing import Dict, Any
 from .config import config
 from .logger import etl_logger
 from .database import db
-from .models import ControlEnviosBoletas, EstadoETLEnum, EstadoEnvioEnum
+from .models import ControlEnviosBoletas, EstadoETLEnum, EstadoEnvioEnum, get_control_table_model
 from .rabbitmq_client import rabbitmq_client
 from .mapping_loader import mapping_loader
+from .multi_form_loader import multi_form_loader
 from .transformer import JSONTransformer
 from .executor import TransactionExecutor
 from datetime import datetime
+
+
+def get_control_model_from_json(data: Dict[str, Any]):
+    """
+    Obtiene el modelo de control dinámicamente desde el JSON del formulario
+    
+    Args:
+        data: JSON del formulario
+    
+    Returns:
+        Modelo SQLAlchemy de la tabla de control correspondiente
+    """
+    try:
+        form_uuid = multi_form_loader.extract_form_uuid_from_json(data)
+        if form_uuid:
+            form_config = multi_form_loader.get_form_by_uuid(form_uuid)
+            if form_config:
+                return get_control_table_model(form_config.control_table)
+    except Exception as e:
+        etl_logger.warning(f"Error obteniendo modelo de control desde JSON: {e}")
+    
+    # Fallback a la tabla por defecto
+    return ControlEnviosBoletas
 
 
 class JsonSaveWorker:
@@ -41,6 +65,24 @@ class JsonSaveWorker:
             if not _id:
                 raise ValueError("El JSON no contiene el campo '_id'")
             
+            # Extraer UUID del formulario para determinar la tabla de control
+            form_uuid = multi_form_loader.extract_form_uuid_from_json(data)
+            if not form_uuid:
+                raise ValueError("No se pudo extraer el UUID del formulario del JSON")
+            
+            # Obtener configuración del formulario
+            form_config = multi_form_loader.get_form_by_uuid(form_uuid)
+            if not form_config:
+                raise ValueError(f"Formulario no registrado: {form_uuid}")
+            
+            etl_logger.info(
+                f"[json_save] _id={_id} - Formulario: {form_config.name}, "
+                f"Tabla de control: {form_config.control_table}"
+            )
+            
+            # Obtener el modelo de control dinámicamente
+            ControlModel = get_control_table_model(form_config.control_table)
+            
             # Guardar en tabla de control
             with db.get_session() as session:
                 # Nota: La validación de duplicados se hace en el endpoint FastAPI
@@ -50,7 +92,7 @@ class JsonSaveWorker:
                 # que orignalmente lee la api de kobo y hacer un proceso parecido al que hace la api actual de /boletas para evitar duplicados.
                 
                 # Crear nuevo registro
-                registro = ControlEnviosBoletas(
+                registro = ControlModel(
                     _id=_id,
                     uuid_boleta=uuid_boleta,
                     json_data=data,
@@ -61,7 +103,9 @@ class JsonSaveWorker:
                 session.add(registro)
                 session.commit()
                 
-                etl_logger.info(f"[json_save] JSON guardado _id={_id}")
+                etl_logger.info(
+                    f"[json_save] JSON guardado _id={_id} en tabla {form_config.control_table}"
+                )
             
             # Publicar a siguiente cola: etl_transform
             success = await rabbitmq_client.publish_message(
@@ -82,8 +126,17 @@ class JsonSaveWorker:
             # Actualizar retry_count y estado en BD
             retry_count = 0
             try:
+                # Intentar obtener el modelo de control (puede fallar si el error fue antes de detectar el formulario)
+                try:
+                    form_uuid = multi_form_loader.extract_form_uuid_from_json(data)
+                    form_config = multi_form_loader.get_form_by_uuid(form_uuid) if form_uuid else None
+                    ControlModel = get_control_table_model(form_config.control_table) if form_config else ControlEnviosBoletas
+                except:
+                    # Fallback a la tabla de control por defecto
+                    ControlModel = ControlEnviosBoletas
+                
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
                         control.retry_count += 1
                         retry_count = control.retry_count
@@ -144,12 +197,43 @@ class EtlTransformWorker:
         try:
             etl_logger.info(f"[etl_transform] Procesando _id={_id}")
             
-            # Verificar si los mapeos están cargados en memoria
-            # Si no están, cargarlos desde Redis/disco (fallback para workers independientes)
-            if not mapping_loader.entity_mappings:
-                etl_logger.warning("[etl_transform] Mapeos no encontrados en memoria, cargando desde Redis/disco...")
-                mapping_loader.load_master()
-                mapping_loader.load_all_mappings(force_reload=False)
+            # Extraer UUID del formulario del JSON
+            form_uuid = multi_form_loader.extract_form_uuid_from_json(data)
+            if not form_uuid:
+                error_msg = "No se pudo extraer el UUID del formulario del JSON"
+                etl_logger.error(f"[etl_transform] _id={_id} - {error_msg}")
+                raise ValueError(error_msg)
+            
+            etl_logger.info(f"[etl_transform] _id={_id} - Formulario detectado: {form_uuid}")
+            
+            # Obtener configuración del formulario
+            form_config = multi_form_loader.get_form_by_uuid(form_uuid)
+            if not form_config:
+                error_msg = f"Formulario no registrado: {form_uuid}"
+                etl_logger.error(f"[etl_transform] _id={_id} - {error_msg}")
+                
+                if multi_form_loader.config.reject_unknown_forms:
+                    raise ValueError(error_msg)
+                else:
+                    etl_logger.warning(f"[etl_transform] _id={_id} - Formulario no registrado, pero reject_unknown_forms=False")
+                    return
+            
+            etl_logger.info(
+                f"[etl_transform] _id={_id} - Formulario: {form_config.name} ({form_config.description})"
+            )
+            
+            # Obtener directorio de mappings para este formulario
+            mapping_dir = multi_form_loader.get_mapping_dir_for_form(form_uuid)
+            if not mapping_dir or not mapping_dir.exists():
+                error_msg = f"Directorio de mappings no encontrado: {mapping_dir}"
+                etl_logger.error(f"[etl_transform] _id={_id} - {error_msg}")
+                raise FileNotFoundError(error_msg)
+            
+            etl_logger.info(f"[etl_transform] _id={_id} - Directorio de mappings: {mapping_dir}")
+            
+            # Cargar mappings desde el directorio específico del formulario
+            mapping_loader.load_master(mapping_dir=mapping_dir)
+            mapping_loader.load_all_mappings(force_reload=True, mapping_dir=mapping_dir)
             
             # Log de mapeos cargados
             etl_logger.info(f"[etl_transform] _id={_id} - Mapeos disponibles: {list(mapping_loader.entity_mappings.keys())}")
@@ -191,8 +275,9 @@ class EtlTransformWorker:
                     error_msg = "No hay mapeos cargados - revisar master.yml y archivos YAML"
                     etl_logger.error(f"[etl_transform] _id={_id} - {error_msg}")
                     
+                    ControlModel = get_control_model_from_json(data)
                     with db.get_session() as session:
-                        control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                        control = session.query(ControlModel).filter_by(_id=_id).first()
                         if control:
                             control.estado_etl = EstadoETLEnum.ERROR
                             control.error_message = error_msg
@@ -205,8 +290,9 @@ class EtlTransformWorker:
                 etl_logger.warning(f"[etl_transform] _id={_id} - Sin datos para insertar (arrays vacíos o campos opcionales sin valores)")
                 
                 # Actualizar estado a PROCESADO (sin datos)
+                ControlModel = get_control_model_from_json(data)
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
                         control.estado_etl = EstadoETLEnum.PROCESADO
                         control.procesado_at = datetime.now()
@@ -243,8 +329,9 @@ class EtlTransformWorker:
             # Actualizar retry_count y estado en BD
             retry_count = 0
             try:
+                ControlModel = get_control_model_from_json(data)
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
                         control.retry_count += 1
                         retry_count = control.retry_count
@@ -364,8 +451,10 @@ class DbInsertWorker:
             # Actualizar retry_count y estado en BD
             retry_count = 0
             try:
+                # Obtener modelo dinámico desde data original (debería estar en el mensaje)
+                ControlModel = ControlEnviosBoletas  # Usar por defecto ya que no tenemos el JSON original aquí
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
                         control.retry_count += 1
                         retry_count = control.retry_count

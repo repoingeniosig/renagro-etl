@@ -63,11 +63,28 @@ class MappingLoader:
         self.entity_mappings: Dict[str, EntityMapping] = {}
         self.cache_prefix = f"etl:{form_mapping_dir}" if form_mapping_dir else "etl"
     
-    def load_master(self) -> Dict[str, str]:
+    def set_mapping_dir(self, mapping_dir: Path):
+        """Actualiza el directorio de mappings dinámicamente"""
+        self.mapping_dir = mapping_dir
+        # Actualizar cache prefix basado en el nombre del subdirectorio
+        subdir_name = mapping_dir.name
+        self.cache_prefix = f"etl:{subdir_name}"
+        # Limpiar mapeos cargados previamente
+        self.master_config = None
+        self.entity_mappings = {}
+    
+    def load_master(self, mapping_dir: Path = None) -> Dict[str, str]:
         """
         Carga el archivo master.yml que contiene las referencias a todos los mapeos
+        
+        Args:
+            mapping_dir: Directorio opcional para cargar el master.yml (sobrescribe self.mapping_dir temporalmente)
+        
         Retorna un diccionario con el orden de procesamiento
         """
+        if mapping_dir:
+            self.set_mapping_dir(mapping_dir)
+        
         master_path = self.mapping_dir / 'master.yml'
         
         if not master_path.exists():
@@ -126,17 +143,21 @@ class MappingLoader:
         
         return entity_mapping
     
-    def load_all_mappings(self, force_reload: bool = False) -> Dict[str, EntityMapping]:
+    def load_all_mappings(self, force_reload: bool = False, mapping_dir: Path = None) -> Dict[str, EntityMapping]:
         """
         Carga todos los mapeos definidos en master.yml
         Intenta primero desde Redis cache, si falla lee desde disco
         
         Args:
             force_reload: Si True, ignora el cache y recarga desde disco
+            mapping_dir: Directorio opcional para cargar los mappings (sobrescribe self.mapping_dir temporalmente)
         
         Returns:
             Diccionario con los mapeos por entidad
         """
+        if mapping_dir:
+            self.set_mapping_dir(mapping_dir)
+        
         # Intentar cargar desde Redis cache primero
         if not force_reload:
             try:
