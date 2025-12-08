@@ -2,16 +2,18 @@
 
 ## Descripción General
 
-Sistema de dos fases para enviar datos procesados a la API remota de RENAGRO:
+Sistema **asíncrono** de dos fases **independientes** para enviar datos procesados a la API remota de RENAGRO.
 
-1. **Fase 1**: Construcción de JSONs desde la base de datos
-2. **Fase 2**: Envío paralelo con reintentos a API remota
+**Importante:** Los workers funcionan en **paralelo**, no secuencialmente:
+- Worker `envio_mag`: Construye JSONs y publica a RabbitMQ
+- Worker `envio_mag_sender`: Consume cola y envía a API
+- **NO se bloquean entre sí** - funcionan simultáneamente
 
 ## Arquitectura
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ FASE 1: Construcción de JSONs                                │
+│ FASE 1: Construcción (Worker envio_mag - Asíncrono)         │
 └──────────────────────────────────────────────────────────────┘
 
 PostgreSQL (control_envios_boletas)
@@ -22,22 +24,21 @@ PostgreSQL (control_envios_boletas)
 Worker: envio_mag
     │ - Consulta en lotes (BATCH_SIZE_SEND_MAG)
     │ - Construye JSON según mappings-envio-mag/
-    │ - Guarda debug si DEBUG_JSON_OUTPUT=true
+    │ - Publica a RabbitMQ
+    │ - NO actualiza estado (sigue PENDIENTE)
     │
     ▼
 RabbitMQ: QUEUE_ENVIO_MAG_SEND
     │ Mensaje: {control_id, record_id, json_data, control_table}
-    │
-    ▼
-
+    
 ┌──────────────────────────────────────────────────────────────┐
-│ FASE 2: Envío a API Remota                                   │
+│ FASE 2: Envío (Worker envio_mag_sender - Paralelo a Fase 1) │
 └──────────────────────────────────────────────────────────────┘
 
 Worker: envio_mag_sender
-    │ - Consume cola con prefetch=PARALLEL_REQUESTS_SEND_MAG
-    │ - Envío paralelo controlado por semáforo
-    │ - Actualiza estado en BD
+    │ - Consume cola INDEPENDIENTEMENTE
+    │ - Envío paralelo (semáforo: PARALLEL_REQUESTS_SEND_MAG)
+    │ - Actualiza estados SOLO AQUÍ
     │
     ▼
 API Remota RENAGRO
@@ -48,17 +49,17 @@ API Remota RENAGRO
 Respuesta HTTP
     │
     ├─► 201 Created
-    │   └─► UPDATE control_envios SET envio_datos_procesados='ENVIADO'
+    │   └─► UPDATE envio_datos_procesados='ENVIADO'
     │
     ├─► 4xx Client Error
-    │   └─► UPDATE control_envios SET envio_datos_procesados='ERROR'
+    │   └─► UPDATE envio_datos_procesados='ERROR'
     │       (NO reintenta)
     │
     └─► 5xx Server Error
         └─► Reintentos con backoff (5s, 10s, 20s)
             │
             ├─► Éxito → 'ENVIADO'
-            └─► Agotados → 'ERROR' con mensaje
+            └─► Agotados → 'ERROR'
 ```
 
 ## Variables de Entorno
@@ -82,30 +83,22 @@ QUEUE_ENVIO_MAG_SEND_DLQ=renagro.envio.mag.send.dlq
 
 ## Uso
 
-### Opción 1: Script automático
+### Ejecutar Workers (Desarrollo)
 
-Ejecuta ambos workers en secuencia:
-
-```bash
-./run_envio_mag.sh
-```
-
-### Opción 2: Ejecución manual
+**Los workers se ejecutan en terminales separadas y funcionan en paralelo:**
 
 ```bash
-# Paso 1: Construir JSONs desde BD
+# Terminal 1: Construir JSONs desde BD
 python -m src.workers envio_mag
 
-# Esperar a que termine...
-
-# Paso 2: Enviar JSONs a API remota
+# Terminal 2: Enviar JSONs a API (en paralelo, no espera a Terminal 1)
 python -m src.workers envio_mag_sender
 ```
 
-### Opción 3: Servicios systemd (producción)
+### Producción (systemd)
 
 ```bash
-# Ejecutar ambos workers como servicios
+# Iniciar ambos workers (se ejecutan continuamente e independientemente)
 sudo systemctl start renagro-envio-mag.service
 sudo systemctl start renagro-envio-mag-sender.service
 
@@ -131,17 +124,19 @@ estado_etl='PROCESADO' + envio_datos_procesados='PENDIENTE'
     │
     ▼ (Worker envio_mag construye JSON)
     │
-envio_datos_procesados='PENDIENTE'  (JSON en cola RabbitMQ)
+Publica a RabbitMQ (estado sigue PENDIENTE)
     │
     ▼ (Worker envio_mag_sender consume)
     │
-envio_datos_procesados='ENTREGANDO'  (Enviando a API)
+envio_datos_procesados='ENTREGANDO'  (Antes de HTTP POST)
     │
     ├─► HTTP 201 → envio_datos_procesados='ENVIADO'
     │
     └─► HTTP 4xx/5xx → envio_datos_procesados='ERROR'
-                       error_envio_datos='HTTP 400: Bad Request...'
+                       error_envio_datos='...'
 ```
+
+**Nota importante:** El estado solo cambia a `ENVIADO` o `ERROR` **después de la respuesta HTTP**, no al construir el JSON.
 
 ## Manejo de Errores
 

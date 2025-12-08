@@ -537,12 +537,28 @@ pytest tests/
 
 ## 🚀 Envío de Datos a API Remota (MAG)
 
-### Workers de envío
+El sistema incluye workers **asíncronos e independientes** para envío de datos procesados a API remota.
 
-El sistema incluye dos workers para envío de datos procesados:
+### Arquitectura Asíncrona
 
-1. **envio_mag**: Construye JSONs desde la BD según mapeos YAML
-2. **envio_mag_sender**: Envía JSONs a API remota con paralelismo
+```
+Worker envio_mag (construcción)          Worker envio_mag_sender (envío)
+        │                                          │
+        ▼                                          ▼
+   Consulta BD ────► Construye JSON ────► RabbitMQ ────► Consume ────► HTTP POST
+   (PENDIENTE)       (publica a cola)     (queue)        (paralelo)     (API remota)
+        │                                                                     │
+        │                                                                     ▼
+        └─── NO espera ───┐                                            UPDATE estado
+                          │                                            ENVIADO/ERROR
+                          ▼
+                   Siguiente lote
+```
+
+**Funcionamiento independiente:**
+- Worker `envio_mag`: Consulta BD, construye JSONs, publica a RabbitMQ
+- Worker `envio_mag_sender`: Consume cola, envía HTTP, actualiza estados
+- **NO se bloquean entre sí**: Construcción y envío en paralelo
 
 ### Configuración
 
@@ -553,121 +569,78 @@ Agregar en `.env`:
 RENAGRO_ENDPOINT=https://api.renagro.gob.ec/v1/boletas
 RENAGRO_TOKEN=Bearer tu_token_aqui
 
+# Colas (auto-configuradas)
+QUEUE_ENVIO_MAG_SEND=renagro.envio.mag.send
+QUEUE_ENVIO_MAG_SEND_RETRY=renagro.envio.mag.send.retry
+QUEUE_ENVIO_MAG_SEND_DLQ=renagro.envio.mag.send.dlq
+
 # Configuración de envío
 PARALLEL_REQUESTS_SEND_MAG=10    # Solicitudes simultáneas
 MAX_RETRY_ATTEMPTS=3              # Reintentos para errores 5xx
 BATCH_SIZE_SEND_MAG=1000          # Registros por lote
-DEBUG_JSON_OUTPUT=false           # true para guardar JSONs en temp_json_output/
+DEBUG_JSON_OUTPUT=false           # true para guardar JSONs localmente
 ```
 
-### Ejecutar flujo completo
+### Ejecutar Workers
+
+**Ejecutar en terminales separadas (desarrollo):**
 
 ```bash
-# Opción 1: Script automático (ejecuta ambos workers en secuencia)
-./run_envio_mag.sh
-
-# Opción 2: Ejecutar manualmente paso por paso
-# Paso 1: Construir JSONs desde BD
+# Terminal 1: Construir JSONs desde BD
 python -m src.workers envio_mag
 
-# Paso 2: Enviar JSONs a API remota
+# Terminal 2: Enviar JSONs a API remota (en paralelo)
 python -m src.workers envio_mag_sender
 ```
 
-### Flujo de envío
+**Producción con systemd:**
 
-```
-┌─────────────────────┐
-│  PostgreSQL         │
-│  control_envios     │ (estado_etl='PROCESADO', envio_datos_procesados='PENDIENTE')
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Worker envio_mag   │ Consulta BD en lotes (BATCH_SIZE_SEND_MAG)
-│                     │ Construye JSONs según mappings-envio-mag/
-└──────────┬──────────┘
-           │ Publica a RabbitMQ
-           ▼
-┌─────────────────────┐
-│  QUEUE_ENVIO_MAG    │
-│  _SEND              │
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  Worker             │ Consume cola con paralelismo (PARALLEL_REQUESTS_SEND_MAG)
-│  envio_mag_sender   │ Envía POST a RENAGRO_ENDPOINT
-│                     │ Actualiza estado según respuesta:
-│                     │  - 201 → ENVIADO
-│                     │  - 4xx → ERROR (sin reintentos)
-│                     │  - 5xx → Reintenta (MAX_RETRY_ATTEMPTS)
-└──────────┬──────────┘
-           │
-           ▼
-┌─────────────────────┐
-│  PostgreSQL         │
-│  control_envios     │ (envio_datos_procesados='ENVIADO' o 'ERROR')
-└─────────────────────┘
+```bash
+# Iniciar ambos workers (se ejecutan continuamente)
+sudo systemctl start renagro-envio-mag.service
+sudo systemctl start renagro-envio-mag-sender.service
+
+# Ver logs
+sudo journalctl -u renagro-envio-mag.service -f
+sudo journalctl -u renagro-envio-mag-sender.service -f
 ```
 
-### Estados de envío
+### Estados de Envío
 
-| Estado | Descripción |
-|--------|-------------|
-| `PENDIENTE` | JSON construido, esperando envío |
-| `ENTREGANDO` | Enviando a API (en proceso) |
-| `ENVIADO` | Enviado exitosamente (HTTP 201) |
-| `ERROR` | Error permanente o después de reintentos |
+| Estado | Descripción | Cuándo se establece |
+|--------|-------------|---------------------|
+| `PENDIENTE` | JSON construido, en cola | Después de publicar a RabbitMQ |
+| `ENTREGANDO` | Enviando a API | Antes de HTTP POST |
+| `ENVIADO` | Enviado exitosamente | **Después de HTTP 201** |
+| `ERROR` | Error permanente | Después de reintentos agotados o 4xx |
 
-### Reintentos para errores 5xx
+### Reintentos
 
-- Error 5xx (servidor): Reintenta con backoff exponencial (5s, 10s, 20s)
-- Error 4xx (cliente): NO reintenta, marca como ERROR inmediatamente
-- Después de `MAX_RETRY_ATTEMPTS`: Marca como ERROR con mensaje
+- **Error 4xx** (cliente): NO reintenta, marca ERROR inmediatamente
+- **Error 5xx** (servidor): Reintenta con backoff (5s → 10s → 20s)
+- **Error de red**: Reintenta hasta MAX_RETRY_ATTEMPTS
 
-### Monitoreo
+### Consultas Útiles
 
 ```sql
+-- Pendientes de envío
+SELECT COUNT(*) FROM control_envios_boletas
+WHERE estado_etl='PROCESADO' AND envio_datos_procesados='PENDIENTE';
+
 -- Estadísticas de envío
-SELECT 
-  envio_datos_procesados AS estado,
-  COUNT(*) AS cantidad
-FROM sc_renagro_mag.control_envios_boletas
-WHERE estado_etl = 'PROCESADO'
+SELECT envio_datos_procesados, COUNT(*) 
+FROM control_envios_boletas 
+WHERE estado_etl='PROCESADO'
 GROUP BY envio_datos_procesados;
 
 -- Errores de envío
-SELECT _id, error_envio_datos
-FROM sc_renagro_mag.control_envios_boletas
-WHERE envio_datos_procesados = 'ERROR'
-ORDER BY fecha_recepcion DESC
-LIMIT 20;
-
--- Pendientes de envío
-SELECT COUNT(*) AS pendientes_envio
-FROM sc_renagro_mag.control_envios_boletas
-WHERE estado_etl = 'PROCESADO' 
-  AND envio_datos_procesados = 'PENDIENTE';
+SELECT _id, error_envio_datos 
+FROM control_envios_boletas 
+WHERE envio_datos_procesados='ERROR'
+LIMIT 10;
 ```
 
-### Debug mode
-
-Para revisar JSONs generados antes de enviar:
-
-```bash
-# En .env
-DEBUG_JSON_OUTPUT=true
-
-# Ejecutar worker
-python -m src.workers envio_mag
-
-# JSONs se guardan en:
-ls -lh temp_json_output/
-# boleta_237.json
-# boleta_238.json
-# boleta_240.json
-```
+**Para más detalles:** Ver [ENVIO_MAG.md](ENVIO_MAG.md)
 
 ## 🤝 Contribución
 
