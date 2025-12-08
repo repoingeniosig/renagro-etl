@@ -49,15 +49,18 @@ class MappingLoader:
     def __init__(self, mapping_dir: Path = None, form_mapping_dir: str = None):
         """
         Args:
-            mapping_dir: Directorio base de mappings (por defecto config.BASE_DIR / 'mappings')
+            mapping_dir: Directorio completo de mappings (ej: /path/to/mappings/boletas)
             form_mapping_dir: Subdirectorio específico del formulario (ej: 'boletas', 'boletas-procesos')
         """
         if form_mapping_dir:
             # Usar subdirectorio específico del formulario
-            self.mapping_dir = config.BASE_DIR / 'mappings' / form_mapping_dir
+            self.mapping_dir = config.MAPPINGS_BASE_DIR / form_mapping_dir
+        elif mapping_dir:
+            # Usar directorio explícito proporcionado
+            self.mapping_dir = mapping_dir
         else:
-            # Fallback al directorio configurado (legacy)
-            self.mapping_dir = mapping_dir or config.MAPPING_DIR
+            # Sin directorio por defecto - debe especificarse al cargar
+            self.mapping_dir = None
         
         self.master_config = None
         self.entity_mappings: Dict[str, EntityMapping] = {}
@@ -78,12 +81,18 @@ class MappingLoader:
         Carga el archivo master.yml que contiene las referencias a todos los mapeos
         
         Args:
-            mapping_dir: Directorio opcional para cargar el master.yml (sobrescribe self.mapping_dir temporalmente)
+            mapping_dir: Directorio para cargar el master.yml (requerido si no se especificó en __init__)
         
         Retorna un diccionario con el orden de procesamiento
         """
         if mapping_dir:
             self.set_mapping_dir(mapping_dir)
+        
+        if not self.mapping_dir:
+            raise ValueError(
+                "No se ha especificado un directorio de mappings. "
+                "Proporciona 'mapping_dir' al llamar load_master() o al crear la instancia."
+            )
         
         master_path = self.mapping_dir / 'master.yml'
         

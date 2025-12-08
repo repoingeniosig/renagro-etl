@@ -41,16 +41,16 @@ echo "💾 Iniciando worker db_insert..."
 python3 -m src.workers db_insert > logs/worker_db_insert.log 2>&1 &
 DB_INSERT_PID=$!
 
-echo "📤 Iniciando worker envio_mag..."
-python3 -m src.workers envio_mag > logs/worker_envio_mag.log 2>&1 &
-ENVIO_MAG_PID=$!
+# echo "📤 Iniciando worker envio_mag..."
+# python3 -m src.workers envio_mag > logs/worker_envio_mag.log 2>&1 &
+# ENVIO_MAG_PID=$!
 
 echo ""
 echo "✅ Todos los workers iniciados:"
 echo "   json_save      -> PID $JSON_SAVE_PID"
 echo "   etl_transform  -> PID $ETL_TRANSFORM_PID"
 echo "   db_insert      -> PID $DB_INSERT_PID"
-echo "   envio_mag      -> PID $ENVIO_MAG_PID"
+# echo "   envio_mag      -> PID $ENVIO_MAG_PID"
 echo ""
 echo "📊 Para ver logs en tiempo real:"
 echo "   tail -f logs/worker_json_save.log"
@@ -66,7 +66,7 @@ echo ""
 echo $JSON_SAVE_PID > .worker_pids
 echo $ETL_TRANSFORM_PID >> .worker_pids
 echo $DB_INSERT_PID >> .worker_pids
-echo $ENVIO_MAG_PID >> .worker_pids
+# echo $ENVIO_MAG_PID >> .worker_pids
 
 # Esperar a que el usuario presione Ctrl+C
 wait

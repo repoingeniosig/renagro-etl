@@ -79,7 +79,7 @@ class Config:
     
     # Rutas del proyecto
     BASE_DIR = Path(__file__).parent.parent
-    MAPPING_DIR = BASE_DIR / 'mapping'
+    MAPPINGS_BASE_DIR = BASE_DIR / 'mappings'  # Base para multi-form
     MAPPING_ENVIO_MAG_DIR = BASE_DIR / 'mappings-envio-mag'
     LOG_DIR = BASE_DIR / os.getenv('LOG_DIR', 'logs')
     

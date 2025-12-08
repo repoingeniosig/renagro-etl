@@ -27,20 +27,38 @@ app = FastAPI(
 async def startup_event():
     """
     Evento de inicio: 
-    1. Cargar mapeos YAML a Redis cache
-    2. Recuperar mensajes con ERROR de la BD y republicarlos
+    1. Cargar configuración multi-formulario
+    2. Cargar mapeos YAML por defecto (boletas) a Redis cache
+    3. Recuperar mensajes con ERROR de la BD y republicarlos
     """
     etl_logger.info("Iniciando servidor RENAGRO ETL API...")
     
     try:
-        # 1. Cargar mapeos master y YAML
-        etl_logger.info("Cargando mapeos YAML...")
-        mapping_loader.load_master()
-        mapping_loader.load_all_mappings(force_reload=False)
+        # 1. Cargar configuración multi-formulario
+        etl_logger.info("Cargando configuración multi-formulario...")
+        from .multi_form_loader import multi_form_loader
+        multi_form_loader.load_config()
+        etl_logger.info(f"✅ Configuración multi-formulario cargada: {len(multi_form_loader.config.forms)} formularios")
         
-        etl_logger.info(f"Mapeos cargados: {len(mapping_loader.entity_mappings)} entidades")
+        # 2. Cargar todos los mappings de todos los formularios a Redis cache
+        etl_logger.info("Precargando mappings de todos los formularios en Redis...")
+        total_mappings_loaded = 0
+        for form_config in multi_form_loader.config.forms:
+            try:
+                mapping_dir = config.MAPPINGS_BASE_DIR / form_config.mapping_dir
+                etl_logger.info(f"  - Cargando mappings para formulario '{form_config.name}' desde {mapping_dir}")
+                
+                mapping_loader.load_master(mapping_dir=mapping_dir)
+                mapping_loader.load_all_mappings(force_reload=False, mapping_dir=mapping_dir)
+                
+                total_mappings_loaded += len(mapping_loader.entity_mappings)
+                etl_logger.info(f"    ✅ {len(mapping_loader.entity_mappings)} entidades cargadas para '{form_config.name}'")
+            except Exception as e:
+                etl_logger.error(f"    ❌ Error cargando mappings para '{form_config.name}': {e}")
         
-        # 2. Recuperar mensajes fallidos de la BD
+        etl_logger.info(f"✅ Total de mappings precargados en Redis: {total_mappings_loaded}")
+        
+        # 3. Recuperar mensajes fallidos de la BD
         etl_logger.info("Recuperando mensajes con estado ERROR...")
         recovered = await recover_failed_messages()
         etl_logger.info(f"Recuperación completada: {recovered} mensajes republicados")
