@@ -231,9 +231,13 @@ class EtlTransformWorker:
             
             etl_logger.info(f"[etl_transform] _id={_id} - Directorio de mappings: {mapping_dir}")
             
-            # Cargar mappings desde el directorio específico del formulario
-            mapping_loader.load_master(mapping_dir=mapping_dir)
-            mapping_loader.load_all_mappings(force_reload=True, mapping_dir=mapping_dir)
+            # Configurar directorio y cargar mappings (desde Redis cache si existe, sino desde disco)
+            mapping_loader.set_mapping_dir(mapping_dir)
+            
+            # Cargar mapeos solo si no están ya cargados para este formulario
+            if not mapping_loader.entity_mappings:
+                mapping_loader.load_master(mapping_dir=mapping_dir)
+                mapping_loader.load_all_mappings(force_reload=False, mapping_dir=mapping_dir)
             
             # Log de mapeos cargados
             etl_logger.info(f"[etl_transform] _id={_id} - Mapeos disponibles: {list(mapping_loader.entity_mappings.keys())}")
@@ -308,7 +312,7 @@ class EtlTransformWorker:
                 '_id': _id,
                 'transformations': transformations,
                 'processing_order': processing_order,
-                'mapping_dir': mapping_dir  # Incluir mapping_dir para db_insert
+                'mapping_dir': str(mapping_dir)  # Convertir PosixPath a string para JSON
             }
             
             # Publicar a siguiente cola: db_insert

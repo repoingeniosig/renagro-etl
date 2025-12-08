@@ -68,13 +68,16 @@ class MappingLoader:
     
     def set_mapping_dir(self, mapping_dir: Path):
         """Actualiza el directorio de mappings dinámicamente"""
-        self.mapping_dir = mapping_dir
-        # Actualizar cache prefix basado en el nombre del subdirectorio
+        # Solo actualizar si cambia el directorio
         subdir_name = mapping_dir.name
-        self.cache_prefix = f"etl:{subdir_name}"
-        # Limpiar mapeos cargados previamente
-        self.master_config = None
-        self.entity_mappings = {}
+        new_cache_prefix = f"etl:{subdir_name}"
+        
+        if self.mapping_dir != mapping_dir or self.cache_prefix != new_cache_prefix:
+            self.mapping_dir = mapping_dir
+            self.cache_prefix = new_cache_prefix
+            # Solo limpiar si cambiamos de formulario
+            self.master_config = None
+            self.entity_mappings = {}
     
     def load_master(self, mapping_dir: Path = None) -> Dict[str, str]:
         """
