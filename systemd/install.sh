@@ -85,7 +85,7 @@ systemctl enable renagro-api.service
 systemctl enable renagro-worker-json-save.service
 systemctl enable renagro-worker-etl-transform.service
 systemctl enable renagro-worker-db-insert.service
-systemctl enable renagro-worker-envio-mag.service
+systemctl enable renagro-worker-envio-mag.timer  # Timer en lugar de service
 systemctl enable renagro-worker-envio-mag-sender.service
 
 echo ""
@@ -105,12 +105,16 @@ echo "   sleep 10  # Esperar a que API cargue mapeos"
 echo "   sudo systemctl start renagro-worker-json-save.service"
 echo "   sudo systemctl start renagro-worker-etl-transform.service"
 echo "   sudo systemctl start renagro-worker-db-insert.service"
-echo "   sudo systemctl start renagro-worker-envio-mag.service"
+echo "   sudo systemctl start renagro-worker-envio-mag.timer"
 echo "   sudo systemctl start renagro-worker-envio-mag-sender.service"
 echo ""
-echo "4. Verificar estado:"
+echo "4. Verificar timers:"
+echo "   sudo systemctl list-timers --all | grep renagro"
+echo ""
+echo "5. Verificar estado:"
 echo "   sudo systemctl status renagro-*"
 echo ""
-echo "5. Ver logs:"
+echo "6. Ver logs:"
 echo "   sudo journalctl -u renagro-api.service -f"
+echo "   sudo journalctl -u renagro-worker-envio-mag.service -f"
 echo ""
