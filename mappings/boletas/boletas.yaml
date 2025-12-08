@@ -1049,6 +1049,117 @@ fields:
     type: string
     default: null
 
+  neo_is_uso_suelo_agricola:
+    source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/uso_suelo_agricola"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_vive_terreno_entrevista:
+    source: "capitulos_1_10_wrapper/datos_pp_group/domicilio_group/vive_en"
+    type: boolean
+    convert:
+      contains_option: "1"
+    default: false
+
+  neo_is_telefono_convencional:
+    source: "capitulos_1_10_wrapper/datos_pp_group/comunicacion_group/telefono_convencional"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_telefono_celular:
+    source: "capitulos_1_10_wrapper/datos_pp_group/comunicacion_group/telefono_celular"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_direccion_email:
+    source: "capitulos_1_10_wrapper/datos_pp_group/comunicacion_group/correo_electronico"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_otro_beneficio:
+    source: "capitulos_1_10_wrapper/datos_pp_group/beneficios_group/beneficios_estado"
+    type: boolean
+    convert:
+      contains_option: "12"
+    default: false
+
+  neo_is_pecuario_terreno:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/existencia_animales_group/existen_animales"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_bovino_terreno:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/existe_ganado_bovino"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_porcino_terreno:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_porcino_group/existe_ganado_porcino"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_pollo_terreno:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/pollos_group/tiene_pollos"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+  
+  neo_is_infraestructura_otra:
+    source: "capitulos_1_10_wrapper/cap6_group/infraestructura_agricola_group/infraestructuras_presentes"
+    type: boolean
+    convert:
+      contains_option: "9"
+    default: false
+
+  neo_is_extension_agricola:
+    source: "capitulos_1_10_wrapper/cap7_group/extension_rural_group/recibio_extension"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_obtuvo_prestamo:
+    source: "capitulos_1_10_wrapper/cap7_group/credito_group/obtuvo_prestamo"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_pago_efectivo_hombre:
+    source: "capitulos_1_10_wrapper/cap8_group/cap8_1_2_group/pago_efectivo_hombres"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_pago_efectivo_mujer:
+    source: "capitulos_1_10_wrapper/cap8_group/cap8_1_2_group/pago_efectivo_mujeres"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_informante_productor:
+    source: "capitulos_1_10_wrapper/cap9_group/persona_responsable_group/persona_productora_entrego"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
 
 conversions:
   yes_no_to_bool:

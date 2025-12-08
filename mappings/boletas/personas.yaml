@@ -44,6 +44,13 @@ fields:
     source: "capitulos_1_10_wrapper/datos_pp_group/identificacion_group/tipo_documento"
     type: string
     default: null
+  
+  neo_is_persona_juridica:
+    source: "capitulos_1_10_wrapper/datos_pp_group/nombre_pp_group/tipo_persona"
+    type: boolean
+    convert:
+      contains_option: "juridica"
+    default: false
 
   per_reg_usu:
     source: ""

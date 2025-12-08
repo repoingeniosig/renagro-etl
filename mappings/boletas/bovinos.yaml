@@ -198,6 +198,20 @@ fields:
     source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/N_mero_de_hembras/vaconas"
     type: integer
     default: null
+  
+  neo_is_registro_produccion:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/registro_produccion_bovino"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_infraestructura_descanso:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/Infraestructura_para_descanso/infraestructura_bovino"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
 
   bov_reg_usu:
     source: ""

@@ -88,6 +88,118 @@ fields:
     type: string
     default: null
 
+  neo_is_ovino:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/ganado_ovino"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_caprino:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/ganado_caprino"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_caballar:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/ganado_caballar"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_mular:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/ganado_mular"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_asno:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/asnos"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_colmena_mielifera:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/colmenas_meliferas"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_colmena_melipona:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/colmenas_meliponas"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_alpaca:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/alpacas"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_llama:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/llamas"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_cuy:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/cuyes"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_conejo:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/conejos"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_pavo:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/pavos"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_avestruz:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/avestruces"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_codorniz:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/codornices"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_pato:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/cantidad_patos"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
+  neo_is_otra_especie:
+    source: "capitulos_1_10_wrapper/productos_pecuarios_group/otras_especies_group/otras_especies_existe"
+    type: boolean
+    convert:
+      yes_no_to_bool: true
+    default: false
+
   peot_reg_usu:
     source: ""
     type: integer
