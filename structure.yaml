@@ -21,4 +21,9 @@ target_data_to_send:
     - column: 'envio_datos_procesados'
       value: 'PENDIENTE'
       type: 'enum'
-  
+
+  source_reference_file: main.yml
+
+  source_reference_field: bol_id_levanta
+
+  source_database_id: bol_id

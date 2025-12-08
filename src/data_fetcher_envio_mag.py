@@ -129,19 +129,21 @@ class DataFetcherEnvioMAG:
     
     def fetch_all_related_tables(
         self,
-        all_mappings: Dict[str, EntityMappingEnvioMAG],
+        all_mappings: Dict[str, Any],
         root_ids: List[int],
-        root_mapping: EntityMappingEnvioMAG,
-        root_data: List[Dict[str, Any]] = None
+        root_mapping: Any,
+        root_data: List[Dict[str, Any]] = None,
+        source_reference_field: str = None  # NUEVO: Campo FK a usar (ej: bol_id_levanta)
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
-        Obtiene todos los datos de todas las tablas definidas en los mapeos de forma recursiva
+        Consulta todas las tablas relacionadas en los mapeos
         
         Args:
             all_mappings: Todos los mapeos cargados {yaml_file: EntityMappingEnvioMAG}
             root_ids: Lista de IDs de la entidad raíz (ej: boleta_ids)
             root_mapping: Mapeo de la entidad raíz (ej: main.yml)
             root_data: Datos de la tabla raíz ya consultados (para extraer FKs de campos con source)
+            source_reference_field: Campo FK a usar en tablas relacionadas (ej: bol_id_levanta)
         
         Returns:
             Diccionario {table_name: [registros]}
@@ -231,12 +233,18 @@ class DataFetcherEnvioMAG:
             # Usar el primer mapping para obtener parent_id
             yaml_file, entity_mapping = mappings_list[0]
             
-            # Si no tiene parent_id, asumir que usa el database_id de la raíz
-            parent_fk_column = entity_mapping.parent_id or root_mapping.database_id
+            # Determinar qué campo FK usar:
+            # 1. Si se proporcionó source_reference_field, usarlo (ej: bol_id_levanta)
+            # 2. Si no, usar parent_id del mapeo (ej: bol_id)
+            # 3. Si no hay parent_id, usar database_id de la raíz
+            parent_fk_column = (
+                source_reference_field if source_reference_field 
+                else (entity_mapping.parent_id or root_mapping.database_id)
+            )
             
             if not parent_fk_column:
                 etl_logger.warning(
-                    f"[DataFetcherEnvioMAG] Tabla {table_name} no tiene parent_id definido"
+                    f"[DataFetcherEnvioMAG] Tabla {table_name} no tiene parent_id definido ni source_reference_field"
                 )
                 continue
             

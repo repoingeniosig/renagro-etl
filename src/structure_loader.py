@@ -27,17 +27,19 @@ class TargetDataToSend:
     Attributes:
         mapping: Nombre de carpeta con YAMLs (ej: "mappings-envio-mag")
         control_table: Tabla de control (ej: "control_envios_boletas")
-        control_table_id: Columna en control_table con IDs a extraer (ej: "_id")
-                         IMPORTANTE: Los valores de esta columna deben coincidir con
-                         los valores del database_id del main.yml
-                         Ejemplo: control_envios_boletas._id == boletas.bol_id
+        control_table_id: Columna en control_table con IDs a extraer (ej: "uuid_boleta")
+                         Estos valores se usarán para buscar en source_reference_field
         control_table_filters: Filtros para consultar registros pendientes
-                              Se construye: WHERE col1=val1 AND col2=val2 ...
+        source_reference_file: Archivo YAML de referencia en mapping (ej: "main.yml")
+        source_reference_field: Campo en la tabla principal para hacer match con control_table_id
+                               (ej: "bol_id_levanta" que contiene UUIDs)
     """
     mapping: str
     control_table: str
     control_table_id: str
     control_table_filters: List[ControlTableFilter]
+    source_reference_file: str
+    source_reference_field: str
 
 
 class StructureLoader:
@@ -82,7 +84,7 @@ class StructureLoader:
             raise ValueError("No se encontró 'target_data_to_send' en structure.yaml")
         
         # Validar campos requeridos
-        required_fields = ['mapping', 'control_table', 'control_table_id']
+        required_fields = ['mapping', 'control_table', 'control_table_id', 'source_reference_file', 'source_reference_field']
         for field in required_fields:
             if field not in target_config:
                 raise ValueError(f"Campo requerido '{field}' no encontrado en target_data_to_send")
@@ -105,7 +107,9 @@ class StructureLoader:
             mapping=target_config['mapping'],
             control_table=target_config['control_table'],
             control_table_id=target_config['control_table_id'],
-            control_table_filters=filters
+            control_table_filters=filters,
+            source_reference_file=target_config['source_reference_file'],
+            source_reference_field=target_config['source_reference_field']
         )
         
         if config.DEBUG_CLI:

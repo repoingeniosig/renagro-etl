@@ -40,6 +40,60 @@ class MappingLoaderEnvioMAG:
         self.mapping_dir = mapping_dir or config.MAPPING_ENVIO_MAG_DIR
         self.loaded_mappings: Dict[str, EntityMappingEnvioMAG] = {}
         self.cache_prefix = "envio_mag"
+        self._mappings_preloaded = False  # Flag para saber si ya se precargaron
+    
+    def preload_all_mappings_to_redis(self) -> int:
+        """
+        Precarga todos los mappings a Redis UNA SOLA VEZ al inicio del worker
+        
+        Returns:
+            Número de mappings cargados
+        """
+        if self._mappings_preloaded:
+            if config.DEBUG_CLI:
+                etl_logger.debug("[MappingLoaderEnvioMAG] Mappings ya precargados")
+            return len(self.loaded_mappings)
+        
+        try:
+            from .redis_client import redis_client
+            
+            # Intentar cargar desde Redis primero
+            cached_mappings = redis_client.get_cached_mappings(self.cache_prefix)
+            
+            if cached_mappings:
+                self.loaded_mappings = cached_mappings
+                self._mappings_preloaded = True
+                if config.DEBUG_CLI:
+                    etl_logger.info(f"✅ Mapeos cargados desde Redis cache ({len(cached_mappings)} entidades)")
+                return len(cached_mappings)
+            
+            # Si no está en Redis, cargar desde disco
+            if config.DEBUG_CLI:
+                etl_logger.info("ℹ️  No hay mapeos en cache, se cargarán desde disco")
+            
+            # Cargar main.yml y todos los YAMLs recursivamente
+            all_mappings = self.load_all_mappings_recursive('main.yml')
+            self.loaded_mappings = all_mappings
+            
+            # Guardar en Redis
+            redis_client.cache_mappings(self.loaded_mappings, self.cache_prefix)
+            self._mappings_preloaded = True
+            
+            if config.DEBUG_CLI:
+                etl_logger.info(
+                    f"✅ Mapeos guardados en Redis cache ({len(all_mappings)} entidades, "
+                    f"TTL={config.REDIS_CACHE_TTL}s)"
+                )
+            
+            return len(all_mappings)
+            
+        except Exception as e:
+            etl_logger.warning(f"Error precargando mappings: {e}")
+            # Fallback: cargar desde disco sin cache
+            all_mappings = self.load_all_mappings_recursive('main.yml')
+            self.loaded_mappings = all_mappings
+            self._mappings_preloaded = True
+            return len(all_mappings)
     
     def load_yaml_file(self, yaml_file: str) -> EntityMappingEnvioMAG:
         """
@@ -53,17 +107,12 @@ class MappingLoaderEnvioMAG:
         """
         # Verificar si ya está cargado en caché de memoria
         if yaml_file in self.loaded_mappings:
-            if config.DEBUG_CLI:
-                etl_logger.debug(f"[MappingLoaderEnvioMAG] Usando caché de memoria para {yaml_file}")
             return self.loaded_mappings[yaml_file]
         
         yaml_path = self.mapping_dir / yaml_file
         
         if not yaml_path.exists():
             raise FileNotFoundError(f"Archivo de mapeo no encontrado: {yaml_path}")
-        
-        if config.DEBUG_CLI:
-            etl_logger.debug(f"[MappingLoaderEnvioMAG] Cargando {yaml_file}")
         
         with open(yaml_path, 'r', encoding='utf-8') as f:
             data = yaml.safe_load(f)

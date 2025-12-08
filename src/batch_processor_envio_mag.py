@@ -101,28 +101,29 @@ class BatchProcessorEnvioMAG:
         with db.get_session() as session:
             fetcher = DataFetcherEnvioMAG(session)
             
-            # Cargar mapeo principal para obtener database_id y tabla
+            # Cargar mapeo principal para obtener tabla
             main_mapping = mapping_loader_envio_mag.load_main_mapping()
             main_table = main_mapping.table
-            main_db_id = main_mapping.database_id
             
-            if not main_db_id:
-                raise ValueError(f"El archivo main.yml no tiene database_id definido")
+            # Usar source_reference_field de structure.yaml en lugar de database_id
+            # Esto permite hacer match entre control_table_id y el campo correcto en la tabla principal
+            # Ejemplo: control_envios_boletas.uuid_boleta -> boletas.bol_id_levanta
+            reference_field = self.target_config.source_reference_field
             
             if config.DEBUG_CLI:
                 envio_mag_logger.debug(
                     f"[BatchProcessorEnvioMAG] Usando IDs de {self.target_config.control_table}.{self.target_config.control_table_id} "
-                    f"para consultar {main_table}.{main_db_id}"
+                    f"para consultar {main_table}.{reference_field}"
                 )
             
-            # Consultar tabla principal usando database_id del main.yml
-            # Los control_ids (de control_table.id_column) deben tener los mismos valores
-            # que main_table.database_id
-            # Ejemplo: control_envios_boletas._id == boletas.bol_id
+            # Consultar tabla principal usando source_reference_field
+            # Los control_ids (de control_table.control_table_id) deben coincidir con
+            # los valores en main_table.source_reference_field
+            # Ejemplo: control_envios_boletas.uuid_boleta == boletas.bol_id_levanta
             main_table_data = fetcher.fetch_table_data(
                 main_table,
                 control_ids,
-                main_db_id,  # Filtrar por database_id (ej: WHERE bol_id IN (...))
+                reference_field,  # Usar source_reference_field en lugar de database_id
                 use_cache=True
             )
             
@@ -136,11 +137,13 @@ class BatchProcessorEnvioMAG:
             
             # Obtener todos los datos de tablas relacionadas
             # Pasar main_table_data para que pueda extraer FKs de campos con 'source'
+            # Pasar source_reference_field para que las tablas relacionadas usen el mismo FK
             all_related_data = fetcher.fetch_all_related_tables(
                 all_mappings,
                 control_ids,  # Usar los mismos IDs para consultar tablas relacionadas
                 main_mapping,
-                root_data=main_table_data  # ← NUEVO: Pasar datos de tabla principal
+                root_data=main_table_data,  # Pasar datos de tabla principal
+                source_reference_field=reference_field  # ← NUEVO: Usar bol_id_levanta en lugar de bol_id
             )
         
         return main_table_data, all_related_data
