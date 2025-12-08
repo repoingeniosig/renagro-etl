@@ -65,19 +65,22 @@ class RabbitMQClient:
         main_queues = [
             config.QUEUE_JSON_SAVE,
             config.QUEUE_ETL_TRANSFORM,
-            config.QUEUE_DB_INSERT
+            config.QUEUE_DB_INSERT,
+            config.QUEUE_ENVIO_MAG_SEND
         ]
         
         retry_queues = [
             config.QUEUE_JSON_SAVE_RETRY,
             config.QUEUE_ETL_TRANSFORM_RETRY,
-            config.QUEUE_DB_INSERT_RETRY
+            config.QUEUE_DB_INSERT_RETRY,
+            config.QUEUE_ENVIO_MAG_SEND_RETRY
         ]
         
         dlq_queues = [
             config.QUEUE_JSON_SAVE_DLQ,
             config.QUEUE_ETL_TRANSFORM_DLQ,
-            config.QUEUE_DB_INSERT_DLQ
+            config.QUEUE_DB_INSERT_DLQ,
+            config.QUEUE_ENVIO_MAG_SEND_DLQ
         ]
         
         # 1. Declarar Dead Letter Queues (sin TTL, sin DLX)

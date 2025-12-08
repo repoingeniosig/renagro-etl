@@ -588,8 +588,34 @@ async def run_worker(worker_type: str):
     workers = {
         'json_save': (config.QUEUE_JSON_SAVE, JsonSaveWorker.process_message),
         'etl_transform': (config.QUEUE_ETL_TRANSFORM, EtlTransformWorker.process_message),
-        'db_insert': (config.QUEUE_DB_INSERT, DbInsertWorker.process_message)
+        'db_insert': (config.QUEUE_DB_INSERT, DbInsertWorker.process_message),
+        'envio_mag_sender': (config.QUEUE_ENVIO_MAG_SEND, None)  # Configurado abajo
     }
+    
+    # Configuración especial para envio_mag_sender
+    if worker_type == 'envio_mag_sender':
+        from .envio_mag_sender_worker import envio_mag_sender_worker
+        
+        try:
+            etl_logger.info(f"Iniciando worker envio_mag_sender (paralelo: {config.PARALLEL_REQUESTS_SEND_MAG})")
+            
+            # Consumir cola con callback del worker
+            await rabbitmq_client.consume_queue(
+                queue_name=config.QUEUE_ENVIO_MAG_SEND,
+                callback=envio_mag_sender_worker.process_message,
+                prefetch_count=config.PARALLEL_REQUESTS_SEND_MAG
+            )
+        except KeyboardInterrupt:
+            etl_logger.info("Worker envio_mag_sender detenido por usuario")
+            envio_mag_sender_worker.print_stats()
+        except Exception as e:
+            etl_logger.error(f"Error en worker envio_mag_sender: {e}", exc_info=True)
+            raise
+        finally:
+            envio_mag_sender_worker.print_stats()
+            await rabbitmq_client.close()
+        
+        return
     
     if worker_type not in workers:
         raise ValueError(f"Worker desconocido: {worker_type}")
@@ -615,7 +641,7 @@ async def run_worker(worker_type: str):
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Uso: python -m src.workers <worker_type>")
-        print("Worker types: json_save, etl_transform, db_insert, envio_mag")
+        print("Worker types: json_save, etl_transform, db_insert, envio_mag, envio_mag_sender")
         sys.exit(1)
     
     worker_type = sys.argv[1]

@@ -87,6 +87,17 @@ class Config:
     BATCH_SIZE_SEND_MAG = int(os.getenv('BATCH_SIZE_SEND_MAG', 1000))
     DEBUG_JSON_OUTPUT = os.getenv('DEBUG_JSON_OUTPUT', 'false').lower() in ('true', '1', 'yes')
     
+    # API Remota RENAGRO (envío de JSONs)
+    RENAGRO_ENDPOINT = os.getenv('RENAGRO_ENDPOINT', '')
+    RENAGRO_TOKEN = os.getenv('RENAGRO_TOKEN', '')
+    PARALLEL_REQUESTS_SEND_MAG = int(os.getenv('PARALLEL_REQUESTS_SEND_MAG', 10))
+    MAX_RETRY_ATTEMPTS = int(os.getenv('MAX_RETRY_ATTEMPTS', 3))
+    
+    # Colas de envío MAG
+    QUEUE_ENVIO_MAG_SEND = os.getenv('QUEUE_ENVIO_MAG_SEND', 'renagro.envio.mag.send')
+    QUEUE_ENVIO_MAG_SEND_RETRY = os.getenv('QUEUE_ENVIO_MAG_SEND_RETRY', 'renagro.envio.mag.send.retry')
+    QUEUE_ENVIO_MAG_SEND_DLQ = os.getenv('QUEUE_ENVIO_MAG_SEND_DLQ', 'renagro.envio.mag.send.dlq')
+    
 
 # Instancia global de configuración
 config = Config()

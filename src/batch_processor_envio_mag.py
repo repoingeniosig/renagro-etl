@@ -14,6 +14,7 @@ from .mapping_loader_envio_mag import mapping_loader_envio_mag
 from .data_fetcher_envio_mag import DataFetcherEnvioMAG
 from .json_builder_envio_mag import JSONBuilderEnvioMAG
 from .structure_loader import structure_loader
+from .rabbitmq_client import rabbitmq_client
 
 
 class BatchProcessorEnvioMAG:
@@ -229,6 +230,10 @@ class BatchProcessorEnvioMAG:
         """
         Marca los registros procesados como completados en control_table
         
+        NOTA: Este método ya NO se usa después de procesar batch
+        Los registros se marcan como ENVIADO solo después del envío exitoso HTTP
+        Ver: EnvioMagSenderWorker.update_control_status()
+        
         Args:
             control_ids: Lista de IDs (uuid_boleta) procesados exitosamente
         """
@@ -337,10 +342,9 @@ class BatchProcessorEnvioMAG:
                 f"[BatchProcessorEnvioMAG] Lote procesado: {successful_count}/{len(control_ids)} exitosos"
             )
             
-            # CRÍTICO: Actualizar estado de registros procesados en control_table
-            # Evita loop infinito al excluir registros ya procesados
-            if successful_count > 0:
-                self.mark_batch_as_completed(control_ids)
+            # CAMBIO: No actualizar a ENVIADO aquí
+            # Los registros se actualizan después del envío HTTP exitoso
+            # Ver: EnvioMagSenderWorker.update_control_status()
             
             return successful_count, json_list
         
@@ -351,41 +355,76 @@ class BatchProcessorEnvioMAG:
             )
             return 0, []
     
-    def process_all_pending(self) -> int:
+    async def process_all_pending(self) -> int:
         """
         Procesa todos los registros pendientes en lotes
+        Publica cada JSON a RabbitMQ para envío posterior
         
         Returns:
-            Total de registros procesados exitosamente
+            Total de registros publicados exitosamente
         """
         envio_mag_logger.info("[BatchProcessorEnvioMAG] Iniciando procesamiento de todos los pendientes")
         
-        total_processed = 0
+        total_published = 0
         batch_number = 1
         
         while True:
             envio_mag_logger.info(f"[BatchProcessorEnvioMAG] Procesando lote #{batch_number}")
             
-            # Procesar un lote
+            # Procesar un lote (construir JSONs)
             count, json_list = self.process_batch()
             
             if count == 0:
                 # No hay más registros pendientes
                 break
             
-            total_processed += count
+            # Publicar cada JSON a la cola de envío
+            published_count = 0
+            for json_item in json_list:
+                try:
+                    # Construir mensaje para la cola
+                    message = {
+                        'control_id': json_item['control_id'],
+                        'record_id': json_item['record_id'],
+                        'json_data': json_item['json_data'],
+                        'control_table': self.target_config.control_table,
+                        'control_id_column': self.target_config.control_table_id
+                    }
+                    
+                    # Publicar a cola de envío
+                    success = await rabbitmq_client.publish_message(
+                        queue_name=config.QUEUE_ENVIO_MAG_SEND,
+                        message=message,
+                        priority=5
+                    )
+                    
+                    if success:
+                        published_count += 1
+                    else:
+                        envio_mag_logger.error(
+                            f"[BatchProcessorEnvioMAG] Error publicando JSON para control_id={json_item['control_id']}"
+                        )
+                
+                except Exception as e:
+                    envio_mag_logger.error(
+                        f"[BatchProcessorEnvioMAG] Error publicando mensaje: {e}",
+                        exc_info=True
+                    )
+            
+            total_published += published_count
             batch_number += 1
             
             envio_mag_logger.info(
-                f"[BatchProcessorEnvioMAG] Lote #{batch_number - 1} completado. "
-                f"Total acumulado: {total_processed}"
+                f"[BatchProcessorEnvioMAG] Lote #{batch_number - 1} publicado: "
+                f"{published_count}/{count} JSONs. Total acumulado: {total_published}"
             )
         
         envio_mag_logger.info(
-            f"[BatchProcessorEnvioMAG] Procesamiento completo. Total procesado: {total_processed}"
+            f"[BatchProcessorEnvioMAG] Procesamiento completo. "
+            f"Total publicado: {total_published} JSONs a cola {config.QUEUE_ENVIO_MAG_SEND}"
         )
         
-        return total_processed
+        return total_published
 
 
 # Instancia global
