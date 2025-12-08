@@ -1,0 +1,36 @@
+[Unit]
+Description=RENAGRO ETL Worker - Envio MAG (JSON Builder)
+After=network.target postgresql.service redis.service rabbitmq-server.service renagro-api.service
+Wants=postgresql.service redis.service rabbitmq-server.service
+BindsTo=renagro-api.service
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/renagro-etl-process
+Environment="PATH=/opt/renagro-etl-process/venv/bin"
+EnvironmentFile=/opt/renagro-etl-process/.env
+
+ExecStart=/opt/renagro-etl-process/venv/bin/python -m src.workers envio_mag
+
+# Reintentos automáticos
+Restart=always
+RestartSec=10
+StartLimitBurst=5
+StartLimitIntervalSec=300
+
+# Límites de recursos
+LimitNOFILE=65536
+MemoryLimit=4G
+MemoryHigh=3G
+CPUQuota=100%
+CPUWeight=60
+
+# Logging (systemd journal)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=renagro-envio-mag
+
+[Install]
+WantedBy=multi-user.target
