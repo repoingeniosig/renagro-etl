@@ -58,6 +58,15 @@ async def startup_event():
         
         etl_logger.info(f"✅ Total de mappings precargados en Redis: {total_mappings_loaded}")
         
+        # 2.5. Cargar mappings de envio_mag a Redis
+        etl_logger.info("Precargando mappings de envio_mag en Redis...")
+        try:
+            from .mapping_loader_envio_mag import mapping_loader_envio_mag
+            num_envio_mappings = mapping_loader_envio_mag.preload_all_mappings_to_redis()
+            etl_logger.info(f"✅ Mappings de envio_mag precargados: {num_envio_mappings} entidades")
+        except Exception as e:
+            etl_logger.error(f"❌ Error precargando mappings envio_mag: {e}")
+        
         # 3. Recuperar mensajes fallidos de la BD
         etl_logger.info("Recuperando mensajes con estado ERROR...")
         recovered = await recover_failed_messages()

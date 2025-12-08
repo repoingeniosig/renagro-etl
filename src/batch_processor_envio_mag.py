@@ -132,18 +132,27 @@ class BatchProcessorEnvioMAG:
                     f"[BatchProcessorEnvioMAG] Obtenidos {len(main_table_data)} registros de {main_table}"
                 )
             
+            # Extraer bol_id (source_database_id) de los datos de boletas
+            # Estos son los IDs que usan las tablas relacionadas como FK
+            database_ids = [record.get(self.target_config.source_database_id) for record in main_table_data]
+            database_ids = [db_id for db_id in database_ids if db_id is not None]
+            
+            if config.DEBUG_CLI:
+                envio_mag_logger.debug(
+                    f"[BatchProcessorEnvioMAG] Extraídos {len(database_ids)} {self.target_config.source_database_id} de {main_table}"
+                )
+            
             # Cargar mapeos recursivamente
             all_mappings = mapping_loader_envio_mag.load_all_mappings_recursive('main.yml')
             
             # Obtener todos los datos de tablas relacionadas
-            # Pasar main_table_data para que pueda extraer FKs de campos con 'source'
-            # Pasar source_reference_field para que las tablas relacionadas usen el mismo FK
+            # Usar database_ids (bol_id) para consultar tablas relacionadas
             all_related_data = fetcher.fetch_all_related_tables(
                 all_mappings,
-                control_ids,  # Usar los mismos IDs para consultar tablas relacionadas
+                database_ids,  # ← CORRECCIÓN: Usar bol_id extraídos de boletas
                 main_mapping,
-                root_data=main_table_data,  # Pasar datos de tabla principal
-                source_reference_field=reference_field  # ← NUEVO: Usar bol_id_levanta en lugar de bol_id
+                root_data=main_table_data,
+                source_reference_field=None  # No usar, ya pasamos los bol_id correctos
             )
         
         return main_table_data, all_related_data
@@ -200,6 +209,43 @@ class BatchProcessorEnvioMAG:
                 envio_mag_logger.debug(f"[BatchProcessorEnvioMAG] JSON guardado: {output_file}")
         except Exception as e:
             envio_mag_logger.error(f"[BatchProcessorEnvioMAG] Error guardando JSON debug: {e}")
+    
+    def mark_batch_as_completed(self, control_ids: List[str]):
+        """
+        Marca los registros procesados como completados en control_table
+        
+        Args:
+            control_ids: Lista de IDs (uuid_boleta) procesados exitosamente
+        """
+        if not control_ids:
+            return
+        
+        try:
+            # Construir UPDATE dinámico
+            # UPDATE control_table SET envio_datos_procesados = 'COMPLETADO' WHERE uuid_boleta IN (...)
+            placeholders = ', '.join([f":id_{i}" for i in range(len(control_ids))])
+            params = {f"id_{i}": control_id for i, control_id in enumerate(control_ids)}
+            
+            update_query = f"""
+                UPDATE "{config.DB_SCHEMA}".{self.target_config.control_table}
+                SET envio_datos_procesados = 'COMPLETADO'
+                WHERE {self.target_config.control_table_id} IN ({placeholders})
+            """
+            
+            with db.get_session() as session:
+                session.execute(text(update_query), params)
+                session.commit()
+            
+            if config.DEBUG_CLI:
+                envio_mag_logger.debug(
+                    f"[BatchProcessorEnvioMAG] {len(control_ids)} registros marcados como COMPLETADO"
+                )
+        
+        except Exception as e:
+            envio_mag_logger.error(
+                f"[BatchProcessorEnvioMAG] Error marcando registros como completados: {e}",
+                exc_info=True
+            )
     
     def process_batch(self) -> Tuple[int, List[Dict[str, Any]]]:
         """
@@ -276,6 +322,11 @@ class BatchProcessorEnvioMAG:
             envio_mag_logger.info(
                 f"[BatchProcessorEnvioMAG] Lote procesado: {successful_count}/{len(control_ids)} exitosos"
             )
+            
+            # CRÍTICO: Actualizar estado de registros procesados en control_table
+            # Evita loop infinito al excluir registros ya procesados
+            if successful_count > 0:
+                self.mark_batch_as_completed(control_ids)
             
             return successful_count, json_list
         

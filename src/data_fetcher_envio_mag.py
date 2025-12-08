@@ -233,18 +233,13 @@ class DataFetcherEnvioMAG:
             # Usar el primer mapping para obtener parent_id
             yaml_file, entity_mapping = mappings_list[0]
             
-            # Determinar qué campo FK usar:
-            # 1. Si se proporcionó source_reference_field, usarlo (ej: bol_id_levanta)
-            # 2. Si no, usar parent_id del mapeo (ej: bol_id)
-            # 3. Si no hay parent_id, usar database_id de la raíz
-            parent_fk_column = (
-                source_reference_field if source_reference_field 
-                else (entity_mapping.parent_id or root_mapping.database_id)
-            )
+            # Las tablas relacionadas usan parent_id (ej: bol_id) directamente
+            # Los root_ids que recibimos YA son los bol_id extraídos de boletas
+            parent_fk_column = entity_mapping.parent_id or root_mapping.database_id
             
             if not parent_fk_column:
                 etl_logger.warning(
-                    f"[DataFetcherEnvioMAG] Tabla {table_name} no tiene parent_id definido ni source_reference_field"
+                    f"[DataFetcherEnvioMAG] Tabla {table_name} no tiene parent_id definido"
                 )
                 continue
             

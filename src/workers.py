@@ -531,8 +531,6 @@ class EnvioMagWorker:
     Construye JSONs desde BD y los prepara para envío
     """
     
-    _mappings_preloaded = False  # Flag para precarga única
-    
     @staticmethod
     async def process_message(data: Dict[str, Any]):
         """
@@ -541,7 +539,6 @@ class EnvioMagWorker:
         """
         from .logger import envio_mag_logger
         from .batch_processor_envio_mag import batch_processor_envio_mag
-        from .mapping_loader_envio_mag import mapping_loader_envio_mag
         
         try:
             envio_mag_logger.info("=" * 80)
@@ -550,13 +547,6 @@ class EnvioMagWorker:
             envio_mag_logger.info(f"Tamaño de lote: {config.BATCH_SIZE_SEND_MAG}")
             envio_mag_logger.info(f"Debug JSON Output: {config.DEBUG_JSON_OUTPUT}")
             envio_mag_logger.info(f"Schema BD: {config.DB_SCHEMA}")
-            
-            # Precargar mappings UNA SOLA VEZ al inicio
-            if not EnvioMagWorker._mappings_preloaded:
-                envio_mag_logger.info("🔄 Precargando mappings de envio_mag...")
-                num_mappings = mapping_loader_envio_mag.preload_all_mappings_to_redis()
-                envio_mag_logger.info(f"✅ Mappings precargados: {num_mappings} entidades")
-                EnvioMagWorker._mappings_preloaded = True
             
             # Procesar todos los registros pendientes
             total_processed = batch_processor_envio_mag.process_all_pending()
