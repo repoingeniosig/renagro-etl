@@ -66,8 +66,13 @@ class MappingLoader:
         self.entity_mappings: Dict[str, EntityMapping] = {}
         self.cache_prefix = f"etl:{form_mapping_dir}" if form_mapping_dir else "etl"
     
-    def set_mapping_dir(self, mapping_dir: Path):
+    def set_mapping_dir(self, mapping_dir):
         """Actualiza el directorio de mappings dinámicamente"""
+        # Convertir a Path si es string
+        from pathlib import Path
+        if isinstance(mapping_dir, str):
+            mapping_dir = Path(mapping_dir)
+        
         # Solo actualizar si cambia el directorio
         subdir_name = mapping_dir.name
         new_cache_prefix = f"etl:{subdir_name}"

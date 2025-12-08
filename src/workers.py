@@ -312,7 +312,9 @@ class EtlTransformWorker:
                 '_id': _id,
                 'transformations': transformations,
                 'processing_order': processing_order,
-                'mapping_dir': str(mapping_dir)  # Convertir PosixPath a string para JSON
+                'mapping_dir': str(mapping_dir),  # Convertir PosixPath a string para JSON
+                'form_uuid': form_uuid,  # Incluir form_uuid para obtener modelo correcto en db_insert
+                'control_table': form_config.control_table  # Incluir nombre de tabla de control
             }
             
             # Publicar a siguiente cola: db_insert
@@ -396,21 +398,32 @@ class DbInsertWorker:
         _id = data.get('_id')
         transformations = data.get('transformations', {})
         processing_order = data.get('processing_order', [])
-        mapping_dir = data.get('mapping_dir')  # Directorio de mappings del formulario
+        mapping_dir = data.get('mapping_dir')  # Directorio de mappings del formulario (string)
+        form_uuid = data.get('form_uuid')  # UUID del formulario
+        control_table = data.get('control_table')  # Nombre de tabla de control
         
         try:
             etl_logger.info(f"[db_insert] Procesando _id={_id}")
             
-            # Validar que tenemos mapping_dir
+            # Validar que tenemos mapping_dir y control_table
             if not mapping_dir:
                 raise ValueError("No se recibió 'mapping_dir' en el mensaje de db_insert")
+            if not control_table:
+                raise ValueError("No se recibió 'control_table' en el mensaje de db_insert")
+            
+            # Obtener modelo de control dinámico
+            ControlModel = get_control_table_model(control_table)
             
             # Cargar mapeos si no están en memoria (workers son procesos separados)
             from .mapping_loader import mapping_loader
+            from pathlib import Path
+            
+            mapping_dir_path = Path(mapping_dir) if isinstance(mapping_dir, str) else mapping_dir
+            
             if not mapping_loader.entity_mappings:
-                etl_logger.warning(f"[db_insert] Cargando mapeos desde {mapping_dir}...")
-                mapping_loader.set_mapping_dir(mapping_dir)
-                mapping_loader.load_master(mapping_dir=mapping_dir)
+                etl_logger.warning(f"[db_insert] Cargando mapeos desde {mapping_dir_path}...")
+                mapping_loader.set_mapping_dir(mapping_dir_path)
+                mapping_loader.load_master(mapping_dir=mapping_dir_path)
                 mapping_loader.load_all_mappings(force_reload=False)
             
             # Crear instancia de executor con los mapeos
@@ -435,7 +448,7 @@ class DbInsertWorker:
                 
                 # Actualizar estado a PROCESADO
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
                         control.estado_etl = EstadoETLEnum.PROCESADO
                         control.procesado_at = datetime.now()
@@ -447,7 +460,7 @@ class DbInsertWorker:
                 
                 # Actualizar estado a ERROR
                 with db.get_session() as session:
-                    control = session.query(ControlEnviosBoletas).filter_by(_id=_id).first()
+                    control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
                         control.estado_etl = EstadoETLEnum.ERROR
                         control.error_message = error_msg
@@ -462,8 +475,12 @@ class DbInsertWorker:
             # Actualizar retry_count y estado en BD
             retry_count = 0
             try:
-                # Obtener modelo dinámico desde data original (debería estar en el mensaje)
-                ControlModel = ControlEnviosBoletas  # Usar por defecto ya que no tenemos el JSON original aquí
+                # Obtener modelo dinámico desde control_table del mensaje
+                try:
+                    ControlModel = get_control_table_model(data.get('control_table', 'control_envios_boletas'))
+                except:
+                    ControlModel = ControlEnviosBoletas  # Fallback
+                
                 with db.get_session() as session:
                     control = session.query(ControlModel).filter_by(_id=_id).first()
                     if control:
