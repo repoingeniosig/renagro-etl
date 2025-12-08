@@ -307,7 +307,8 @@ class EtlTransformWorker:
             transform_message = {
                 '_id': _id,
                 'transformations': transformations,
-                'processing_order': processing_order
+                'processing_order': processing_order,
+                'mapping_dir': mapping_dir  # Incluir mapping_dir para db_insert
             }
             
             # Publicar a siguiente cola: db_insert
@@ -386,20 +387,26 @@ class DbInsertWorker:
         Procesa un mensaje de la cola db_insert
         
         Args:
-            data: Mensaje con transformations y processing_order
+            data: Mensaje con transformations, processing_order y mapping_dir
         """
         _id = data.get('_id')
         transformations = data.get('transformations', {})
         processing_order = data.get('processing_order', [])
+        mapping_dir = data.get('mapping_dir')  # Directorio de mappings del formulario
         
         try:
             etl_logger.info(f"[db_insert] Procesando _id={_id}")
             
+            # Validar que tenemos mapping_dir
+            if not mapping_dir:
+                raise ValueError("No se recibió 'mapping_dir' en el mensaje de db_insert")
+            
             # Cargar mapeos si no están en memoria (workers son procesos separados)
             from .mapping_loader import mapping_loader
             if not mapping_loader.entity_mappings:
-                etl_logger.warning("[db_insert] Cargando mapeos desde Redis/disco...")
-                mapping_loader.load_master()
+                etl_logger.warning(f"[db_insert] Cargando mapeos desde {mapping_dir}...")
+                mapping_loader.set_mapping_dir(mapping_dir)
+                mapping_loader.load_master(mapping_dir=mapping_dir)
                 mapping_loader.load_all_mappings(force_reload=False)
             
             # Crear instancia de executor con los mapeos

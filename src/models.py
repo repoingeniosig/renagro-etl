@@ -40,7 +40,7 @@ def create_control_table_model(table_name: str, schema: str = 'sc_renagro_mag'):
     
     attrs = {
         '__tablename__': table_name,
-        '__table_args__': {'schema': schema},
+        '__table_args__': {'schema': schema, 'extend_existing': True},
         '_id': Column('_id', Integer, primary_key=True, nullable=False, comment='ID único del envío proveniente del campo _id del JSON de KoboToolbox'),
         'uuid_boleta': Column('uuid_boleta', String(36), nullable=True, unique=True, comment='UUID de la boleta extraído del campo _uuid del JSON de KoboToolbox'),
         'json_data': Column('json_data', JSONB, nullable=False, comment='JSON completo del envío de KoboToolbox almacenado en formato JSONB'),
