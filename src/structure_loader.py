@@ -33,6 +33,8 @@ class TargetDataToSend:
         source_reference_file: Archivo YAML de referencia en mapping (ej: "main.yml")
         source_reference_field: Campo en la tabla principal para hacer match con control_table_id
                                (ej: "bol_id_levanta" que contiene UUIDs)
+        source_database_id: Campo PK de la tabla principal para extraer y consultar tablas relacionadas
+                           (ej: "bol_id" - el ID entero autoincrementable)
     """
     mapping: str
     control_table: str
@@ -40,6 +42,7 @@ class TargetDataToSend:
     control_table_filters: List[ControlTableFilter]
     source_reference_file: str
     source_reference_field: str
+    source_database_id: str
 
 
 class StructureLoader:
@@ -84,7 +87,10 @@ class StructureLoader:
             raise ValueError("No se encontró 'target_data_to_send' en structure.yaml")
         
         # Validar campos requeridos
-        required_fields = ['mapping', 'control_table', 'control_table_id', 'source_reference_file', 'source_reference_field']
+        required_fields = [
+            'mapping', 'control_table', 'control_table_id', 
+            'source_reference_file', 'source_reference_field', 'source_database_id'
+        ]
         for field in required_fields:
             if field not in target_config:
                 raise ValueError(f"Campo requerido '{field}' no encontrado en target_data_to_send")
@@ -109,7 +115,8 @@ class StructureLoader:
             control_table_id=target_config['control_table_id'],
             control_table_filters=filters,
             source_reference_file=target_config['source_reference_file'],
-            source_reference_field=target_config['source_reference_field']
+            source_reference_field=target_config['source_reference_field'],
+            source_database_id=target_config['source_database_id']
         )
         
         if config.DEBUG_CLI:

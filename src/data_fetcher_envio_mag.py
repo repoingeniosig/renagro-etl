@@ -253,10 +253,10 @@ class DataFetcherEnvioMAG:
                 )
                 all_data[table_name] = data
                 
-                if config.DEBUG_CLI:
-                    etl_logger.debug(
-                        f"[DataFetcherEnvioMAG] Tabla {table_name}: {len(data)} registros (FK: {parent_fk_column})"
-                    )
+                etl_logger.info(
+                    f"[DataFetcherEnvioMAG] ✅ Tabla {table_name}: {len(data)} registros "
+                    f"(consultado con {parent_fk_column} IN ({root_ids[:2]}...))"
+                )
             except Exception as e:
                 etl_logger.warning(
                     f"[DataFetcherEnvioMAG] Error consultando tabla {table_name}: {e}"
@@ -264,7 +264,8 @@ class DataFetcherEnvioMAG:
                 all_data[table_name] = []
         
         # Nivel 2+: Consultar tablas de niveles más profundos (ej: cultivos bajo terrenos)
-        for yaml_file, entity_mapping in all_mappings.items():
+        # Crear copia de las claves para evitar "dictionary changed size during iteration"
+        for yaml_file, entity_mapping in list(all_mappings.items()):
             # Ver si tiene referencias (tablas hijas)
             for field_name, field_mapping in entity_mapping.fields.items():
                 if field_mapping.reference and field_mapping.type == 'array':

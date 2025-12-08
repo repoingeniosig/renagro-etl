@@ -137,13 +137,23 @@ class BatchProcessorEnvioMAG:
             database_ids = [record.get(self.target_config.source_database_id) for record in main_table_data]
             database_ids = [db_id for db_id in database_ids if db_id is not None]
             
-            if config.DEBUG_CLI:
-                envio_mag_logger.debug(
-                    f"[BatchProcessorEnvioMAG] Extraídos {len(database_ids)} {self.target_config.source_database_id} de {main_table}"
-                )
+            envio_mag_logger.info(
+                f"[BatchProcessorEnvioMAG] Extraídos {len(database_ids)} {self.target_config.source_database_id} "
+                f"de {main_table}: {database_ids[:3]}..." if len(database_ids) > 3 else f": {database_ids}"
+            )
             
-            # Cargar mapeos recursivamente
-            all_mappings = mapping_loader_envio_mag.load_all_mappings_recursive('main.yml')
+            envio_mag_logger.info(
+                f"[BatchProcessorEnvioMAG] Consultando tablas relacionadas con {self.target_config.source_database_id} IN ({database_ids[:3]}...)"
+            )
+            
+            # Usar mappings precargados en lugar de cargarlos nuevamente
+            # Los mappings ya fueron cargados en API startup y están en memoria
+            all_mappings = mapping_loader_envio_mag.loaded_mappings
+            
+            if not all_mappings:
+                # Fallback: cargar si no están precargados (no debería ocurrir)
+                envio_mag_logger.warning("[BatchProcessorEnvioMAG] Mappings no precargados, cargando ahora...")
+                all_mappings = mapping_loader_envio_mag.load_all_mappings_recursive('main.yml')
             
             # Obtener todos los datos de tablas relacionadas
             # Usar database_ids (bol_id) para consultar tablas relacionadas
@@ -153,6 +163,11 @@ class BatchProcessorEnvioMAG:
                 main_mapping,
                 root_data=main_table_data,
                 source_reference_field=None  # No usar, ya pasamos los bol_id correctos
+            )
+            
+            envio_mag_logger.info(
+                f"[BatchProcessorEnvioMAG] Tablas relacionadas obtenidas: "
+                f"{', '.join([f'{k}({len(v)})' for k, v in all_related_data.items()])}"
             )
         
         return main_table_data, all_related_data
@@ -228,7 +243,7 @@ class BatchProcessorEnvioMAG:
             
             update_query = f"""
                 UPDATE "{config.DB_SCHEMA}".{self.target_config.control_table}
-                SET envio_datos_procesados = 'COMPLETADO'
+                SET envio_datos_procesados = 'ENVIADO'
                 WHERE {self.target_config.control_table_id} IN ({placeholders})
             """
             
@@ -236,10 +251,9 @@ class BatchProcessorEnvioMAG:
                 session.execute(text(update_query), params)
                 session.commit()
             
-            if config.DEBUG_CLI:
-                envio_mag_logger.debug(
-                    f"[BatchProcessorEnvioMAG] {len(control_ids)} registros marcados como COMPLETADO"
-                )
+            envio_mag_logger.info(
+                f"[BatchProcessorEnvioMAG] ✅ {len(control_ids)} registros marcados como ENVIADO"
+            )
         
         except Exception as e:
             envio_mag_logger.error(
