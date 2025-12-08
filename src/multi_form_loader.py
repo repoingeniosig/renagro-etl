@@ -109,7 +109,15 @@ class MultiFormLoader:
         if not self.config:
             self.load_config()
         
-        # Navegar por dot notation
+        # Primero intentar acceder como clave directa (ej: "formhub/uuid" como clave completa)
+        try:
+            if self.config.form_uuid_field in json_data:
+                value = json_data[self.config.form_uuid_field]
+                return str(value) if value else None
+        except (KeyError, TypeError):
+            pass
+        
+        # Si no existe como clave directa, intentar navegación por jerarquía (ej: "formhub" -> "uuid")
         keys = self.config.form_uuid_field.split('/')
         value = json_data
         
