@@ -226,6 +226,75 @@ class BatchProcessorEnvioMAG:
         except Exception as e:
             envio_mag_logger.error(f"[BatchProcessorEnvioMAG] Error guardando JSON debug: {e}")
     
+    def _mark_as_processing(self, control_id: int):
+        """
+        Marca un registro como PROCESANDO para evitar duplicados en timer
+        
+        Args:
+            control_id: ID del registro en control_table
+        """
+        try:
+            with db.get_session() as session:
+                update_query = f"""
+                    UPDATE "{config.DB_SCHEMA}".{self.target_config.control_table}
+                    SET envio_datos_procesados = 'PROCESANDO',
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE {self.target_config.control_table_id} = :control_id
+                """
+                
+                session.execute(text(update_query), {"control_id": control_id})
+                session.commit()
+                
+                if config.DEBUG_CLI:
+                    envio_mag_logger.debug(
+                        f"[BatchProcessorEnvioMAG] Marcado como PROCESANDO: {control_id}"
+                    )
+        
+        except Exception as e:
+            envio_mag_logger.error(
+                f"[BatchProcessorEnvioMAG] Error marcando como PROCESANDO ({control_id}): {e}",
+                exc_info=True
+            )
+            raise
+    
+    def _mark_as_error(self, control_id: int, error_message: str):
+        """
+        Marca un registro como ERROR (sin reencolar)
+        Usado para errores de construcción de JSON (equivalente a 4xx)
+        
+        Args:
+            control_id: ID del registro en control_table
+            error_message: Descripción del error
+        """
+        try:
+            with db.get_session() as session:
+                # Truncar mensaje si es muy largo
+                error_message_truncated = error_message[:500] if len(error_message) > 500 else error_message
+                
+                update_query = f"""
+                    UPDATE "{config.DB_SCHEMA}".{self.target_config.control_table}
+                    SET envio_datos_procesados = 'ERROR',
+                        error_mensajes_envio = :error_message,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE {self.target_config.control_table_id} = :control_id
+                """
+                
+                session.execute(text(update_query), {
+                    "control_id": control_id,
+                    "error_message": error_message_truncated
+                })
+                session.commit()
+                
+                envio_mag_logger.error(
+                    f"[BatchProcessorEnvioMAG] Marcado como ERROR ({control_id}): {error_message_truncated}"
+                )
+        
+        except Exception as e:
+            envio_mag_logger.error(
+                f"[BatchProcessorEnvioMAG] Error marcando como ERROR ({control_id}): {e}",
+                exc_info=True
+            )
+    
     def mark_batch_as_completed(self, control_ids: List[str]):
         """
         Marca los registros procesados como completados en control_table
@@ -305,12 +374,18 @@ class BatchProcessorEnvioMAG:
             successful_count = 0
             
             for main_row in main_table_data:
+                record_id = main_row.get(db_id_field)
+                
                 try:
-                    # Usar database_id del mapping en lugar de 'id' hardcodeado
-                    record_id = main_row.get(db_id_field)
+                    # ✅ PASO 1: Marcar como PROCESANDO inmediatamente (evita duplicados)
+                    self._mark_as_processing(record_id)
                     
-                    # Construir JSON
+                    # ✅ PASO 2: Construir JSON
                     json_data = self.build_json_for_record(main_row, all_related_data)
+                    
+                    # Validar que el JSON no esté vacío
+                    if not json_data:
+                        raise ValueError("JSON vacío o inválido")
                     
                     # Guardar para debug si está habilitado
                     self.save_debug_json(record_id, json_data)
@@ -330,11 +405,16 @@ class BatchProcessorEnvioMAG:
                         )
                 
                 except Exception as e:
-                    record_id = main_row.get(db_id_field, 'unknown')
+                    # ❌ ERROR en construcción de JSON (equivalente a 4xx: SIN reencolar)
+                    error_msg = f"Error construyendo JSON: {str(e)}"
                     envio_mag_logger.error(
-                        f"[BatchProcessorEnvioMAG] Error construyendo JSON para {db_id_field}={record_id}: {e}",
+                        f"[BatchProcessorEnvioMAG] {error_msg} para {db_id_field}={record_id}",
                         exc_info=True
                     )
+                    
+                    # Marcar como ERROR (no se reencolará)
+                    self._mark_as_error(record_id, error_msg)
+                    
                     # Continuar con el siguiente registro
                     continue
             
@@ -400,14 +480,21 @@ class BatchProcessorEnvioMAG:
                     
                     if success:
                         published_count += 1
+                        
+                        if config.DEBUG_CLI:
+                            envio_mag_logger.debug(
+                                f"[BatchProcessorEnvioMAG] JSON publicado a cola: control_id={json_item['control_id']}"
+                            )
                     else:
+                        # Error publicando a RabbitMQ
+                        # NOTA: El registro queda en PROCESANDO, puede reprocesarse después
                         envio_mag_logger.error(
                             f"[BatchProcessorEnvioMAG] Error publicando JSON para control_id={json_item['control_id']}"
                         )
                 
                 except Exception as e:
                     envio_mag_logger.error(
-                        f"[BatchProcessorEnvioMAG] Error publicando mensaje: {e}",
+                        f"[BatchProcessorEnvioMAG] Excepción publicando mensaje: {e}",
                         exc_info=True
                     )
             

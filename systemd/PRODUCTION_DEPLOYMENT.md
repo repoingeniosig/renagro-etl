@@ -223,11 +223,17 @@ BATCH_SIZE_SEND_MAG=1000
 ### 3. Ejecutar Migraciones SQL
 
 ```bash
+# Migración 001: Actualizar ENUM estado_envio (agregar ENTREGANDO, ENVIADO)
 psql -h localhost -U postgres -d renagro_db \
   -f /opt/renagro-etl-process/migrations/001_update_estado_envio_enum.sql
 
+# Migración 003: Agregar uuid_boleta a tablas de control
 psql -h localhost -U postgres -d renagro_db \
   -f /opt/renagro-etl-process/migrations/003_add_uuid_boleta_to_control_tables.sql
+
+# Migración 004: Agregar PROCESANDO al ENUM (protección contra duplicados)
+psql -h localhost -U postgres -d renagro_db \
+  -f /opt/renagro-etl-process/migrations/004_add_procesando_estado.sql
 ```
 
 ---

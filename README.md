@@ -515,7 +515,10 @@ pytest tests/
 
 - **[ERROR_HANDLING.md](ERROR_HANDLING.md)** - Sistema de reintentos y DLQ
 - **[REDIS_CACHE.md](REDIS_CACHE.md)** - Cache de mapeos YAML
-- **[systemd/README.md](systemd/README.md)** - Despliegue en producción
+- **[ENVIO_MAG.md](ENVIO_MAG.md)** - Envío de datos a API remota MAG
+- **[DUPLICATE_PROTECTION.md](DUPLICATE_PROTECTION.md)** - Protección contra duplicados en timer
+- **[systemd/PRODUCTION_DEPLOYMENT.md](systemd/PRODUCTION_DEPLOYMENT.md)** - Despliegue completo en producción
+- **[systemd/README.md](systemd/README.md)** - Configuración systemd services
 - **[COMMIT_TYPES.md](COMMIT_TYPES.md)** - Convenciones de commits
 
 ## ✅ Estado del Proyecto

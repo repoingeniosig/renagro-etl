@@ -23,9 +23,10 @@ PostgreSQL (control_envios_boletas)
     ▼
 Worker: envio_mag
     │ - Consulta en lotes (BATCH_SIZE_SEND_MAG)
+    │ - Marca como PROCESANDO (evita duplicados)
     │ - Construye JSON según mappings-envio-mag/
-    │ - Publica a RabbitMQ
-    │ - NO actualiza estado (sigue PENDIENTE)
+    │ - Si error construcción → ERROR (no reencola)
+    │ - Si éxito → Publica a RabbitMQ (estado: PROCESANDO)
     │
     ▼
 RabbitMQ: QUEUE_ENVIO_MAG_SEND
@@ -114,17 +115,25 @@ sudo journalctl -u renagro-envio-mag-sender.service -f
 | Campo | Valores | Descripción |
 |-------|---------|-------------|
 | `estado_etl` | PENDIENTE, PROCESANDO, PROCESADO, ERROR | Estado del pipeline ETL |
-| `envio_datos_procesados` | PENDIENTE, ENTREGANDO, ENVIADO, ERROR | Estado del envío a API |
-| `error_envio_datos` | TEXT | Mensaje de error (solo si envio=ERROR) |
+| `envio_datos_procesados` | PENDIENTE, PROCESANDO, ENTREGANDO, ENVIADO, ERROR | Estado del envío a API |
+| `error_mensajes_envio` | TEXT | Mensaje de error (solo si envio=ERROR) |
 
 ### Flujo de estados para envío
 
 ```
 estado_etl='PROCESADO' + envio_datos_procesados='PENDIENTE'
     │
-    ▼ (Worker envio_mag construye JSON)
+    ▼ (Worker envio_mag consulta registros)
     │
-Publica a RabbitMQ (estado sigue PENDIENTE)
+envio_datos_procesados='PROCESANDO'  ✅ (Evita duplicados en timer)
+    │
+    ▼ (Construye JSON)
+    │
+    ├─► Éxito → Publica a RabbitMQ (estado sigue PROCESANDO)
+    │
+    └─► Error construcción JSON → envio_datos_procesados='ERROR'
+                                   error_mensajes_envio='Error construyendo JSON: ...'
+                                   (NO se reencola, equivalente a 4xx)
     │
     ▼ (Worker envio_mag_sender consume)
     │
@@ -132,17 +141,40 @@ envio_datos_procesados='ENTREGANDO'  (Antes de HTTP POST)
     │
     ├─► HTTP 201 → envio_datos_procesados='ENVIADO'
     │
-    └─► HTTP 4xx/5xx → envio_datos_procesados='ERROR'
-                       error_envio_datos='...'
+    ├─► HTTP 4xx → envio_datos_procesados='ERROR'
+    │              error_mensajes_envio='HTTP 4xx: ...'
+    │              (NO se reencola)
+    │
+    └─► HTTP 5xx → Reintenta (exponencial backoff: 5s, 10s, 20s)
+                   │
+                   ├─► Éxito → 'ENVIADO'
+                   └─► Agotados → 'ERROR'
+                                  error_mensajes_envio='HTTP 5xx agotado: ...'
 ```
 
-**Nota importante:** El estado solo cambia a `ENVIADO` o `ERROR` **después de la respuesta HTTP**, no al construir el JSON.
+**Estados importantes:**
+- **PENDIENTE**: Esperando ser procesado por timer
+- **PROCESANDO**: JSON en construcción o en cola RabbitMQ (evita duplicados)
+- **ENTREGANDO**: HTTP POST en curso
+- **ENVIADO**: Confirmado con HTTP 201
+- **ERROR**: Fallo permanente (construcción JSON, 4xx, o 5xx agotado)
 
 ## Manejo de Errores
 
+### Error en Construcción de JSON
+
+**Causa**: Datos faltantes, mapeo incorrecto, validación fallida, etc.
+
+**Acción**:
+- Marca como ERROR inmediatamente (equivalente a 4xx)
+- NO se publica a RabbitMQ
+- NO se reencola
+- Guarda mensaje en `error_mensajes_envio`
+- Registra en logs
+
 ### Errores 4xx (Cliente)
 
-**Causa**: Problema con el JSON enviado (validación, formato, etc.)
+**Causa**: Problema con el JSON enviado (validación API, formato, etc.)
 
 **Acción**:
 - NO reintenta automáticamente
