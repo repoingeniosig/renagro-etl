@@ -59,7 +59,8 @@ class EnvioMagSenderWorker:
                     UPDATE "{config.DB_SCHEMA}".{control_table}
                     SET 
                         envio_datos_procesados = :status,
-                        error_envio_datos = :error_message
+                        error_mensajes_envio = :error_message,
+                        updated_at = CURRENT_TIMESTAMP
                     WHERE {control_id_column} = :control_id
                 """
                 params = {
@@ -70,7 +71,8 @@ class EnvioMagSenderWorker:
             else:
                 update_query = f"""
                     UPDATE "{config.DB_SCHEMA}".{control_table}
-                    SET envio_datos_procesados = :status
+                    SET envio_datos_procesados = :status,
+                        updated_at = CURRENT_TIMESTAMP
                     WHERE {control_id_column} = :control_id
                 """
                 params = {

@@ -482,11 +482,11 @@ class BatchProcessorEnvioMAG:
                 try:
                     # Construir mensaje para la cola
                     message = {
-                        'control_id': json_item['control_id'],
+                        'control_id': json_item['control_id'],  # PK de control_table (_id)
                         'record_id': json_item['record_id'],
                         'json_data': json_item['json_data'],
                         'control_table': self.target_config.control_table,
-                        'control_id_column': self.target_config.control_table_id
+                        'control_id_column': self.target_config.control_table_primary_key  # Usar PK para UPDATEs
                     }
                     
                     # Publicar a cola de envío
