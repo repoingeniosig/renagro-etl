@@ -3,10 +3,47 @@
 # Para producción, usar servicios systemd en systemd/
 # Ver: systemd/README.md
 
-# Script para iniciar todos los workers en paralelo (DESARROLLO)
+# Script para iniciar workers en paralelo (DESARROLLO)
+# Uso:
+#   ./run_all_workers.sh etl        - Solo workers ETL (json_save, etl_transform, db_insert)
+#   ./run_all_workers.sh envio      - Solo workers Envío MAG (envio_mag, envio_mag_sender)
+#   ./run_all_workers.sh etl envio  - Todos los workers
+#   ./run_all_workers.sh            - Todos los workers (sin argumentos)
 
-echo "🚀 Iniciando todos los workers del pipeline ETL"
-echo "==============================================="
+# Parsear argumentos
+START_ETL=false
+START_ENVIO=false
+
+if [ $# -eq 0 ]; then
+    # Sin argumentos: iniciar todos
+    START_ETL=true
+    START_ENVIO=true
+else
+    # Con argumentos: iniciar según lo especificado
+    for arg in "$@"; do
+        case $arg in
+            etl)
+                START_ETL=true
+                ;;
+            envio)
+                START_ENVIO=true
+                ;;
+            *)
+                echo "❌ Argumento inválido: $arg"
+                echo ""
+                echo "Uso:"
+                echo "  ./run_all_workers.sh etl        - Solo workers ETL"
+                echo "  ./run_all_workers.sh envio      - Solo workers Envío MAG"
+                echo "  ./run_all_workers.sh etl envio  - Todos los workers"
+                echo "  ./run_all_workers.sh            - Todos los workers"
+                exit 1
+                ;;
+        esac
+    done
+fi
+
+echo "🚀 Iniciando workers del pipeline ETL"
+echo "======================================"
 echo ""
 
 # Verificar que existe el archivo .env
@@ -28,52 +65,79 @@ fi
 echo "🐍 Activando virtualenv..."
 source venv/bin/activate
 
-# Iniciar workers en background
-echo "📥 Iniciando worker json_save..."
-python3 -m src.workers json_save > logs/worker_json_save.log 2>&1 &
-JSON_SAVE_PID=$!
+# Arrays para PIDs y logs
+PIDS=()
+WORKER_NAMES=()
+LOG_FILES=()
 
-echo "🔄 Iniciando worker etl_transform..."
-python3 -m src.workers etl_transform > logs/worker_etl_transform.log 2>&1 &
-ETL_TRANSFORM_PID=$!
+# Iniciar workers ETL
+if [ "$START_ETL" = true ]; then
+    echo ""
+    echo "📦 Iniciando Workers ETL..."
+    echo "----------------------------"
+    
+    echo "📥 Iniciando worker json_save..."
+    python3 -m src.workers json_save > logs/worker_json_save.log 2>&1 &
+    PIDS+=($!)
+    WORKER_NAMES+=("json_save")
+    LOG_FILES+=("logs/worker_json_save.log")
+    
+    echo "🔄 Iniciando worker etl_transform..."
+    python3 -m src.workers etl_transform > logs/worker_etl_transform.log 2>&1 &
+    PIDS+=($!)
+    WORKER_NAMES+=("etl_transform")
+    LOG_FILES+=("logs/worker_etl_transform.log")
+    
+    echo "💾 Iniciando worker db_insert..."
+    python3 -m src.workers db_insert > logs/worker_db_insert.log 2>&1 &
+    PIDS+=($!)
+    WORKER_NAMES+=("db_insert")
+    LOG_FILES+=("logs/worker_db_insert.log")
+fi
 
-echo "💾 Iniciando worker db_insert..."
-python3 -m src.workers db_insert > logs/worker_db_insert.log 2>&1 &
-DB_INSERT_PID=$!
+# Iniciar workers Envío MAG
+if [ "$START_ENVIO" = true ]; then
+    echo ""
+    echo "📤 Iniciando Workers Envío MAG..."
+    echo "---------------------------------"
+    
+    echo "📤 Iniciando worker envio_mag..."
+    python3 -m src.workers envio_mag > logs/worker_envio_mag.log 2>&1 &
+    PIDS+=($!)
+    WORKER_NAMES+=("envio_mag")
+    LOG_FILES+=("logs/worker_envio_mag.log")
+    
+    echo "🚀 Iniciando worker envio_mag_sender..."
+    python3 -m src.workers envio_mag_sender > logs/worker_envio_mag_sender.log 2>&1 &
+    PIDS+=($!)
+    WORKER_NAMES+=("envio_mag_sender")
+    LOG_FILES+=("logs/worker_envio_mag_sender.log")
+fi
 
-echo "📤 Iniciando worker envio_mag..."
-python3 -m src.workers envio_mag > logs/worker_envio_mag.log 2>&1 &
-ENVIO_MAG_PID=$!
-
-echo "🚀 Iniciando worker envio_mag_sender..."
-python3 -m src.workers envio_mag_sender > logs/worker_envio_mag_sender.log 2>&1 &
-ENVIO_MAG_SENDER_PID=$!
-
+# Mostrar resumen
 echo ""
-echo "✅ Todos los workers iniciados:"
-echo "   json_save          -> PID $JSON_SAVE_PID"
-echo "   etl_transform      -> PID $ETL_TRANSFORM_PID"
-echo "   db_insert          -> PID $DB_INSERT_PID"
-echo "   envio_mag          -> PID $ENVIO_MAG_PID"
-echo "   envio_mag_sender   -> PID $ENVIO_MAG_SENDER_PID"
+echo "✅ Workers iniciados:"
+echo "--------------------"
+for i in "${!PIDS[@]}"; do
+    printf "   %-20s -> PID %s\n" "${WORKER_NAMES[$i]}" "${PIDS[$i]}"
+done
+
 echo ""
 echo "📊 Para ver logs en tiempo real:"
-echo "   tail -f logs/worker_json_save.log"
-echo "   tail -f logs/worker_etl_transform.log"
-echo "   tail -f logs/worker_db_insert.log"
-echo "   tail -f logs/worker_envio_mag.log"
-echo "   tail -f logs/worker_envio_mag_sender.log"
+for log in "${LOG_FILES[@]}"; do
+    echo "   tail -f $log"
+done
+
 echo ""
 echo "🛑 Para detener todos los workers:"
 echo "   ./stop_workers.sh"
 echo ""
 
 # Guardar PIDs en archivo
-echo $JSON_SAVE_PID > .worker_pids
-echo $ETL_TRANSFORM_PID >> .worker_pids
-echo $DB_INSERT_PID >> .worker_pids
-echo $ENVIO_MAG_PID >> .worker_pids
-echo $ENVIO_MAG_SENDER_PID >> .worker_pids
+rm -f .worker_pids
+for pid in "${PIDS[@]}"; do
+    echo $pid >> .worker_pids
+done
 
 # Esperar a que el usuario presione Ctrl+C
 wait
