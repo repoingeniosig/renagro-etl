@@ -34,12 +34,14 @@ class BatchProcessorEnvioMAG:
             if config.DEBUG_CLI:
                 envio_mag_logger.debug(f"[BatchProcessorEnvioMAG] Directorio debug creado: {self.temp_output_dir}")
     
-    def get_pending_boletas_ids(self) -> List[int]:
+    def get_pending_boletas_ids(self) -> List[Tuple[int, Any]]:
         """
         Obtiene los IDs pendientes desde la tabla de control configurada en structure.yaml
         
         Returns:
-            Lista de IDs (según id_column) pendientes
+            Lista de tuplas (pk, reference_id) donde:
+            - pk: Valor de control_table_primary_key (ej: _id) para UPDATEs
+            - reference_id: Valor de control_table_id (ej: uuid_boleta) para SELECTs
         """
         # Construir condiciones WHERE dinámicamente
         where_conditions = []
@@ -52,23 +54,24 @@ class BatchProcessorEnvioMAG:
         where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
         
         query = f"""
-            SELECT {self.target_config.control_table_id}
+            SELECT {self.target_config.control_table_primary_key}, {self.target_config.control_table_id}
             FROM "{config.DB_SCHEMA}".{self.target_config.control_table}
             WHERE {where_clause}
-            ORDER BY {self.target_config.control_table_id} ASC
+            ORDER BY {self.target_config.control_table_primary_key} ASC
             LIMIT :batch_size
         """
         
         if config.DEBUG_CLI:
             envio_mag_logger.debug(
                 f"[BatchProcessorEnvioMAG] Query control: "
-                f"SELECT {self.target_config.control_table_id} FROM {self.target_config.control_table} "
-                f"WHERE {where_clause} LIMIT {self.batch_size}"
+                f"SELECT {self.target_config.control_table_primary_key}, {self.target_config.control_table_id} "
+                f"FROM {self.target_config.control_table} WHERE {where_clause} LIMIT {self.batch_size}"
             )
         
         with db.get_session() as session:
             result = session.execute(text(query), params)
-            ids = [row[0] for row in result]
+            # Retornar tuplas (pk, reference_id)
+            ids = [(row[0], row[1]) for row in result]
         
         if config.DEBUG_CLI:
             envio_mag_logger.debug(f"[BatchProcessorEnvioMAG] Encontrados {len(ids)} registros pendientes")
@@ -77,22 +80,19 @@ class BatchProcessorEnvioMAG:
     
     def fetch_all_data_for_batch(
         self,
-        control_ids: List[int]
+        reference_ids: List[Any]
     ) -> Tuple[List[Dict[str, Any]], Dict[str, List[Dict[str, Any]]]]:
         """
         Obtiene todos los datos necesarios para un lote
         
         Flujo:
-        1. Extraer IDs desde control_table usando id_column (ej: _id de control_envios_boletas)
-        2. Usar esos IDs para consultar la tabla principal del main.yml
-        3. La consulta se hace por database_id del main.yml (ej: bol_id de boletas)
-        4. Los valores de id_column deben coincidir con database_id (ej: _id == bol_id)
+        1. Usar reference_ids (valores de control_table_id como uuid_boleta)
+        2. Consultar tabla principal por source_reference_field (ej: bol_id_levanta)
+        3. Extraer database_id (ej: bol_id) para consultar tablas relacionadas
         
         Args:
-            control_ids: Lista de IDs extraídos de control_table.id_column
-                        Estos valores coinciden con main_table.database_id
-                        Ejemplo: [237, 238, 240] de control_envios_boletas._id
-                                == boletas.bol_id
+            reference_ids: Lista de valores de control_table_id para buscar datos
+                          Ejemplo: ['uuid1', 'uuid2'] de control_envios_boletas.uuid_boleta
         
         Returns:
             Tupla (main_table_data, all_related_data)
@@ -118,12 +118,12 @@ class BatchProcessorEnvioMAG:
                 )
             
             # Consultar tabla principal usando source_reference_field
-            # Los control_ids (de control_table.control_table_id) deben coincidir con
+            # Los reference_ids (valores de control_table_id) deben coincidir con
             # los valores en main_table.source_reference_field
             # Ejemplo: control_envios_boletas.uuid_boleta == boletas.bol_id_levanta
             main_table_data = fetcher.fetch_table_data(
                 main_table,
-                control_ids,
+                reference_ids,
                 reference_field,  # Usar source_reference_field en lugar de database_id
                 use_cache=True
             )
@@ -231,7 +231,7 @@ class BatchProcessorEnvioMAG:
         Marca un registro como PROCESANDO para evitar duplicados en timer
         
         Args:
-            control_id: ID del registro en control_table
+            control_id: ID del registro en control_table (valor de la PK)
         """
         try:
             with db.get_session() as session:
@@ -239,7 +239,7 @@ class BatchProcessorEnvioMAG:
                     UPDATE "{config.DB_SCHEMA}".{self.target_config.control_table}
                     SET envio_datos_procesados = 'PROCESANDO',
                         updated_at = CURRENT_TIMESTAMP
-                    WHERE {self.target_config.control_table_id} = :control_id
+                    WHERE {self.target_config.control_table_primary_key} = :control_id
                 """
                 
                 session.execute(text(update_query), {"control_id": control_id})
@@ -263,7 +263,7 @@ class BatchProcessorEnvioMAG:
         Usado para errores de construcción de JSON (equivalente a 4xx)
         
         Args:
-            control_id: ID del registro en control_table
+            control_id: ID del registro en control_table (valor de la PK)
             error_message: Descripción del error
         """
         try:
@@ -276,7 +276,7 @@ class BatchProcessorEnvioMAG:
                     SET envio_datos_procesados = 'ERROR',
                         error_mensajes_envio = :error_message,
                         updated_at = CURRENT_TIMESTAMP
-                    WHERE {self.target_config.control_table_id} = :control_id
+                    WHERE {self.target_config.control_table_primary_key} = :control_id
                 """
                 
                 session.execute(text(update_query), {
@@ -346,15 +346,22 @@ class BatchProcessorEnvioMAG:
         """
         envio_mag_logger.info("[BatchProcessorEnvioMAG] Iniciando procesamiento de lote")
         
-        # Obtener IDs pendientes desde tabla de control
-        control_ids = self.get_pending_boletas_ids()
+        # Obtener IDs pendientes desde tabla de control (tuplas de pk, reference_id)
+        control_records = self.get_pending_boletas_ids()
         
-        if not control_ids:
+        if not control_records:
             envio_mag_logger.info("[BatchProcessorEnvioMAG] No hay registros pendientes")
             return 0, []
         
+        # Separar PKs y reference_ids
+        pk_list = [pk for pk, _ in control_records]
+        reference_ids = [ref_id for _, ref_id in control_records]
+        
+        # Crear mapping de reference_id -> pk para uso posterior
+        ref_to_pk = {ref_id: pk for pk, ref_id in control_records}
+        
         envio_mag_logger.info(
-            f"[BatchProcessorEnvioMAG] Procesando {len(control_ids)} registros "
+            f"[BatchProcessorEnvioMAG] Procesando {len(control_records)} registros "
             f"desde {self.target_config.control_table}"
         )
         
@@ -366,8 +373,8 @@ class BatchProcessorEnvioMAG:
             if not db_id_field:
                 raise ValueError("El archivo main.yml no tiene database_id definido")
             
-            # Obtener todos los datos necesarios
-            main_table_data, all_related_data = self.fetch_all_data_for_batch(control_ids)
+            # Obtener todos los datos necesarios usando reference_ids
+            main_table_data, all_related_data = self.fetch_all_data_for_batch(reference_ids)
             
             # Construir JSONs para cada registro
             json_list = []
@@ -375,10 +382,21 @@ class BatchProcessorEnvioMAG:
             
             for main_row in main_table_data:
                 record_id = main_row.get(db_id_field)
+                reference_value = main_row.get(self.target_config.source_reference_field)
+                
+                # Obtener PK de control_table para UPDATEs
+                control_pk = ref_to_pk.get(reference_value)
+                
+                if not control_pk:
+                    envio_mag_logger.warning(
+                        f"[BatchProcessorEnvioMAG] No se encontró PK para reference_value={reference_value}, saltando"
+                    )
+                    continue
                 
                 try:
                     # ✅ PASO 1: Marcar como PROCESANDO inmediatamente (evita duplicados)
-                    self._mark_as_processing(record_id)
+                    # Usar control_pk (_id) para el UPDATE
+                    self._mark_as_processing(control_pk)
                     
                     # ✅ PASO 2: Construir JSON
                     json_data = self.build_json_for_record(main_row, all_related_data)
@@ -392,8 +410,8 @@ class BatchProcessorEnvioMAG:
                     
                     # Agregar a la lista con metadata
                     json_list.append({
-                        'control_id': record_id,  # ID de la tabla de control
-                        'record_id': record_id,  # ID del registro en tabla principal
+                        'control_id': control_pk,  # PK de control_table (_id) para UPDATEs
+                        'record_id': record_id,  # ID del registro en tabla principal (bol_id)
                         'json_data': json_data
                     })
                     
@@ -412,14 +430,14 @@ class BatchProcessorEnvioMAG:
                         exc_info=True
                     )
                     
-                    # Marcar como ERROR (no se reencolará)
-                    self._mark_as_error(record_id, error_msg)
+                    # Marcar como ERROR usando control_pk (_id)
+                    self._mark_as_error(control_pk, error_msg)
                     
                     # Continuar con el siguiente registro
                     continue
             
             envio_mag_logger.info(
-                f"[BatchProcessorEnvioMAG] Lote procesado: {successful_count}/{len(control_ids)} exitosos"
+                f"[BatchProcessorEnvioMAG] Lote procesado: {successful_count}/{len(control_records)} exitosos"
             )
             
             # CAMBIO: No actualizar a ENVIADO aquí

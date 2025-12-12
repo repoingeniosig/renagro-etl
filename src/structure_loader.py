@@ -29,6 +29,7 @@ class TargetDataToSend:
         control_table: Tabla de control (ej: "control_envios_boletas")
         control_table_id: Columna en control_table con IDs a extraer (ej: "uuid_boleta")
                          Estos valores se usarán para buscar en source_reference_field
+        control_table_primary_key: Clave primaria de control_table para UPDATEs (ej: "_id")
         control_table_filters: Filtros para consultar registros pendientes
         source_reference_file: Archivo YAML de referencia en mapping (ej: "main.yml")
         source_reference_field: Campo en la tabla principal para hacer match con control_table_id
@@ -39,6 +40,7 @@ class TargetDataToSend:
     mapping: str
     control_table: str
     control_table_id: str
+    control_table_primary_key: str
     control_table_filters: List[ControlTableFilter]
     source_reference_file: str
     source_reference_field: str
@@ -88,7 +90,7 @@ class StructureLoader:
         
         # Validar campos requeridos
         required_fields = [
-            'mapping', 'control_table', 'control_table_id', 
+            'mapping', 'control_table', 'control_table_id', 'control_table_primary_key',
             'source_reference_file', 'source_reference_field', 'source_database_id'
         ]
         for field in required_fields:
@@ -113,6 +115,7 @@ class StructureLoader:
             mapping=target_config['mapping'],
             control_table=target_config['control_table'],
             control_table_id=target_config['control_table_id'],
+            control_table_primary_key=target_config['control_table_primary_key'],
             control_table_filters=filters,
             source_reference_file=target_config['source_reference_file'],
             source_reference_field=target_config['source_reference_field'],

@@ -12,6 +12,10 @@ target_data_to_send:
   # Ejemplo: control_envios_boletas.uuid_boleta == boletas.bol_id_levanta
   control_table_id: uuid_boleta
   
+  # Clave primaria de control_table (para UPDATE/WHERE en modificaciones de estado)
+  # Ejemplo: control_envios_boletas._id (PK autoincremental)
+  control_table_primary_key: _id
+  
   # Filtros para consultar registros pendientes en control_table
   # Se construye: WHERE {column} = {value} AND {column} = {value} ...
   control_table_filters:
