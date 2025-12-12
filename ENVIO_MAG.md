@@ -13,7 +13,7 @@ Sistema **asíncrono** de dos fases **independientes** para enviar datos procesa
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ FASE 1: Construcción (Worker envio_mag - Asíncrono)         │
+│ FASE 1: Construcción (Worker envio_mag - Ejecución única)   │
 └──────────────────────────────────────────────────────────────┘
 
 PostgreSQL (control_envios_boletas)
@@ -21,22 +21,23 @@ PostgreSQL (control_envios_boletas)
     │ envio_datos_procesados='PENDIENTE'
     │
     ▼
-Worker: envio_mag
+Worker: envio_mag (ejecutar manualmente cuando se requiera)
     │ - Consulta en lotes (BATCH_SIZE_SEND_MAG)
     │ - Marca como PROCESANDO (evita duplicados)
     │ - Construye JSON según mappings-envio-mag/
     │ - Si error construcción → ERROR (no reencola)
     │ - Si éxito → Publica a RabbitMQ (estado: PROCESANDO)
+    │ - Termina
     │
     ▼
 RabbitMQ: QUEUE_ENVIO_MAG_SEND
     │ Mensaje: {control_id, record_id, json_data, control_table}
     
 ┌──────────────────────────────────────────────────────────────┐
-│ FASE 2: Envío (Worker envio_mag_sender - Paralelo a Fase 1) │
+│ FASE 2: Envío (Worker envio_mag_sender - Continuo)          │
 └──────────────────────────────────────────────────────────────┘
 
-Worker: envio_mag_sender
+Worker: envio_mag_sender (corre continuamente)
     │ - Consume cola INDEPENDIENTEMENTE
     │ - Envío paralelo (semáforo: PARALLEL_REQUESTS_SEND_MAG)
     │ - Actualiza estados SOLO AQUÍ
@@ -86,26 +87,34 @@ QUEUE_ENVIO_MAG_SEND_DLQ=renagro.envio.mag.send.dlq
 
 ### Ejecutar Workers (Desarrollo)
 
-**Los workers se ejecutan en terminales separadas y funcionan en paralelo:**
-
 ```bash
-# Terminal 1: Construir JSONs desde BD
+# Terminal 1: Construir JSONs desde BD (ejecuta una vez y termina)
 python -m src.workers envio_mag
 
-# Terminal 2: Enviar JSONs a API (en paralelo, no espera a Terminal 1)
+# Terminal 2: Enviar JSONs a API (corre continuamente)
 python -m src.workers envio_mag_sender
+
+# O con el script que inicia todos los workers:
+bash run_all_workers.sh
 ```
+
+**Importante:** 
+- `envio_mag` ejecuta UNA SOLA VEZ y termina
+- Para reprocesar nuevos registros, ejecutarlo manualmente de nuevo
+- `envio_mag_sender` corre continuamente consumiendo la cola
 
 ### Producción (systemd)
 
 ```bash
-# Iniciar ambos workers (se ejecutan continuamente e independientemente)
-sudo systemctl start renagro-envio-mag.service
-sudo systemctl start renagro-envio-mag-sender.service
+# Worker sender (continuo, inicia en boot)
+sudo systemctl start renagro-worker-envio-mag-sender.service
+
+# Worker construcción JSONs (ejecutar manualmente cuando sea necesario)
+sudo systemctl start renagro-worker-envio-mag.service
 
 # Ver logs en tiempo real
-sudo journalctl -u renagro-envio-mag.service -f
-sudo journalctl -u renagro-envio-mag-sender.service -f
+sudo journalctl -u renagro-worker-envio-mag.service -f
+sudo journalctl -u renagro-worker-envio-mag-sender.service -f
 ```
 
 ## Estados de Control

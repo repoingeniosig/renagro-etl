@@ -531,8 +531,9 @@ class EnvioMagWorker:
     Construye JSONs desde BD y los prepara para envío
     
     Comportamiento:
-    - Desarrollo (ENVIRONMENT=development): Loop infinito con intervalo ENVIO_MAG_CHECK_INTERVAL
-    - Producción: Ejecución única (controlada por systemd timer)
+    - Ejecución única (manual)
+    - Procesa TODOS los registros pendientes una sola vez
+    - Para reprocesar nuevos registros, ejecutar manualmente de nuevo
     """
     
     @staticmethod
@@ -540,49 +541,26 @@ class EnvioMagWorker:
         """
         Procesa registros pendientes y construye JSONs
         Este worker NO usa colas, procesa directamente desde BD
+        Ejecuta UNA SOLA VEZ y termina
         """
         from .logger import envio_mag_logger
         from .batch_processor_envio_mag import batch_processor_envio_mag
-        
-        is_development = config.ENVIRONMENT.lower() == 'development'
         
         try:
             envio_mag_logger.info("=" * 80)
             envio_mag_logger.info("WORKER ENVIO MAG - INICIANDO")
             envio_mag_logger.info("=" * 80)
-            envio_mag_logger.info(f"Modo: {'DESARROLLO (loop)' if is_development else 'PRODUCCIÓN (oneshot)'}")
             envio_mag_logger.info(f"Tamaño de lote: {config.BATCH_SIZE_SEND_MAG}")
             envio_mag_logger.info(f"Debug JSON Output: {config.DEBUG_JSON_OUTPUT}")
+            envio_mag_logger.info("=" * 80)
             
-            if is_development:
-                envio_mag_logger.info(f"Intervalo de revisión: {config.ENVIO_MAG_CHECK_INTERVAL}s")
-                envio_mag_logger.info("=" * 80)
-                
-                # Loop infinito para desarrollo
-                while True:
-                    try:
-                        total_processed = await batch_processor_envio_mag.process_all_pending()
-                        
-                        envio_mag_logger.info(
-                            f"[DESARROLLO] Procesados {total_processed} registros. "
-                            f"Esperando {config.ENVIO_MAG_CHECK_INTERVAL}s..."
-                        )
-                        
-                        await asyncio.sleep(config.ENVIO_MAG_CHECK_INTERVAL)
-                        
-                    except Exception as e:
-                        envio_mag_logger.error(f"Error en ciclo de desarrollo: {e}", exc_info=True)
-                        envio_mag_logger.info("Esperando 60s antes de reintentar...")
-                        await asyncio.sleep(60)
-            else:
-                # Ejecución única para producción (systemd timer)
-                envio_mag_logger.info("=" * 80)
-                total_processed = await batch_processor_envio_mag.process_all_pending()
-                
-                envio_mag_logger.info("=" * 80)
-                envio_mag_logger.info(f"WORKER ENVIO MAG - FINALIZADO")
-                envio_mag_logger.info(f"Total de registros procesados: {total_processed}")
-                envio_mag_logger.info("=" * 80)
+            # Ejecución única: procesa todos los pendientes y termina
+            total_processed = await batch_processor_envio_mag.process_all_pending()
+            
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info(f"WORKER ENVIO MAG - FINALIZADO")
+            envio_mag_logger.info(f"Total de registros procesados: {total_processed}")
+            envio_mag_logger.info("=" * 80)
             
         except Exception as e:
             envio_mag_logger.error(f"Error en worker envio_mag: {e}", exc_info=True)

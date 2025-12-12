@@ -5,18 +5,17 @@ Wants=postgresql.service redis.service rabbitmq-server.service
 BindsTo=renagro-api.service
 
 [Service]
-Type=oneshot
+Type=simple
 User=ubuntu
 Group=ubuntu
 WorkingDirectory=/opt/renagro-etl-process
 Environment="PATH=/opt/renagro-etl-process/venv/bin"
-Environment="ENVIRONMENT=production"
 EnvironmentFile=/opt/renagro-etl-process/.env
 
 ExecStart=/opt/renagro-etl-process/venv/bin/python -m src.workers envio_mag
 
-# No restart automático (controlado por timer)
-RemainAfterExit=no
+# No restart automático (ejecución única manual)
+Restart=no
 
 # Límites de recursos
 LimitNOFILE=65536

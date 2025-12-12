@@ -26,7 +26,7 @@ Este documento consolida la guía completa de instalación y configuración de t
 - `renagro-worker-db-insert.service` - Worker para insertar en BD
 
 **Workers Envío MAG:**
-- `renagro-worker-envio-mag.timer` + `.service` - Construcción de JSONs (timer cada 5 min)
+- `renagro-worker-envio-mag.service` - Construcción de JSONs (ejecución manual única)
 - `renagro-worker-envio-mag-sender.service` - Envío HTTP a API remota (continuo)
 
 ### Flujo Completo
@@ -55,13 +55,14 @@ worker-db-insert
     │ Inserta en PostgreSQL
     │ Estado: PROCESADO
     ▼
-[Timer cada 5 min]
+[Ejecución manual cuando se requiera]
     │
     ▼
-worker-envio-mag (oneshot)
+worker-envio-mag (ejecución única)
     │ Consulta registros PROCESADOS
     │ Construye JSONs
     │ Publica QUEUE_ENVIO_MAG_SEND
+    │ Termina
     ▼
 worker-envio-mag-sender (continuo)
     │ Consume cola
@@ -73,60 +74,54 @@ worker-envio-mag-sender (continuo)
 
 ## Diferencias entre Desarrollo y Producción
 
-### Desarrollo (ENVIRONMENT=development)
+### Desarrollo y Producción
 
 **Características:**
-- ✅ Workers con **loop infinito**
-- ✅ Revisan BD cada X segundos (configurable en `.env`)
-- ✅ Se ejecutan continuamente hasta detenerlos manualmente
-- ✅ Ideal para pruebas locales
-- ✅ Logs en terminal y archivos
+- ✅ Workers con **ejecución única**
+- ✅ Procesan todos los registros pendientes una sola vez
+- ✅ Para reprocesar nuevos registros, ejecutar manualmente de nuevo
+- ✅ Arquitectura asíncrona con RabbitMQ se mantiene
+- ✅ Logs en terminal/archivos (desarrollo) o journalctl (producción)
 
-**Variables de entorno:**
-```bash
-ENVIRONMENT=development
-ENVIO_MAG_CHECK_INTERVAL=300        # 5 minutos
-ENVIO_MAG_SENDER_CHECK_INTERVAL=120 # 2 minutos (no usado)
-```
-
-**Ejecutar:**
+**Ejecutar en Desarrollo:**
 ```bash
 # Terminal 1: API
 python -m src.api
 
-# Terminal 2-5: Workers ETL
+# Terminal 2-5: Workers ETL (continuos)
 python -m src.workers json_save
 python -m src.workers etl_transform
 python -m src.workers db_insert
 
 # Terminal 6-7: Workers Envío MAG
-python -m src.workers envio_mag         # Loop cada 5 min
+python -m src.workers envio_mag         # Ejecuta una vez y termina
 python -m src.workers envio_mag_sender  # Consume cola continuamente
 
 # O todos a la vez:
 bash run_all_workers.sh
 ```
 
----
+**Ejecutar en Producción:**
+```bash
+# Workers ETL continuos (auto-restart con systemd)
+sudo systemctl start renagro-worker-json-save.service
+sudo systemctl start renagro-worker-etl-transform.service
+sudo systemctl start renagro-worker-db-insert.service
 
-### Producción (ENVIRONMENT=production)
+# Worker sender continuo (consume cola)
+sudo systemctl start renagro-worker-envio-mag-sender.service
 
-**Características:**
-- ✅ Gestión profesional con **systemd**
-- ✅ Worker `envio_mag`: **Ejecución única** controlada por **systemd timer**
-- ✅ Resto de workers: **Servicios continuos** que consumen colas
-- ✅ Auto-restart automático en fallos
-- ✅ Logs centralizados en **journalctl**
-- ✅ Inicio automático en boot del servidor
-- ✅ Control de recursos (CPU, memoria)
-
-**Arquitectura Timer:**
+# Worker construcción JSONs (manual, cuando se requiera)
+sudo systemctl start renagro-worker-envio-mag.service
 ```
-systemd timer (cada 5 min)
+
+**Arquitectura:**
+```
+[Ejecución manual]
     │
     ▼
-renagro-worker-envio-mag.service (oneshot)
-    │ Consulta BD
+renagro-worker-envio-mag.service (ejecución única)
+    │ Consulta BD (PROCESADO + PENDIENTE)
     │ Construye JSONs
     │ Publica a RabbitMQ
     │ Termina
@@ -182,11 +177,11 @@ sudo chmod 600 /opt/renagro-etl-process/.env
 sudo chown ubuntu:ubuntu /opt/renagro-etl-process/.env
 ```
 
-**Importante:** Establecer `ENVIRONMENT=production`:
+**Variables importantes:**
 
 ```bash
 # Application Configuration
-ENVIRONMENT=production  # ← CRÍTICO para producción
+ENVIRONMENT=production  # Opcional (ya no afecta comportamiento de workers)
 
 # Database
 DB_HOST=localhost
@@ -215,9 +210,6 @@ RENAGRO_TOKEN=Bearer tu_token_real_aqui
 PARALLEL_REQUESTS_SEND_MAG=10
 MAX_RETRY_ATTEMPTS=3
 BATCH_SIZE_SEND_MAG=1000
-
-# NO se usan intervalos en producción (systemd timer los controla)
-# ENVIO_MAG_CHECK_INTERVAL=300  ← Se ignora en producción
 ```
 
 ### 3. Ejecutar Migraciones SQL
@@ -245,7 +237,6 @@ psql -h localhost -U postgres -d renagro_db \
 ```bash
 # Copiar archivos de servicio
 sudo cp systemd/*.service /etc/systemd/system/
-sudo cp systemd/*.timer /etc/systemd/system/
 
 # Recargar systemd
 sudo systemctl daemon-reload
@@ -255,8 +246,9 @@ sudo systemctl enable renagro-api.service
 sudo systemctl enable renagro-worker-json-save.service
 sudo systemctl enable renagro-worker-etl-transform.service
 sudo systemctl enable renagro-worker-db-insert.service
-sudo systemctl enable renagro-worker-envio-mag.timer  # Timer, no service
 sudo systemctl enable renagro-worker-envio-mag-sender.service
+
+# NOTA: renagro-worker-envio-mag.service NO se habilita (ejecución manual)
 ```
 
 **O usar el script automatizado:**
@@ -279,8 +271,10 @@ sudo systemctl start renagro-worker-etl-transform.service
 sudo systemctl start renagro-worker-db-insert.service
 
 # Workers Envío MAG
-sudo systemctl start renagro-worker-envio-mag.timer  # Timer, no service
 sudo systemctl start renagro-worker-envio-mag-sender.service
+
+# Worker construcción JSONs (ejecutar manualmente cuando se requiera)
+# sudo systemctl start renagro-worker-envio-mag.service
 ```
 
 ### 3. Verificar Estado
@@ -292,13 +286,7 @@ sudo systemctl status renagro-*
 # Estado individual
 sudo systemctl status renagro-api.service
 sudo systemctl status renagro-worker-json-save.service
-
-# Ver timers activos
-sudo systemctl list-timers --all | grep renagro
-
-# Debería mostrar:
-# NEXT                         LEFT     LAST                         PASSED  UNIT
-# Sun 2025-12-08 16:05:00 UTC  4min     Sun 2025-12-08 16:00:00 UTC  30s ago renagro-worker-envio-mag.timer
+sudo systemctl status renagro-worker-envio-mag-sender.service
 ```
 
 ### 4. Gestión de Servicios
@@ -326,10 +314,13 @@ sudo systemctl stop renagro-*
 sudo systemctl stop renagro-worker-*
 ```
 
-**Deshabilitar servicios (no inician en boot):**
+**Ejecutar construcción de JSONs manualmente:**
 ```bash
-sudo systemctl disable renagro-worker-envio-mag.timer
-sudo systemctl disable renagro-worker-envio-mag-sender.service
+# Cuando haya nuevos registros para enviar
+sudo systemctl start renagro-worker-envio-mag.service
+
+# Ver logs de la ejecución
+sudo journalctl -u renagro-worker-envio-mag.service -f
 ```
 
 ---
@@ -492,47 +483,17 @@ sudo journalctl -u renagro-api.service -S today > api-logs.txt
 
 ## Monitoreo y Troubleshooting
 
-### Configuración del Timer
-
-El timer está configurado en: `systemd/renagro-worker-envio-mag.timer`
-
-```ini
-[Timer]
-OnBootSec=2min         # Ejecuta 2 min después del boot
-OnUnitActiveSec=5min   # Ejecuta cada 5 min después de última ejecución
-```
-
-**Ajustar intervalo:**
+### Ejecución Manual del Worker Envío MAG
 
 ```bash
-# Editar timer
-sudo nano /etc/systemd/system/renagro-worker-envio-mag.timer
+# Ejecutar construcción de JSONs
+sudo systemctl start renagro-worker-envio-mag.service
 
-# Cambiar a cada 10 minutos:
-OnUnitActiveSec=10min
+# Ver logs en tiempo real
+sudo journalctl -u renagro-worker-envio-mag.service -f
 
-# Recargar systemd
-sudo systemctl daemon-reload
-
-# Reiniciar timer
-sudo systemctl restart renagro-worker-envio-mag.timer
-```
-
-### Ver Próximas Ejecuciones
-
-```bash
-sudo systemctl list-timers renagro-worker-envio-mag.timer
-
-# Output:
-# NEXT                         LEFT       LAST                         PASSED
-# Sun 2025-12-08 16:10:00 UTC  2min 30s   Sun 2025-12-08 16:05:00 UTC  2min 30s ago
-```
-
-### Ver Historial de Ejecuciones
-
-```bash
-# Últimas 10 ejecuciones
-sudo journalctl -u renagro-worker-envio-mag.service -n 10 --no-pager
+# Ver última ejecución completa
+sudo journalctl -u renagro-worker-envio-mag.service -n 100 --no-pager
 
 # Filtrar por éxito
 sudo journalctl -u renagro-worker-envio-mag.service | grep "FINALIZADO"
@@ -586,51 +547,41 @@ LIMIT 10;
 
 ### Troubleshooting Común
 
-#### Timer no ejecuta
-
-```bash
-# Verificar que timer está activo
-sudo systemctl is-active renagro-worker-envio-mag.timer
-
-# Si está inactivo, iniciar
-sudo systemctl start renagro-worker-envio-mag.timer
-
-# Ver logs del timer
-sudo journalctl -u renagro-worker-envio-mag.timer -f
-```
-
-#### Worker falla inmediatamente
+#### Worker falla al ejecutar
 
 ```bash
 # Ver error específico
 sudo journalctl -u renagro-worker-envio-mag.service -n 50
 
-# Verificar .env
-sudo cat /opt/renagro-etl-process/.env | grep ENVIRONMENT
+# Verificar configuración
+sudo cat /opt/renagro-etl-process/.env | grep -E "DB_|RABBITMQ_|RENAGRO_"
 
-# Debe ser:
-ENVIRONMENT=production
+# Verificar conectividad a BD
+sudo -u ubuntu psql -h localhost -U renagro_user -d renagro_db -c "SELECT COUNT(*) FROM sc_renagro_mag.control_envios_boletas WHERE estado_etl='PROCESADO' AND envio_datos_procesados='PENDIENTE';"
 ```
 
-#### Worker ejecuta loop en producción
+#### No hay registros para procesar
 
-**Causa:** `ENVIRONMENT` no está establecido a `production`
+```sql
+-- Verificar que existen registros pendientes
+SELECT COUNT(*) FROM sc_renagro_mag.control_envios_boletas
+WHERE estado_etl = 'PROCESADO' 
+  AND envio_datos_procesados = 'PENDIENTE';
 
-**Solución:**
-```bash
-sudo nano /opt/renagro-etl-process/.env
-# Cambiar a: ENVIRONMENT=production
-
-sudo systemctl restart renagro-worker-envio-mag.timer
+-- Ver últimos registros procesados
+SELECT _id, estado_etl, envio_datos_procesados, fecha_recepcion
+FROM sc_renagro_mag.control_envios_boletas
+ORDER BY fecha_recepcion DESC
+LIMIT 10;
 ```
 
 #### Ejecutar manualmente para debug
 
 ```bash
-# Ejecutar worker una vez (como lo haría el timer)
+# Ejecutar worker directamente (sin systemd)
 cd /opt/renagro-etl-process
 source venv/bin/activate
-ENVIRONMENT=production python -m src.workers envio_mag
+python -m src.workers envio_mag
 ```
 
 ---
@@ -691,14 +642,14 @@ IOWeight=500
 
 | Aspecto | Desarrollo | Producción |
 |---------|-----------|------------|
-| `ENVIRONMENT` | `development` | `production` |
-| Worker envio_mag | Loop infinito (cada 5 min) | Ejecución única (timer) |
+| Worker envio_mag | Ejecución manual única | Ejecución manual única (systemd) |
 | Worker sender | Consume cola (continuo) | Consume cola (continuo) |
 | Resto de workers | Consumen colas (continuo) | Consumen colas (continuo) |
-| Control | Manual (Ctrl+C) | systemd timer/services |
+| Control envio_mag | Script local | `systemctl start` |
+| Control otros workers | Manual (Ctrl+C) | systemd services |
 | Logs | Terminal/archivos | journalctl + archivos |
-| Auto-restart | No | Sí (systemd) |
-| Inicio en boot | No | Sí |
+| Auto-restart | No | Sí (solo workers continuos) |
+| Inicio en boot | No | Sí (solo workers continuos) |
 | Límites recursos | No | Sí (configurable) |
 | SSL/HTTPS | No | Sí (nginx + certbot) |
 
@@ -725,7 +676,6 @@ sudo nano /opt/renagro-etl-process/.env
 
 # 5. Verificar
 sudo systemctl status renagro-*
-sudo systemctl list-timers --all | grep renagro
 ```
 
 ### Comandos Diarios
@@ -737,11 +687,12 @@ sudo systemctl status renagro-*
 # Ver logs en vivo
 sudo journalctl -u renagro-api.service -f
 
-# Reiniciar todo
-sudo systemctl restart renagro-*
+# Reiniciar workers continuos
+sudo systemctl restart renagro-worker-*
 
-# Ver próximas ejecuciones timer
-sudo systemctl list-timers renagro-worker-envio-mag.timer
+# Ejecutar construcción de JSONs (cuando sea necesario)
+sudo systemctl start renagro-worker-envio-mag.service
+sudo journalctl -u renagro-worker-envio-mag.service -f
 ```
 
 ---

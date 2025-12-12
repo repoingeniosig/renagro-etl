@@ -79,14 +79,16 @@ cp $APP_DIR/systemd/*.service /etc/systemd/system/
 echo "🔄 Recargando systemd..."
 systemctl daemon-reload
 
-# 8. Habilitar servicios
+# 8. Habilitar servicios (solo los continuos)
 echo "✅ Habilitando servicios..."
 systemctl enable renagro-api.service
 systemctl enable renagro-worker-json-save.service
 systemctl enable renagro-worker-etl-transform.service
 systemctl enable renagro-worker-db-insert.service
-systemctl enable renagro-worker-envio-mag.timer  # Timer en lugar de service
 systemctl enable renagro-worker-envio-mag-sender.service
+
+echo ""
+echo "ℹ️  NOTA: renagro-worker-envio-mag.service NO se habilita (ejecución manual)"
 
 echo ""
 echo "✅ Instalación completada"
@@ -99,22 +101,22 @@ echo ""
 echo "2. Ejecutar migración de base de datos:"
 echo "   psql -h localhost -U postgres -d renagro_db -f $APP_DIR/migrations/001_add_retry_fields.sql"
 echo ""
-echo "3. Iniciar servicios:"
+echo "3. Iniciar servicios continuos:"
 echo "   sudo systemctl start renagro-api.service"
 echo "   sleep 10  # Esperar a que API cargue mapeos"
 echo "   sudo systemctl start renagro-worker-json-save.service"
 echo "   sudo systemctl start renagro-worker-etl-transform.service"
 echo "   sudo systemctl start renagro-worker-db-insert.service"
-echo "   sudo systemctl start renagro-worker-envio-mag.timer"
 echo "   sudo systemctl start renagro-worker-envio-mag-sender.service"
 echo ""
-echo "4. Verificar timers:"
-echo "   sudo systemctl list-timers --all | grep renagro"
+echo "4. Ejecutar construcción de JSONs (cuando sea necesario):"
+echo "   sudo systemctl start renagro-worker-envio-mag.service"
+echo "   sudo journalctl -u renagro-worker-envio-mag.service -f"
 echo ""
 echo "5. Verificar estado:"
 echo "   sudo systemctl status renagro-*"
 echo ""
 echo "6. Ver logs:"
 echo "   sudo journalctl -u renagro-api.service -f"
-echo "   sudo journalctl -u renagro-worker-envio-mag.service -f"
+echo "   sudo journalctl -u renagro-worker-envio-mag-sender.service -f"
 echo ""
