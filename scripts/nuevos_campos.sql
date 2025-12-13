@@ -3,6 +3,8 @@ DROP COLUMN IF EXISTS neo_poligono_upa,
 
 ADD COLUMN neo_uuid_boleta UUID,
 
+ADD COLUMN neo_dpa_upa TEXT,
+
 ADD COLUMN neo_is_upa BOOLEAN DEFAULT FALSE,
 
 ADD COLUMN neo_fecha_visita_no_upa TIMESTAMP,
