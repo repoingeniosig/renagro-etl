@@ -1,0 +1,33 @@
+version: 1.0
+entity: adjuntos
+table: adjuntos
+
+repeat:
+  source: "_attachments"
+
+# id de boleta
+parent_keys:
+  - field: bol_id
+    from_entity: boletas
+
+fields:
+  # ID de referencia a tabla padre (generado automáticamente)
+  bol_id:
+    source: ""
+    type: integer
+    default: null
+
+  adj_url_descarga:
+    source: "download_url"
+    type: string
+    default: null
+
+  adj_mimetype:
+    source: "mimetype"
+    type: string
+    default: null
+
+  adj_nombre:
+    source: "media_file_basename"
+    type: string
+    default: null

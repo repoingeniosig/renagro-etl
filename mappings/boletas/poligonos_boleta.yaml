@@ -1,0 +1,28 @@
+version: 1.0
+entity: poligonos_boleta
+table: poligonos_boleta
+
+repeat:
+  source: "group_nw2re05"
+
+# id de boleta
+parent_keys:
+  - field: bol_id
+    from_entity: boletas
+
+fields:
+  # ID de referencia a tabla padre (generado automáticamente)
+  bol_id:
+    source: ""
+    type: integer
+    default: null
+
+  pobo_coordenadas:
+    source: "group_nw2re05/poligono_upa"
+    type: string
+    default: null
+
+  pobo_area:
+    source: "group_nw2re05/poligono_upa_area"
+    type: float
+    default: null
