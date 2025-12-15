@@ -19,13 +19,14 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FieldMapping:
     """Mapeo de un campo individual"""
-    source: str  # Ruta en el JSON (dot notation)
+    source: Any  # Ruta en el JSON (dot notation) - puede ser str o List[str] para concatenación
     type: str  # integer, decimal, boolean, string
     default: Any = None
     convert: Optional[Dict[str, Any]] = None
     repeat_filter: Optional[Dict[str, Any]] = None  # Filtro para repeat groups
     extract: Optional[str] = None  # Campo a extraer del repeat filtrado
     parent_key: Optional[str] = None  # Clave del padre para FKs
+    func: Optional[str] = None  # Función a aplicar al valor (upper, lower, etc.)
     
 
 @dataclass
@@ -137,14 +138,24 @@ class MappingLoader:
         # Convertir fields a objetos FieldMapping
         fields = {}
         for field_name, field_config in data.get('fields', {}).items():
+            # Manejar source como dict (con field y func) o como valor directo
+            source_config = field_config['source']
+            source_value = source_config
+            func_value = None
+            
+            if isinstance(source_config, dict):
+                source_value = source_config.get('field')
+                func_value = source_config.get('func')
+            
             fields[field_name] = FieldMapping(
-                source=field_config['source'],
+                source=source_value,
                 type=field_config['type'],
                 default=field_config.get('default'),
                 convert=field_config.get('convert'),
                 repeat_filter=field_config.get('repeat_filter'),
                 extract=field_config.get('extract'),
-                parent_key=field_config.get('parent_key')
+                parent_key=field_config.get('parent_key'),
+                func=func_value
             )
         
         entity_mapping = EntityMapping(

@@ -157,6 +157,65 @@ class JSONTransformer:
             return field_mapping.default
     
     @staticmethod
+    def extract_and_concatenate_sources(json_data: Dict[str, Any], sources) -> Optional[str]:
+        """
+        Extrae valores de múltiples fuentes y los concatena
+        
+        Args:
+            json_data: Datos JSON del formulario
+            sources: Lista de rutas a extraer (list de strings)
+        
+        Returns:
+            String concatenado de todos los valores (sin separador) o None si todos son None
+        """
+        if not isinstance(sources, list):
+            return None
+        
+        values = []
+        for source_path in sources:
+            # Convertir separador / a . para compatibilidad con get_value_by_path
+            normalized_path = source_path.replace('/', '.')
+            value = JSONTransformer.get_value_by_path(json_data, normalized_path)
+            if value is not None:
+                values.append(str(value))
+            else:
+                values.append('')  # Agregar string vacío si es None para mantener orden
+        
+        # Si todos los valores son vacíos, retornar None
+        concatenated = ''.join(values)
+        return concatenated if concatenated else None
+    
+    @staticmethod
+    def apply_function(value: Any, func_name: str) -> Any:
+        """
+        Aplica una función de transformación al valor
+        
+        Args:
+            value: Valor a transformar
+            func_name: Nombre de la función (upper, lower, etc.)
+        
+        Returns:
+            Valor transformado
+        """
+        if value is None:
+            return None
+        
+        value_str = str(value)
+        
+        if func_name == 'upper':
+            return value_str.upper()
+        elif func_name == 'lower':
+            return value_str.lower()
+        elif func_name == 'strip':
+            return value_str.strip()
+        elif func_name == 'capitalize':
+            return value_str.capitalize()
+        elif func_name == 'title':
+            return value_str.title()
+        else:
+            return value
+    
+    @staticmethod
     def transform_entity(json_data: Dict[str, Any], entity_mapping: EntityMapping) -> Dict[str, Any]:
         """
         Transforma los datos JSON para una entidad según su mapeo
@@ -173,9 +232,13 @@ class JSONTransformer:
         for column_name, field_mapping in entity_mapping.fields.items():
             value = None
             
-            # Si source está vacío, usar directamente el default
-            if not field_mapping.source or field_mapping.source.strip() == "":
+            # Si source está vacío o es string vacío, usar directamente el default
+            if field_mapping.source is None or \
+               (isinstance(field_mapping.source, str) and field_mapping.source.strip() == ""):
                 value = None  # convert_value usará el default
+            # Si source es una lista, concatenar todos los valores
+            elif isinstance(field_mapping.source, list):
+                value = JSONTransformer.extract_and_concatenate_sources(json_data, field_mapping.source)
             # Manejar repeat_filter
             elif field_mapping.repeat_filter and field_mapping.extract:
                 # Obtener el array de elementos
@@ -198,9 +261,12 @@ class JSONTransformer:
                             # Extraer el valor del campo especificado
                             value = JSONTransformer.get_value_by_path(item, field_mapping.extract)
                             break
+            # Source es un string normal
             else:
+                # Normalizar path (/ → .) para compatibilidad
+                normalized_path = field_mapping.source.replace('/', '.')
                 # Obtener el valor del JSON normalmente
-                value = JSONTransformer.get_value_by_path(json_data, field_mapping.source)
+                value = JSONTransformer.get_value_by_path(json_data, normalized_path)
                 
                 # Si hay un extract sin repeat_filter, extraer el subcampo del valor obtenido
                 # Caso: source="group[0]" obtiene un objeto, extract="campo" obtiene el valor del campo
@@ -213,6 +279,10 @@ class JSONTransformer:
                         first_item = value[0]
                         if isinstance(first_item, dict):
                             value = first_item.get(field_mapping.extract)
+            
+            # Aplicar función si está definida
+            if field_mapping.func and value is not None:
+                value = JSONTransformer.apply_function(value, field_mapping.func)
             
             # Convertir el valor (siempre se agrega al row, incluso si es None/default)
             converted_value = JSONTransformer.convert_value(
