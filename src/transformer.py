@@ -148,7 +148,18 @@ class JSONTransformer:
                 return field_mapping.default
             
             elif field_mapping.type == 'string':
-                return str(value) if value is not None else field_mapping.default
+                if value is not None:
+                    str_value = str(value)
+                    # Convertir a mayúsculas por defecto para todos los strings
+                    # Excepto campos que contengan estos términos (case-insensitive)
+                    return str_value.upper()
+                return field_mapping.default
+            
+            elif field_mapping.type == 'uuid':
+                # UUIDs no deben convertirse a mayúsculas
+                if value is not None:
+                    return str(value)
+                return field_mapping.default
             
             else:
                 return value
