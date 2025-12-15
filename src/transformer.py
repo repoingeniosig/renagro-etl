@@ -405,16 +405,6 @@ class JSONTransformer:
             # Sin repeat, generar un solo registro
             row = JSONTransformer.transform_entity(json_data, entity_mapping)
             
-            # Logging para debug
-            from .logger import etl_logger
-            from .config import config
-            if config.DEBUG:
-                etl_logger.debug(f"[Transformer] Entidad sin repeat '{entity_mapping.entity}': {len(row)} campos transformados")
-                if row:
-                    # Mostrar primeros 5 campos para verificación
-                    sample_fields = dict(list(row.items())[:5])
-                    etl_logger.debug(f"[Transformer] Muestra de datos: {sample_fields}")
-            
             # Agregar parent_id si existe
             if parent_id is not None and entity_mapping.parent_key:
                 if isinstance(entity_mapping.parent_key, dict):

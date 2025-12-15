@@ -220,10 +220,9 @@ La conversión se aplica en:
 
 ## 🔍 Verificación
 
-### Query de Ejemplo
+Puedes verificar que los datos se guardan correctamente en mayúsculas:
 
 ```sql
--- Verificar que los datos están en mayúsculas
 SELECT 
     bol_provincia,
     bol_canton,
@@ -235,16 +234,6 @@ LIMIT 5;
 -- Resultado esperado:
 -- PICHINCHA | QUITO | EL INCA | ENC123
 -- AZUAY     | CUENCA | SAN SEBASTIÁN | ENC456
-```
-
-### Debug en Logs
-
-Los logs del ETL mostrarán los valores ya convertidos:
-
-```
-[ETL Transform] Campo bol_provincia: PICHINCHA
-[ETL Transform] Campo bol_canton: QUITO
-[DB Insert] INSERT ... VALUES ('PICHINCHA', 'QUITO', ...)
 ```
 
 ## 🆘 Soporte y Rollback
