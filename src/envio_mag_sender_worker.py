@@ -50,9 +50,38 @@ class EnvioMagSenderWorker:
             control_id_column: Nombre de la columna ID
             control_id: Valor del ID
             status: Estado a establecer ('ENTREGANDO', 'ENVIADO', 'ERROR')
-            error_message: Mensaje de error (solo para status='ERROR')
+            error_message: Mensaje de error completo (solo para status='ERROR')
+        
+        Nota: Si status='ERROR', determina automáticamente si es reintentable:
+        - Error 4xx (cliente/validación) → reintentable=FALSE
+        - Error 5xx (servidor) → reintentable=TRUE
+        - Error sin código HTTP → reintentable=TRUE (asume error transitorio)
         """
         try:
+            # Determinar si el error es reintentable basado en código HTTP
+            reintentable = True
+            if status == 'ERROR' and error_message:
+                # Extraer código HTTP del mensaje formato "HTTP 502: ..."
+                if error_message.startswith('HTTP '):
+                    try:
+                        http_code_str = error_message.split(':')[0].replace('HTTP ', '').strip()
+                        http_code = int(http_code_str)
+                        # 4xx = no reintentable (validación), 5xx = reintentable (servidor)
+                        reintentable = http_code >= 500
+                        
+                        if config.DEBUG_CLI:
+                            envio_mag_logger.debug(
+                                f"[EnvioMagSenderWorker] Error código {http_code}, "
+                                f"reintentable={reintentable}"
+                            )
+                    except (ValueError, IndexError) as e:
+                        # Si no se puede parsear, asume reintentable (error inesperado)
+                        envio_mag_logger.warning(
+                            f"[EnvioMagSenderWorker] No se pudo parsear código HTTP: {e}, "
+                            f"asumiendo reintentable=TRUE"
+                        )
+                        reintentable = True
+            
             # Construir UPDATE dinámico
             if status == 'ERROR' and error_message:
                 update_query = f"""
@@ -60,12 +89,14 @@ class EnvioMagSenderWorker:
                     SET 
                         envio_datos_procesados = :status,
                         error_mensajes_envio = :error_message,
+                        reintentable = :reintentable,
                         updated_at = CURRENT_TIMESTAMP
                     WHERE {control_id_column} = :control_id
                 """
                 params = {
                     'status': status,
-                    'error_message': error_message[:500],  # Limitar longitud
+                    'error_message': error_message,  # SIN truncar - guardar mensaje completo
+                    'reintentable': reintentable,
                     'control_id': control_id
                 }
             else:

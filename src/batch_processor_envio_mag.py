@@ -38,12 +38,17 @@ class BatchProcessorEnvioMAG:
         """
         Obtiene los IDs pendientes desde la tabla de control configurada en structure.yaml
         
+        Condiciones:
+        - estado_etl = 'PROCESADO' (datos ya insertados en BD)
+        - envio_datos_procesados = 'PENDIENTE' (nuevos registros)
+        - O envio_datos_procesados = 'ERROR' AND reintentable = TRUE (errores 5xx reintenables)
+        
         Returns:
             Lista de tuplas (pk, reference_id) donde:
             - pk: Valor de control_table_primary_key (ej: _id) para UPDATEs
             - reference_id: Valor de control_table_id (ej: uuid_boleta) para SELECTs
         """
-        # Construir condiciones WHERE dinámicamente
+        # Construir condiciones WHERE dinámicamente desde filtros
         where_conditions = []
         params = {'batch_size': self.batch_size}
         
@@ -51,12 +56,17 @@ class BatchProcessorEnvioMAG:
             where_conditions.append(f"{filter_obj.column} = :{filter_obj.column}")
             params[filter_obj.column] = filter_obj.value
         
+        # Construir cláusula base (ej: estado_etl='PROCESADO' AND envio_datos_procesados='PENDIENTE')
         where_clause = " AND ".join(where_conditions) if where_conditions else "1=1"
+        
+        # Agregar condición para registros ERROR reintenables
+        # Busca registros PENDIENTE o ERROR con reintentable=TRUE
+        where_clause_with_retry = f"({where_clause}) OR (envio_datos_procesados = 'ERROR' AND reintentable = TRUE)"
         
         query = f"""
             SELECT {self.target_config.control_table_primary_key}, {self.target_config.control_table_id}
             FROM "{config.DB_SCHEMA}".{self.target_config.control_table}
-            WHERE {where_clause}
+            WHERE {where_clause_with_retry}
             ORDER BY {self.target_config.control_table_primary_key} ASC
             LIMIT :batch_size
         """
@@ -65,7 +75,7 @@ class BatchProcessorEnvioMAG:
             envio_mag_logger.debug(
                 f"[BatchProcessorEnvioMAG] Query control: "
                 f"SELECT {self.target_config.control_table_primary_key}, {self.target_config.control_table_id} "
-                f"FROM {self.target_config.control_table} WHERE {where_clause} LIMIT {self.batch_size}"
+                f"FROM {self.target_config.control_table} WHERE {where_clause_with_retry} LIMIT {self.batch_size}"
             )
         
         with db.get_session() as session:

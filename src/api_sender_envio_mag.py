@@ -91,12 +91,12 @@ class APISenderEnvioMAG:
                         # Error 4xx: No reintentar (error del cliente)
                         if 400 <= response.status < 500:
                             error_text = await response.text()
-                            error_msg = f"HTTP {response.status}: {error_text[:500]}"
+                            error_msg = f"HTTP {response.status}: {error_text}"  # SIN truncar
                             
                             envio_mag_logger.error(
                                 f"[APISenderEnvioMAG] ❌ Error 4xx (no reintentable): "
                                 f"control_id={control_id}, status={response.status}, "
-                                f"body={error_text[:300]}"
+                                f"body={error_text[:500] if len(error_text) > 500 else error_text}"
                             )
                             
                             return False, response.status, error_msg
@@ -104,13 +104,13 @@ class APISenderEnvioMAG:
                         # Error 5xx: Reintentar (error del servidor)
                         if response.status >= 500:
                             error_text = await response.text()
-                            last_error = f"HTTP {response.status}: {error_text[:500]}"
+                            last_error = f"HTTP {response.status}: {error_text}"  # SIN truncar
                             
                             envio_mag_logger.warning(
                                 f"[APISenderEnvioMAG] ⚠️ Error 5xx (reintentable): "
                                 f"control_id={control_id}, status={response.status}, "
                                 f"intento={attempt}/{self.max_retries}, "
-                                f"body={error_text[:200]}"
+                                f"body={error_text[:500] if len(error_text) > 500 else error_text}"
                             )
                             
                             # Backoff exponencial: 5s, 10s, 20s
@@ -125,7 +125,7 @@ class APISenderEnvioMAG:
                         
                         # Otros códigos inesperados
                         error_text = await response.text()
-                        last_error = f"HTTP {response.status}: {error_text[:500]}"
+                        last_error = f"HTTP {response.status}: {error_text}"  # SIN truncar
                         
                         envio_mag_logger.warning(
                             f"[APISenderEnvioMAG] Código inesperado: "
