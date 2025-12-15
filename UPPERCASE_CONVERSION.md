@@ -31,6 +31,7 @@ elif field_mapping.type == 'string':
 | Tipo de Campo | Conversión | Ejemplo |
 |--------------|------------|---------|
 | `string` | **→ MAYÚSCULAS** | `"pichincha"` → `"PICHINCHA"` |
+| `email` | Sin cambios | `"usuario@ejemplo.com"` → `"usuario@ejemplo.com"` |
 | `integer` | Sin cambios | `42` → `42` |
 | `float` / `decimal` | Sin cambios | `3.14` → `3.14` |
 | `boolean` | Sin cambios | `true` → `true` |
@@ -80,18 +81,21 @@ nombre = 'JUAN PÉREZ'
 observacion = 'TEXTO CON MAYÚSCULAS Y MINÚSCULAS'
 ```
 
-### Emails y URLs
+### Emails
 ```yaml
 # Input JSON
 {
   "email": "productor@ejemplo.com"
 }
 
-# Output SQL
+# Output SQL con type: email
+email = 'productor@ejemplo.com'
+
+# Output SQL con type: string
 email = 'PRODUCTOR@EJEMPLO.COM'
 ```
 
-**Nota:** Los emails también se convierten a mayúsculas. Aunque técnicamente los emails son case-insensitive según RFC, esto mantiene la consistencia del sistema.
+**Nota:** Los emails deben definirse como `type: email` en el mapping YAML para preservar su formato original. Si se definen como `type: string`, se convertirán a mayúsculas.
 
 ### Concatenación de Campos
 ```yaml
@@ -119,6 +123,11 @@ Todos los campos definidos como `type: string` en los archivos YAML de mapping s
 bol_provincia:
   source: "pre_datos_upa_group/provincia_pre"
   type: string  # ← Se convierte a MAYÚSCULAS
+  default: null
+
+bol_direccion_email:
+  source: "capitulos_1_10_wrapper/datos_pp_group/comunicacion_group/correo_electronico_direccion"
+  type: email  # ← NO se convierte a mayúsculas
   default: null
 
 bol_numero_boleta:
@@ -187,18 +196,26 @@ La conversión se aplica en:
 
 ### Limitaciones
 
-- ⚠️  **Emails:** Se convierten a mayúsculas (aunque emails son case-insensitive)
-- ⚠️  **URLs:** Si se almacenan como string, se convertirán a mayúsculas
+- ⚠️  **URLs:** Si se almacenan como `type: string`, se convertirán a mayúsculas
 - ⚠️  **JSON/XML:** Datos estructurados como string se convertirán a mayúsculas
 
 ### Recomendaciones
 
-1. Si necesitas preservar mayúsculas/minúsculas en algún campo específico:
-   - Cambia el tipo a `uuid` (si aplica)
-   - O modifica el transformer para agregar excepciones
+1. **Para emails:** Usa `type: email` en el mapping YAML para preservar el formato original
+   ```yaml
+   bol_direccion_email:
+     source: "ruta/al/campo"
+     type: email  # ← Correcto para emails
+     default: null
+   ```
 
-2. Para campos que requieren formato específico (URLs, JSON):
-   - Considera almacenarlos en un tipo diferente
+2. **Para preservar mayúsculas/minúsculas en otros campos:**
+   - Usa `type: email` (para emails)
+   - Usa `type: uuid` (para UUIDs)
+   - Crea nuevos tipos específicos si es necesario
+
+3. **Para campos que requieren formato específico (URLs, JSON):**
+   - Considera almacenarlos en un tipo diferente a `string`
    - O procésalos antes de enviar al ETL
 
 ## 🔍 Verificación

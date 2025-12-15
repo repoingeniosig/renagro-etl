@@ -271,7 +271,7 @@ fields:
 
   bol_direccion_email:
     source: "capitulos_1_10_wrapper/datos_pp_group/comunicacion_group/correo_electronico_direccion"
-    type: string
+    type: email
     default: null
 
   bol_distancia_al_domicilio:

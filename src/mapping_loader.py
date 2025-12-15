@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class FieldMapping:
     """Mapeo de un campo individual"""
     source: Any  # Ruta en el JSON (dot notation) - puede ser str o List[str] para concatenación
-    type: str  # integer, decimal, boolean, string
+    type: str  # integer, decimal, boolean, string, email, uuid, datetime
     default: Any = None
     convert: Optional[Dict[str, Any]] = None
     repeat_filter: Optional[Dict[str, Any]] = None  # Filtro para repeat groups
