@@ -102,12 +102,22 @@ class EnvioMagSenderWorker:
                     'control_id': control_id
                 }
             else:
-                update_query = f"""
-                    UPDATE "{config.DB_SCHEMA}".{control_table}
-                    SET envio_datos_procesados = :status,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE {control_id_column} = :control_id
-                """
+                # Si el status es ENVIADO, también actualizar reintentable a FALSE
+                if status == 'ENVIADO':
+                    update_query = f"""
+                        UPDATE "{config.DB_SCHEMA}".{control_table}
+                        SET envio_datos_procesados = :status,
+                            reintentable = FALSE,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE {control_id_column} = :control_id
+                    """
+                else:
+                    update_query = f"""
+                        UPDATE "{config.DB_SCHEMA}".{control_table}
+                        SET envio_datos_procesados = :status,
+                            updated_at = CURRENT_TIMESTAMP
+                        WHERE {control_id_column} = :control_id
+                    """
                 params = {
                     'status': status,
                     'control_id': control_id
