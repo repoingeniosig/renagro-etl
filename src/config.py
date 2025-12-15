@@ -93,9 +93,16 @@ class Config:
     
     # API Remota RENAGRO (envío de JSONs)
     RENAGRO_ENDPOINT = os.getenv('RENAGRO_ENDPOINT', '')
-    RENAGRO_TOKEN = os.getenv('RENAGRO_TOKEN', '')
     PARALLEL_REQUESTS_SEND_MAG = int(os.getenv('PARALLEL_REQUESTS_SEND_MAG', 10))
     MAX_RETRY_ATTEMPTS = int(os.getenv('MAX_RETRY_ATTEMPTS', 3))
+    
+    # MAG RENAGRO Authentication
+    MAG_RENAGRO_AUTH_URL = os.getenv('MAG_RENAGRO_AUTH_URL', '')
+    MAG_RENAGRO_ID = int(os.getenv('MAG_RENAGRO_ID', 87))
+    MAG_RENAGRO_USER = os.getenv('MAG_RENAGRO_USER', '')
+    MAG_RENAGRO_PASSWORD = os.getenv('MAG_RENAGRO_PASSWORD', '')
+    MAG_RENAGRO_IP_LAN = os.getenv('MAG_RENAGRO_IP_LAN', '')
+    MAG_RENAGRO_IP_WAN = os.getenv('MAG_RENAGRO_IP_WAN', '')
     
     # Colas de envío MAG
     QUEUE_ENVIO_MAG_SEND = os.getenv('QUEUE_ENVIO_MAG_SEND', 'renagro.envio.mag.send')

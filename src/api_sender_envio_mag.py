@@ -1,6 +1,6 @@
 """
 Cliente HTTP para envío de JSONs a API remota RENAGRO
-Maneja reintentos con backoff exponencial
+Maneja reintentos con backoff exponencial y autenticación dinámica
 """
 import asyncio
 import aiohttp
@@ -9,27 +9,37 @@ from datetime import datetime
 
 from .config import config
 from .logger import envio_mag_logger
+from .auth_manager_mag import auth_manager_mag
 
 
 class APISenderEnvioMAG:
-    """Cliente HTTP para envío de JSONs con reintentos"""
+    """Cliente HTTP para envío de JSONs con reintentos y autenticación dinámica"""
     
     def __init__(self):
         self.endpoint = config.RENAGRO_ENDPOINT
-        self.token = config.RENAGRO_TOKEN
         self.max_retries = config.MAX_RETRY_ATTEMPTS
         
         if not self.endpoint:
             envio_mag_logger.warning("[APISenderEnvioMAG] RENAGRO_ENDPOINT no configurado")
-        
-        if not self.token:
-            envio_mag_logger.warning("[APISenderEnvioMAG] RENAGRO_TOKEN no configurado")
     
-    def _get_headers(self) -> Dict[str, str]:
-        """Construye headers para petición HTTP"""
+    async def _get_headers(self) -> Optional[Dict[str, str]]:
+        """
+        Construye headers para petición HTTP con token dinámico
+        
+        Returns:
+            Dict con headers si token disponible, None si autenticación falla
+        """
+        token = await auth_manager_mag.get_token()
+        
+        if not token:
+            envio_mag_logger.error(
+                "[APISenderEnvioMAG] No se pudo obtener token de autenticación"
+            )
+            return None
+        
         return {
             'Content-Type': 'application/json',
-            'Authorization': self.token
+            'Authorization': token
         }
     
     async def send_json(
@@ -52,8 +62,23 @@ class APISenderEnvioMAG:
             - status_code: Código HTTP de respuesta (None si error de red)
             - error_message: Mensaje de error (None si exitoso)
         """
-        if not self.endpoint or not self.token:
-            error_msg = "API endpoint o token no configurados"
+        # Verificar si autenticación ha fallado previamente
+        if auth_manager_mag.is_auth_failed():
+            error_msg = "Proceso detenido por fallo de autenticación"
+            envio_mag_logger.error(
+                f"[APISenderEnvioMAG] ❌ {error_msg} - control_id={control_id}"
+            )
+            return False, None, error_msg
+        
+        if not self.endpoint:
+            error_msg = "API endpoint no configurado"
+            envio_mag_logger.error(f"[APISenderEnvioMAG] {error_msg}")
+            return False, None, error_msg
+        
+        # Obtener headers con token dinámico
+        headers = await self._get_headers()
+        if not headers:
+            error_msg = "No se pudo obtener token de autenticación"
             envio_mag_logger.error(f"[APISenderEnvioMAG] {error_msg}")
             return False, None, error_msg
         
@@ -75,7 +100,7 @@ class APISenderEnvioMAG:
                     async with session.post(
                         self.endpoint,
                         json=json_data,
-                        headers=self._get_headers(),
+                        headers=headers,
                         timeout=aiohttp.ClientTimeout(total=30)
                     ) as response:
                         last_status = response.status
@@ -88,7 +113,22 @@ class APISenderEnvioMAG:
                             )
                             return True, 201, None
                         
-                        # Error 4xx: No reintentar (error del cliente)
+                        # Error 401: Token inválido o expirado - DETENER TODO
+                        if response.status == 401:
+                            error_text = await response.text()
+                            error_msg = f"HTTP 401 Unauthorized: {error_text}"
+                            
+                            envio_mag_logger.error(
+                                f"[APISenderEnvioMAG] ❌ Error 401 Unauthorized: "
+                                f"control_id={control_id}, body={error_text}"
+                            )
+                            
+                            # Notificar al auth manager y detener proceso
+                            await auth_manager_mag.handle_unauthorized()
+                            
+                            return False, 401, error_msg
+                        
+                        # Error 4xx (excepto 401): No reintentar (error del cliente)
                         if 400 <= response.status < 500:
                             error_text = await response.text()
                             error_msg = f"HTTP {response.status}: {error_text}"  # SIN truncar
