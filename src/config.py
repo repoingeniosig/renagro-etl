@@ -86,6 +86,7 @@ class Config:
     # MAG Envio Configuration
     BATCH_SIZE_SEND_MAG = int(os.getenv('BATCH_SIZE_SEND_MAG', 1000))
     DEBUG_JSON_OUTPUT = os.getenv('DEBUG_JSON_OUTPUT', 'false').lower() in ('true', '1', 'yes')
+    UPPERCASE_JSON_MAG = os.getenv('UPPERCASE_JSON_MAG', 'false').lower() in ('true', '1', 'yes')
     
     # Intervalos de revisión (solo para desarrollo)
     ENVIO_MAG_CHECK_INTERVAL = int(os.getenv('ENVIO_MAG_CHECK_INTERVAL', 300))  # 5 minutos

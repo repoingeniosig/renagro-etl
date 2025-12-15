@@ -61,7 +61,18 @@ class JSONBuilderEnvioMAG:
                     return value.lower() in ('true', '1', 'yes', 'si', 'sí', 't')
                 return bool(value) if value is not None else field_mapping.default
             elif field_mapping.type == 'string':
-                return str(value) if value is not None else field_mapping.default
+                if value is not None:
+                    str_value = str(value)
+                    # Convertir a mayúsculas si UPPERCASE_JSON_MAG está habilitado
+                    if config.UPPERCASE_JSON_MAG:
+                        return str_value.upper()
+                    return str_value
+                return field_mapping.default
+            elif field_mapping.type == 'email':
+                # Emails NO se convierten a mayúsculas (incluso con UPPERCASE_JSON_MAG=true)
+                if value is not None:
+                    return str(value)
+                return field_mapping.default
             else:
                 return value
         except (ValueError, TypeError):
