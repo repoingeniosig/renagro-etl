@@ -128,7 +128,7 @@ fields:
 
   direccionEmail:
     source: "bol_direccion_email"
-    type: string
+    type: email
     default: null
 
   isInternet:
