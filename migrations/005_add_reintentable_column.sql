@@ -2,51 +2,30 @@
 -- Description: Add column to control automatic retry behavior for ERROR records
 -- Schema: sc_renagro_mag
 -- Date: 2025-12-12
+-- Tables affected: control_envios_boletas (only this table needs reintentable)
 
--- Table 1: control_envios_boletas
+-- Drop existing objects if migration needs to be re-run
+DROP INDEX IF EXISTS "sc_renagro_mag"."idx_control_envios_boletas_reintentable";
+
+-- Add reintentable column to control_envios_boletas
 ALTER TABLE "sc_renagro_mag"."control_envios_boletas"
-  ADD COLUMN "reintentable" BOOLEAN DEFAULT TRUE;
+  DROP COLUMN IF EXISTS "reintentable";
+
+ALTER TABLE "sc_renagro_mag"."control_envios_boletas"
+  ADD COLUMN "reintentable" BOOLEAN DEFAULT FALSE;
 
 COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas"."reintentable" IS 
-  'Indica si el registro debe reintentarse automáticamente en caso de ERROR:
-- TRUE: Error 5xx (servidor) o error construcción JSON, se reintenta automáticamente
-- FALSE: Error 4xx (validación de negocio), requiere corrección manual de datos
-- Usuario cambia manualmente a TRUE después de corregir datos para reprocesar';
+  'Indica si el registro con ERROR debe reintentarse automáticamente:
+- FALSE (default): Registro exitoso o error 4xx que requiere corrección manual
+- TRUE: Error 5xx (servidor) que se reintenta automáticamente, o registro corregido manualmente
+- Solo relevante cuando envio_datos_procesados = ERROR';
 
 -- Índice para mejorar performance del query de registros reintenables
 CREATE INDEX "idx_control_envios_boletas_reintentable" 
   ON "sc_renagro_mag"."control_envios_boletas" ("envio_datos_procesados", "reintentable")
   WHERE "envio_datos_procesados" = 'ERROR';
 
--- Table 2: control_envios_boletas_procesos
-ALTER TABLE "sc_renagro_mag"."control_envios_boletas_procesos"
-  ADD COLUMN "reintentable" BOOLEAN DEFAULT TRUE;
-
-COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_procesos"."reintentable" IS 
-  'Indica si el registro debe reintentarse automáticamente en caso de ERROR:
-- TRUE: Error 5xx (servidor) o error construcción JSON, se reintenta automáticamente
-- FALSE: Error 4xx (validación de negocio), requiere corrección manual de datos
-- Usuario cambia manualmente a TRUE después de corregir datos para reprocesar';
-
-CREATE INDEX "idx_control_envios_boletas_procesos_reintentable" 
-  ON "sc_renagro_mag"."control_envios_boletas_procesos" ("envio_datos_procesados", "reintentable")
-  WHERE "envio_datos_procesados" = 'ERROR';
-
--- Table 3: control_envios_boletas_simplificadas
-ALTER TABLE "sc_renagro_mag"."control_envios_boletas_simplificadas"
-  ADD COLUMN "reintentable" BOOLEAN DEFAULT TRUE;
-
-COMMENT ON COLUMN "sc_renagro_mag"."control_envios_boletas_simplificadas"."reintentable" IS 
-  'Indica si el registro debe reintentarse automáticamente en caso de ERROR:
-- TRUE: Error 5xx (servidor) o error construcción JSON, se reintenta automáticamente
-- FALSE: Error 4xx (validación de negocio), requiere corrección manual de datos
-- Usuario cambia manualmente a TRUE después de corregir datos para reprocesar';
-
-CREATE INDEX "idx_control_envios_boletas_simplificadas_reintentable" 
-  ON "sc_renagro_mag"."control_envios_boletas_simplificadas" ("envio_datos_procesados", "reintentable")
-  WHERE "envio_datos_procesados" = 'ERROR';
-
--- Queries de verificación
--- SELECT _id, envio_datos_procesados, reintentable, error_mensajes_envio FROM "sc_renagro_mag"."control_envios_boletas" WHERE envio_datos_procesados = 'ERROR';
--- SELECT _id, envio_datos_procesados, reintentable, error_mensajes_envio FROM "sc_renagro_mag"."control_envios_boletas_procesos" WHERE envio_datos_procesados = 'ERROR';
--- SELECT _id, envio_datos_procesados, reintentable, error_mensajes_envio FROM "sc_renagro_mag"."control_envios_boletas_simplificadas" WHERE envio_datos_procesados = 'ERROR';
+-- Query de verificación
+-- SELECT _id, envio_datos_procesados, reintentable, error_mensajes_envio 
+-- FROM "sc_renagro_mag"."control_envios_boletas" 
+-- WHERE envio_datos_procesados = 'ERROR';

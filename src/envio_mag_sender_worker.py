@@ -52,15 +52,18 @@ class EnvioMagSenderWorker:
             status: Estado a establecer ('ENTREGANDO', 'ENVIADO', 'ERROR')
             error_message: Mensaje de error completo (solo para status='ERROR')
         
-        Nota: Si status='ERROR', determina automáticamente si es reintentable:
-        - Error 4xx (cliente/validación) → reintentable=FALSE
-        - Error 5xx (servidor) → reintentable=TRUE
+        Nota: Si status='ERROR', setea reintentable automáticamente:
+        - Error 4xx (cliente/validación) → reintentable=FALSE (corrección manual)
+        - Error 5xx (servidor) → reintentable=TRUE (reintento automático)
         - Error sin código HTTP → reintentable=TRUE (asume error transitorio)
+        - Si status='ENVIADO' o 'ENTREGANDO', reintentable no se modifica (queda en FALSE default)
         """
         try:
-            # Determinar si el error es reintentable basado en código HTTP
-            reintentable = True
+            # Construir UPDATE dinámico
             if status == 'ERROR' and error_message:
+                # Determinar si el error es reintentable basado en código HTTP
+                reintentable = True  # Default para errores sin código HTTP
+                
                 # Extraer código HTTP del mensaje formato "HTTP 502: ..."
                 if error_message.startswith('HTTP '):
                     try:
@@ -81,9 +84,8 @@ class EnvioMagSenderWorker:
                             f"asumiendo reintentable=TRUE"
                         )
                         reintentable = True
-            
-            # Construir UPDATE dinámico
-            if status == 'ERROR' and error_message:
+                
+                # UPDATE con error_message y reintentable
                 update_query = f"""
                     UPDATE "{config.DB_SCHEMA}".{control_table}
                     SET 
