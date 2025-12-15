@@ -288,7 +288,10 @@ conversions:
 - `integer`: Números enteros
 - `decimal`: Números decimales (float)
 - `boolean`: Valores booleanos (true/false)
-- `string`: Cadenas de texto
+- `string`: Cadenas de texto (se convierten automáticamente a MAYÚSCULAS)
+- `email`: Direcciones de correo (se guardan como string pero NO se convierten a mayúsculas)
+- `uuid`: Identificadores únicos universales
+- `datetime`: Fechas y horas
 
 ### Conversiones personalizadas
 
@@ -379,6 +382,51 @@ CREATE TABLE "sc_renagro_mag"."control_envios_boletas" (
 2. Agregar referencia en `mapping/master.yml`
 3. Ejecutar el script para procesar un JSON
 
+## 🚀 Desarrollo Local
+
+### Script para iniciar workers (run_all_workers.sh)
+
+**⚠️ SOLO PARA DESARROLLO LOCAL**
+
+Para desarrollo local, puedes usar el script `run_all_workers.sh` que facilita iniciar múltiples workers:
+
+```bash
+# Iniciar todos los workers (ETL + Envío MAG)
+./run_all_workers.sh
+
+# Iniciar solo workers ETL (json_save, etl_transform, db_insert)
+./run_all_workers.sh etl
+
+# Iniciar solo workers de Envío MAG (envio_mag, envio_mag_sender)
+./run_all_workers.sh envio
+
+# Combinar ambos grupos
+./run_all_workers.sh etl envio
+
+# Detener todos los workers
+./stop_workers.sh
+```
+
+**Workers ETL:**
+- `json_save` - Guarda JSONs en base de datos
+- `etl_transform` - Transforma JSON a SQL
+- `db_insert` - Inserta datos en PostgreSQL
+
+**Workers Envío MAG:**
+- `envio_mag` - Construye JSONs desde BD y publica a cola
+- `envio_mag_sender` - Envía JSONs a API remota MAG
+
+**Características:**
+- Ejecuta workers en paralelo con logs separados
+- Guarda PIDs en `.worker_pids` para control
+- Logs individuales en `logs/worker_*.log`
+- Ver logs en tiempo real: `tail -f logs/worker_json_save.log`
+
+**Requisitos:**
+- Archivo `.env` configurado
+- Virtualenv creado en `venv/`
+- Dependencias instaladas
+
 ## 🚀 Despliegue en Producción
 
 ### Recomendación: Usar systemd (NO scripts .sh)
@@ -409,9 +457,8 @@ sudo bash systemd/install.sh
 # 3. Configurar .env
 sudo nano /opt/renagro-etl-process/.env
 
-# 4. Ejecutar migración SQL
-psql -h localhost -U postgres -d renagro_db \
-  -f /opt/renagro-etl-process/migrations/001_add_retry_fields.sql
+# 4. Ejecutar migraciones SQL
+sh /opt/renagro-etl-process/run_migration.sh
 
 # 5. Iniciar servicios
 sudo systemctl start renagro-api.service
@@ -517,6 +564,9 @@ pytest tests/
 - **[REDIS_CACHE.md](REDIS_CACHE.md)** - Cache de mapeos YAML
 - **[ENVIO_MAG.md](ENVIO_MAG.md)** - Envío de datos a API remota MAG
 - **[DUPLICATE_PROTECTION.md](DUPLICATE_PROTECTION.md)** - Protección contra duplicados en timer
+- **[FIELD_CONCATENATION.md](FIELD_CONCATENATION.md)** - Concatenación de múltiples campos
+- **[UPPERCASE_CONVERSION.md](UPPERCASE_CONVERSION.md)** - Conversión automática a mayúsculas
+- **[DOCKER.md](DOCKER.md)** - Comandos Docker y migraciones
 - **[systemd/PRODUCTION_DEPLOYMENT.md](systemd/PRODUCTION_DEPLOYMENT.md)** - Despliegue completo en producción
 - **[systemd/README.md](systemd/README.md)** - Configuración systemd services
 - **[COMMIT_TYPES.md](COMMIT_TYPES.md)** - Convenciones de commits
@@ -586,7 +636,17 @@ DEBUG_JSON_OUTPUT=false           # true para guardar JSONs localmente
 
 ### Ejecutar Workers
 
-**Ejecutar en terminales separadas (desarrollo):**
+**Opción 1: Script automático (desarrollo - RECOMENDADO):**
+
+```bash
+# Iniciar solo workers de Envío MAG
+./run_all_workers.sh envio
+
+# O iniciar todos los workers (ETL + Envío)
+./run_all_workers.sh
+```
+
+**Opción 2: Manual en terminales separadas:**
 
 ```bash
 # Terminal 1: Construir JSONs desde BD
