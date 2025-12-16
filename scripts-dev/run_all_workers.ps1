@@ -50,27 +50,27 @@ $ProjectRoot = Split-Path -Parent $ScriptDir
 
 Set-Location $ProjectRoot
 
-Write-Host "🚀 Iniciando workers del pipeline ETL" -ForegroundColor Cyan
-Write-Host "======================================"
-Write-Host ""
+Write-Host '🚀 Iniciando workers del pipeline ETL' -ForegroundColor Cyan
+Write-Host '======================================'
+Write-Host ''
 
 # Verificar que existe el archivo .env
 if (-not (Test-Path ".env")) {
-    Write-Host "⚠️  Error: No existe archivo .env" -ForegroundColor Yellow
-    Write-Host "📝 Copia .env.example a .env y configura las variables necesarias"
+    Write-Host '⚠️  Error: No existe archivo .env' -ForegroundColor Yellow
+    Write-Host '📝 Copia .env.example a .env y configura las variables necesarias'
     exit 1
 }
 
 # Verificar que existe el virtualenv
 if (-not (Test-Path "venv")) {
-    Write-Host "⚠️  Error: No existe el virtualenv en venv/" -ForegroundColor Yellow
-    Write-Host "📝 Crea el virtualenv con: python -m venv venv"
-    Write-Host "   Luego instala dependencias: .\venv\Scripts\Activate.ps1 && pip install -r requirements.txt"
+    Write-Host '⚠️  Error: No existe el virtualenv en venv/' -ForegroundColor Yellow
+    Write-Host '📝 Crea el virtualenv con: python -m venv venv'
+    Write-Host '   Luego instala dependencias: .\venv\Scripts\Activate.ps1 && pip install -r requirements.txt'
     exit 1
 }
 
 # Activar virtualenv
-Write-Host "🐍 Activando virtualenv..."
+Write-Host '🐍 Activando virtualenv...'
 & ".\venv\Scripts\Activate.ps1"
 
 # Arrays para procesos
@@ -85,11 +85,11 @@ if (-not (Test-Path "logs")) {
 
 # Iniciar workers ETL
 if ($START_ETL) {
-    Write-Host ""
-    Write-Host "📦 Iniciando Workers ETL..." -ForegroundColor Green
-    Write-Host "----------------------------"
+    Write-Host ''
+    Write-Host '📦 Iniciando Workers ETL...' -ForegroundColor Green
+    Write-Host '----------------------------'
     
-    Write-Host "📥 Iniciando worker json_save..."
+    Write-Host '📥 Iniciando worker json_save...'
     $job = Start-Process python -ArgumentList "-m", "src.workers", "json_save" `
         -NoNewWindow -PassThru -RedirectStandardOutput "logs\worker_json_save.log" `
         -RedirectStandardError "logs\worker_json_save_error.log"
@@ -97,7 +97,7 @@ if ($START_ETL) {
     $WorkerNames += "json_save"
     $LogFiles += "logs\worker_json_save.log"
     
-    Write-Host "🔄 Iniciando worker etl_transform..."
+    Write-Host '🔄 Iniciando worker etl_transform...'
     $job = Start-Process python -ArgumentList "-m", "src.workers", "etl_transform" `
         -NoNewWindow -PassThru -RedirectStandardOutput "logs\worker_etl_transform.log" `
         -RedirectStandardError "logs\worker_etl_transform_error.log"
@@ -105,7 +105,7 @@ if ($START_ETL) {
     $WorkerNames += "etl_transform"
     $LogFiles += "logs\worker_etl_transform.log"
     
-    Write-Host "💾 Iniciando worker db_insert..."
+    Write-Host '💾 Iniciando worker db_insert...'
     $job = Start-Process python -ArgumentList "-m", "src.workers", "db_insert" `
         -NoNewWindow -PassThru -RedirectStandardOutput "logs\worker_db_insert.log" `
         -RedirectStandardError "logs\worker_db_insert_error.log"
@@ -116,11 +116,11 @@ if ($START_ETL) {
 
 # Iniciar workers Envío MAG
 if ($START_ENVIO) {
-    Write-Host ""
-    Write-Host "📤 Iniciando Workers Envío MAG..." -ForegroundColor Green
-    Write-Host "---------------------------------"
+    Write-Host ''
+    Write-Host '📤 Iniciando Workers Envío MAG...' -ForegroundColor Green
+    Write-Host '---------------------------------'
     
-    Write-Host "📤 Iniciando worker envio_mag..."
+    Write-Host '📤 Iniciando worker envio_mag...'
     $job = Start-Process python -ArgumentList "-m", "src.workers", "envio_mag" `
         -NoNewWindow -PassThru -RedirectStandardOutput "logs\worker_envio_mag.log" `
         -RedirectStandardError "logs\worker_envio_mag_error.log"
@@ -128,7 +128,7 @@ if ($START_ENVIO) {
     $WorkerNames += "envio_mag"
     $LogFiles += "logs\worker_envio_mag.log"
     
-    Write-Host "🚀 Iniciando worker envio_mag_sender..."
+    Write-Host '🚀 Iniciando worker envio_mag_sender...'
     $job = Start-Process python -ArgumentList "-m", "src.workers", "envio_mag_sender" `
         -NoNewWindow -PassThru -RedirectStandardOutput "logs\worker_envio_mag_sender.log" `
         -RedirectStandardError "logs\worker_envio_mag_sender_error.log"
@@ -138,29 +138,29 @@ if ($START_ENVIO) {
 }
 
 # Mostrar resumen
-Write-Host ""
-Write-Host "✅ Workers iniciados:" -ForegroundColor Green
-Write-Host "--------------------"
+Write-Host ''
+Write-Host '✅ Workers iniciados:' -ForegroundColor Green
+Write-Host '--------------------'
 for ($i = 0; $i -lt $Jobs.Count; $i++) {
     Write-Host ("   {0,-20} -> PID {1}" -f $WorkerNames[$i], $Jobs[$i].Id)
 }
 
-Write-Host ""
-Write-Host "📊 Para ver logs en tiempo real:"
+Write-Host ''
+Write-Host '📊 Para ver logs en tiempo real:'
 foreach ($log in $LogFiles) {
     Write-Host "   Get-Content $log -Wait"
 }
 
-Write-Host ""
-Write-Host "🛑 Para detener todos los workers:"
-Write-Host "   .\scripts-dev\stop_workers.ps1"
-Write-Host ""
+Write-Host ''
+Write-Host '🛑 Para detener todos los workers:'
+Write-Host '   .\scripts-dev\stop_workers.ps1'
+Write-Host ''
 
 # Guardar PIDs en archivo
 $Jobs | ForEach-Object { $_.Id } | Out-File -FilePath ".worker_pids" -Encoding UTF8
 
-Write-Host "Presiona Ctrl+C para detener todos los workers..." -ForegroundColor Yellow
-Write-Host ""
+Write-Host 'Presiona Ctrl+C para detener todos los workers...' -ForegroundColor Yellow
+Write-Host ''
 
 # Esperar a que el usuario presione Ctrl+C
 try {
@@ -175,12 +175,12 @@ try {
     }
 } finally {
     # Cleanup al presionar Ctrl+C
-    Write-Host ""
-    Write-Host "Deteniendo workers..." -ForegroundColor Yellow
+    Write-Host ''
+    Write-Host 'Deteniendo workers...' -ForegroundColor Yellow
     foreach ($job in $Jobs) {
         if (-not $job.HasExited) {
             Stop-Process -Id $job.Id -Force -ErrorAction SilentlyContinue
         }
     }
-    Write-Host "✅ Workers detenidos" -ForegroundColor Green
+    Write-Host '✅ Workers detenidos' -ForegroundColor Green
 }

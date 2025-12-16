@@ -11,12 +11,12 @@ $ProjectRoot = Split-Path -Parent $ScriptDir
 Set-Location $ProjectRoot
 
 if (-not (Test-Path ".worker_pids")) {
-    Write-Host "⚠️  No se encontró archivo .worker_pids" -ForegroundColor Yellow
-    Write-Host "Los workers no parecen estar ejecutándose"
+    Write-Host '⚠️  No se encontró archivo .worker_pids' -ForegroundColor Yellow
+    Write-Host 'Los workers no parecen estar ejecutándose'
     exit 1
 }
 
-Write-Host "🛑 Deteniendo workers..." -ForegroundColor Cyan
+Write-Host '🛑 Deteniendo workers...' -ForegroundColor Cyan
 
 $pids = Get-Content ".worker_pids"
 
@@ -30,4 +30,4 @@ foreach ($pid in $pids) {
 
 Remove-Item ".worker_pids" -ErrorAction SilentlyContinue
 
-Write-Host "✅ Workers detenidos" -ForegroundColor Green
+Write-Host '✅ Workers detenidos' -ForegroundColor Green
