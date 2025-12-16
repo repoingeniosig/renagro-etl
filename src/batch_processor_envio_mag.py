@@ -63,25 +63,48 @@ class BatchProcessorEnvioMAG:
         # Busca registros PENDIENTE o ERROR con reintentable=TRUE
         where_clause_with_retry = f"({where_clause}) OR (envio_datos_procesados = 'ERROR' AND reintentable = TRUE)"
         
-        query = f"""
-            SELECT {self.target_config.control_table_primary_key}, {self.target_config.control_table_id}
-            FROM "{config.DB_SCHEMA}".{self.target_config.control_table}
-            WHERE {where_clause_with_retry}
-            ORDER BY {self.target_config.control_table_primary_key} ASC
-            LIMIT :batch_size
-        """
+        # Verificar si control_table_id y control_table_primary_key son la misma columna
+        same_column = self.target_config.control_table_id == self.target_config.control_table_primary_key
+        
+        if same_column:
+            # Solo consultar una vez la columna
+            query = f"""
+                SELECT {self.target_config.control_table_primary_key}
+                FROM "{config.DB_SCHEMA}".{self.target_config.control_table}
+                WHERE {where_clause_with_retry}
+                ORDER BY {self.target_config.control_table_primary_key} ASC
+                LIMIT :batch_size
+            """
+        else:
+            # Consultar ambas columnas
+            query = f"""
+                SELECT {self.target_config.control_table_primary_key}, {self.target_config.control_table_id}
+                FROM "{config.DB_SCHEMA}".{self.target_config.control_table}
+                WHERE {where_clause_with_retry}
+                ORDER BY {self.target_config.control_table_primary_key} ASC
+                LIMIT :batch_size
+            """
         
         if config.DEBUG_CLI:
+            # Construir query legible con valores para debug
+            debug_query = query
+            for key, value in params.items():
+                if key != 'batch_size':
+                    debug_query = debug_query.replace(f":{key}", f"'{value}'")
+            debug_query = debug_query.replace(':batch_size', str(self.batch_size))
             envio_mag_logger.debug(
-                f"[BatchProcessorEnvioMAG] Query control: "
-                f"SELECT {self.target_config.control_table_primary_key}, {self.target_config.control_table_id} "
-                f"FROM {self.target_config.control_table} WHERE {where_clause_with_retry} LIMIT {self.batch_size}"
+                f"[BatchProcessorEnvioMAG] Query control: {debug_query}"
             )
         
         with db.get_session() as session:
             result = session.execute(text(query), params)
             # Retornar tuplas (pk, reference_id)
-            ids = [(row[0], row[1]) for row in result]
+            # Si es la misma columna, usar el mismo valor para ambos
+            # Convertir reference_id a string para comparación con VARCHAR en BD
+            if same_column:
+                ids = [(row[0], str(row[0])) for row in result]
+            else:
+                ids = [(row[0], str(row[1]) if row[1] is not None else None) for row in result]
         
         if config.DEBUG_CLI:
             envio_mag_logger.debug(f"[BatchProcessorEnvioMAG] Encontrados {len(ids)} registros pendientes")

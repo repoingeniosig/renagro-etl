@@ -8,9 +8,10 @@ target_data_to_send:
   control_table: control_envios_boletas
   
   # Nombre de la columna en control_table que contiene los IDs únicos
-  # Estos IDs deben coincidir con el database_id del main.yml
-  # Ejemplo: control_envios_boletas.uuid_boleta == boletas.bol_id_levanta
-  control_table_id: uuid_boleta
+  # Estos IDs deben coincidir con source_reference_field de la tabla principal
+  # Ejemplo: control_envios_boletas._id (integer) == boletas.bol_id_levanta (string)
+  # NOTA: Se convertirá automáticamente _id a string para la comparación
+  control_table_id: _id
   
   # Clave primaria de control_table (para UPDATE/WHERE en modificaciones de estado)
   # Ejemplo: control_envios_boletas._id (PK autoincremental)

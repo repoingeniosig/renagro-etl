@@ -79,7 +79,8 @@ class DataFetcherEnvioMAG:
         """
         
         # Crear parámetros
-        params = {f'id{i}': parent_id for i, parent_id in enumerate(parent_ids)}
+        # Convertir a string si es necesario (ej: UUIDs) para evitar problemas de tipo
+        params = {f'id{i}': str(parent_id) if parent_id is not None else None for i, parent_id in enumerate(parent_ids)}
         
         if config.DEBUG_CLI:
             etl_logger.debug(
