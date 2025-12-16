@@ -105,6 +105,10 @@ class Config:
     MAG_RENAGRO_IP_LAN = os.getenv('MAG_RENAGRO_IP_LAN', '')
     MAG_RENAGRO_IP_WAN = os.getenv('MAG_RENAGRO_IP_WAN', '')
     
+    # MAG Basic Authentication (para header Authorization)
+    MAG_USERNAME = os.getenv('MAG_USERNAME', '')
+    MAG_PASSWORD = os.getenv('MAG_PASSWORD', '')
+    
     # Colas de envío MAG
     QUEUE_ENVIO_MAG_SEND = os.getenv('QUEUE_ENVIO_MAG_SEND', 'renagro.envio.mag.send')
     QUEUE_ENVIO_MAG_SEND_RETRY = os.getenv('QUEUE_ENVIO_MAG_SEND_RETRY', 'renagro.envio.mag.send.retry')

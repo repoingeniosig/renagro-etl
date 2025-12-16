@@ -79,11 +79,26 @@ class AuthManagerMAG:
                 
                 payload = self._build_auth_payload()
                 
+                # Construir headers con Basic Auth si está configurado
+                headers = {'Content-Type': 'application/json'}
+                
+                # Agregar Basic Auth si está configurado
+                if config.MAG_USERNAME and config.MAG_PASSWORD:
+                    import base64
+                    credentials = f"{config.MAG_USERNAME}:{config.MAG_PASSWORD}"
+                    encoded_credentials = base64.b64encode(credentials.encode()).decode()
+                    headers['Authorization'] = f'Basic {encoded_credentials}'
+                    
+                    if config.DEBUG_CLI:
+                        envio_mag_logger.debug(
+                            f"[AuthManagerMAG] Usando Basic Auth con usuario: {config.MAG_USERNAME}"
+                        )
+                
                 async with aiohttp.ClientSession() as session:
                     async with session.post(
                         self.auth_url,
                         json=payload,
-                        headers={'Content-Type': 'application/json'},
+                        headers=headers,
                         timeout=aiohttp.ClientTimeout(total=30)
                     ) as response:
                         
