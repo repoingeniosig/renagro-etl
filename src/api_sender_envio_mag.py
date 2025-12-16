@@ -86,7 +86,16 @@ class APISenderEnvioMAG:
         last_error = None
         last_status = None
         
-        async with aiohttp.ClientSession() as session:
+        # Configurar SSL verification
+        connector = None
+        if not config.VERIFY_SSL:
+            import ssl
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+        
+        async with aiohttp.ClientSession(connector=connector) as session:
             while attempt < self.max_retries:
                 attempt += 1
                 

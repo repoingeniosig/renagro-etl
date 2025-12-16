@@ -94,7 +94,21 @@ class AuthManagerMAG:
                             f"[AuthManagerMAG] Usando Basic Auth con usuario: {config.MAG_USERNAME}"
                         )
                 
-                async with aiohttp.ClientSession() as session:
+                # Configurar SSL verification
+                connector = None
+                if not config.VERIFY_SSL:
+                    import ssl
+                    ssl_context = ssl.create_default_context()
+                    ssl_context.check_hostname = False
+                    ssl_context.verify_mode = ssl.CERT_NONE
+                    connector = aiohttp.TCPConnector(ssl=ssl_context)
+                    
+                    if config.DEBUG_CLI:
+                        envio_mag_logger.debug(
+                            "[AuthManagerMAG] SSL verification deshabilitada"
+                        )
+                
+                async with aiohttp.ClientSession(connector=connector) as session:
                     async with session.post(
                         self.auth_url,
                         json=payload,

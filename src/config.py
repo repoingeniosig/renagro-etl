@@ -109,6 +109,9 @@ class Config:
     MAG_USERNAME = os.getenv('MAG_USERNAME', '')
     MAG_PASSWORD = os.getenv('MAG_PASSWORD', '')
     
+    # SSL/TLS Configuration
+    VERIFY_SSL = os.getenv('VERIFY_SSL', 'true').lower() in ('true', '1', 'yes')
+    
     # Colas de envío MAG
     QUEUE_ENVIO_MAG_SEND = os.getenv('QUEUE_ENVIO_MAG_SEND', 'renagro.envio.mag.send')
     QUEUE_ENVIO_MAG_SEND_RETRY = os.getenv('QUEUE_ENVIO_MAG_SEND_RETRY', 'renagro.envio.mag.send.retry')
