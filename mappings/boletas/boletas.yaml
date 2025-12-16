@@ -1212,7 +1212,7 @@ fields:
   
   neo_observacion_no_informante_v1:
     source: "visita1_group/datos_visita_v1/no_informante_visita1"
-    type: datetime
+    type: string
     default: null
   
   neo_fecha_visita_v1:
@@ -1268,7 +1268,7 @@ fields:
   
   neo_observacion_no_informante_v2:
     source: "visita2_group/datos_visita_v2/no_informante_visita2"
-    type: datetime
+    type: string
     default: null
   
   neo_fecha_visita_v2:
