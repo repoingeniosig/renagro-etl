@@ -46,6 +46,12 @@ echo "🚀 Iniciando workers del pipeline ETL"
 echo "======================================"
 echo ""
 
+# Obtener directorio raíz del proyecto
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+
+cd "$PROJECT_ROOT"
+
 # Verificar que existe el archivo .env
 if [ ! -f .env ]; then
     echo "⚠️  Error: No existe archivo .env"
@@ -130,7 +136,7 @@ done
 
 echo ""
 echo "🛑 Para detener todos los workers:"
-echo "   ./stop_workers.sh"
+echo "   ./scripts-dev/stop_workers.sh"
 echo ""
 
 # Guardar PIDs en archivo

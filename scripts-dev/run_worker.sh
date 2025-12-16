@@ -6,10 +6,16 @@
 
 # Script para ejecutar un worker individual en modo desarrollo
 
+# Obtener directorio raíz del proyecto
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+
+cd "$PROJECT_ROOT"
+
 WORKER_TYPE=$1
 
 if [ -z "$WORKER_TYPE" ]; then
-    echo "Uso: ./run_worker.sh <worker_type>"
+    echo "Uso: ./scripts-dev/run_worker.sh <worker_type>"
     echo ""
     echo "Workers disponibles:"
     echo "  json_save      - Guarda JSON en base de datos"
@@ -17,7 +23,7 @@ if [ -z "$WORKER_TYPE" ]; then
     echo "  db_insert      - Ejecuta transacciones SQL"
     echo ""
     echo "Ejemplo:"
-    echo "  ./run_worker.sh json_save"
+    echo "  ./scripts-dev/run_worker.sh json_save"
     exit 1
 fi
 

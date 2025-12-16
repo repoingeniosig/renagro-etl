@@ -384,48 +384,51 @@ CREATE TABLE "sc_renagro_mag"."control_envios_boletas" (
 
 ## 🚀 Desarrollo Local
 
-### Script para iniciar workers (run_all_workers.sh)
+### Scripts de Desarrollo
 
 **⚠️ SOLO PARA DESARROLLO LOCAL**
 
-Para desarrollo local, puedes usar el script `run_all_workers.sh` que facilita iniciar múltiples workers:
+Para desarrollo local, usa los scripts en `scripts-dev/`:
+
+#### Linux/macOS
 
 ```bash
 # Iniciar todos los workers (ETL + Envío MAG)
-./run_all_workers.sh
+./scripts-dev/run_all_workers.sh
 
 # Iniciar solo workers ETL (json_save, etl_transform, db_insert)
-./run_all_workers.sh etl
+./scripts-dev/run_all_workers.sh etl
 
 # Iniciar solo workers de Envío MAG (envio_mag, envio_mag_sender)
-./run_all_workers.sh envio
-
-# Combinar ambos grupos
-./run_all_workers.sh etl envio
+./scripts-dev/run_all_workers.sh envio
 
 # Detener todos los workers
-./stop_workers.sh
+./scripts-dev/stop_workers.sh
+
+# Iniciar servidor API
+./scripts-dev/start_server.sh
 ```
 
-**Workers ETL:**
-- `json_save` - Guarda JSONs en base de datos
-- `etl_transform` - Transforma JSON a SQL
-- `db_insert` - Inserta datos en PostgreSQL
+#### Windows (PowerShell)
 
-**Workers Envío MAG:**
-- `envio_mag` - Construye JSONs desde BD y publica a cola
-- `envio_mag_sender` - Envía JSONs a API remota MAG
+```powershell
+# Iniciar todos los workers (ETL + Envío MAG)
+.\scripts-dev\run_all_workers.ps1
 
-**Características:**
-- Ejecuta workers en paralelo con logs separados
-- Guarda PIDs en `.worker_pids` para control
-- Logs individuales en `logs/worker_*.log`
-- Ver logs en tiempo real: `tail -f logs/worker_json_save.log`
+# Iniciar solo workers ETL
+.\scripts-dev\run_all_workers.ps1 etl
 
-**Requisitos:**
-- Archivo `.env` configurado
-- Virtualenv creado en `venv/`
-- Dependencias instaladas
+# Iniciar solo workers de Envío MAG
+.\scripts-dev\run_all_workers.ps1 envio
+
+# Detener todos los workers
+.\scripts-dev\stop_workers.ps1
+
+# Iniciar servidor API
+.\scripts-dev\start_server.ps1
+```
+
+**Ver documentación completa**: [scripts-dev/README.md](scripts-dev/README.md)
 
 ## 🚀 Despliegue en Producción
 
@@ -560,16 +563,27 @@ pytest tests/
 
 ## 📝 Documentación Adicional
 
-- **[ERROR_HANDLING.md](ERROR_HANDLING.md)** - Sistema de reintentos y DLQ
-- **[REDIS_CACHE.md](REDIS_CACHE.md)** - Cache de mapeos YAML
-- **[ENVIO_MAG.md](ENVIO_MAG.md)** - Envío de datos a API remota MAG
-- **[DUPLICATE_PROTECTION.md](DUPLICATE_PROTECTION.md)** - Protección contra duplicados en timer
-- **[FIELD_CONCATENATION.md](FIELD_CONCATENATION.md)** - Concatenación de múltiples campos
-- **[UPPERCASE_CONVERSION.md](UPPERCASE_CONVERSION.md)** - Conversión automática a mayúsculas
-- **[DOCKER.md](DOCKER.md)** - Comandos Docker y migraciones
+### Documentación Completa
+Ver **[documentation/README.md](documentation/README.md)** para el índice completo de documentación.
+
+### Documentos Principales
+
+- **[documentation/ERROR_HANDLING.md](documentation/ERROR_HANDLING.md)** - Sistema de reintentos y DLQ
+- **[documentation/REDIS_CACHE.md](documentation/REDIS_CACHE.md)** - Cache de mapeos YAML
+- **[documentation/ENVIO_MAG.md](documentation/ENVIO_MAG.md)** - Envío de datos a API remota MAG
+- **[documentation/DUPLICATE_PROTECTION.md](documentation/DUPLICATE_PROTECTION.md)** - Protección contra duplicados en timer
+- **[documentation/FIELD_CONCATENATION.md](documentation/FIELD_CONCATENATION.md)** - Concatenación de múltiples campos
+- **[documentation/UPPERCASE_CONVERSION.md](documentation/UPPERCASE_CONVERSION.md)** - Conversión automática a mayúsculas
+- **[documentation/DOCKER.md](documentation/DOCKER.md)** - Comandos Docker y migraciones
+- **[documentation/API_EXAMPLES.md](documentation/API_EXAMPLES.md)** - Ejemplos de uso de API REST
+- **[documentation/BATCH_PROCESSOR.md](documentation/BATCH_PROCESSOR.md)** - Procesamiento por lotes
+
+### Scripts de Desarrollo
+- **[scripts-dev/README.md](scripts-dev/README.md)** - Scripts para desarrollo local (Linux/Windows)
+
+### Producción
 - **[systemd/PRODUCTION_DEPLOYMENT.md](systemd/PRODUCTION_DEPLOYMENT.md)** - Despliegue completo en producción
 - **[systemd/README.md](systemd/README.md)** - Configuración systemd services
-- **[COMMIT_TYPES.md](COMMIT_TYPES.md)** - Convenciones de commits
 
 ## ✅ Estado del Proyecto
 
@@ -640,10 +654,10 @@ DEBUG_JSON_OUTPUT=false           # true para guardar JSONs localmente
 
 ```bash
 # Iniciar solo workers de Envío MAG
-./run_all_workers.sh envio
+./scripts-dev/run_all_workers.sh envio
 
 # O iniciar todos los workers (ETL + Envío)
-./run_all_workers.sh
+./scripts-dev/run_all_workers.sh
 ```
 
 **Opción 2: Manual en terminales separadas:**
