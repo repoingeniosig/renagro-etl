@@ -16,21 +16,38 @@ class JSONTransformer:
     def get_value_by_path(data: Dict[str, Any], path: str) -> Any:
         """
         Obtiene un valor del JSON usando notación de punto y soporte para índices de array
+        Soporta claves directas de Kobo con slash (ej: "group/field")
         
         Args:
             data: Diccionario con los datos JSON
-            path: Ruta en notación de punto con soporte para índices
-                  (ej: "capitulo_3.seccion3_1.tieneAnimales" o "_geolocation[0]" o "group[0]")
+            path: Ruta en notación de punto o slash con soporte para índices
+                  (ej: "capitulo_3.seccion3_1.tieneAnimales" o "group/field" o "_geolocation[0]")
         
         Returns:
             El valor encontrado o None si no existe
         """
         import re
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        # Primero intentar acceso directo (para claves de Kobo con /)
+        if path in data:
+            value = data[path]
+            logger.debug(f"✓ Acceso directo exitoso: {path} = {value}")
+            return value
+        
+        logger.debug(f"✗ Clave '{path}' NO encontrada como acceso directo. Keys disponibles: {list(data.keys())[:10]}...")
+        #logger.info(f"Intentando navegación por niveles para: {path}")
+        
+        # Si no existe como clave directa, intentar navegación por niveles
+        # Normalizar separadores: convertir / a . para compatibilidad
+        normalized_path = path.replace('/', '.')
         
         # Patrón para detectar índices: campo[índice]
         pattern = r'([^\[]+)(\[(\d+)\])?'
         
-        keys = path.split('.')
+        keys = normalized_path.split('.')
         value = data
         
         try:
@@ -187,9 +204,8 @@ class JSONTransformer:
         
         values = []
         for source_path in sources:
-            # Convertir separador / a . para compatibilidad con get_value_by_path
-            normalized_path = source_path.replace('/', '.')
-            value = JSONTransformer.get_value_by_path(json_data, normalized_path)
+            # get_value_by_path maneja internamente la normalización de separadores
+            value = JSONTransformer.get_value_by_path(json_data, source_path)
             if value is not None:
                 values.append(str(value))
             else:
@@ -277,10 +293,8 @@ class JSONTransformer:
                             break
             # Source es un string normal
             else:
-                # Normalizar path (/ → .) para compatibilidad
-                normalized_path = field_mapping.source.replace('/', '.')
-                # Obtener el valor del JSON normalmente
-                value = JSONTransformer.get_value_by_path(json_data, normalized_path)
+                # get_value_by_path maneja internamente la normalización de separadores
+                value = JSONTransformer.get_value_by_path(json_data, field_mapping.source)
                 
                 # Si hay un extract sin repeat_filter, extraer el subcampo del valor obtenido
                 # Caso: source="group[0]" obtiene un objeto, extract="campo" obtiene el valor del campo

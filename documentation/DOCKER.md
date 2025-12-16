@@ -5,6 +5,8 @@
 ### Conectar a la base de datos
 ```bash
 docker exec -it renagro-etl-db psql -U postgres -d renagro
+
+CREATE SCHEMA IF NOT EXISTS sc_renagro_mag AUTHORIZATION postgres;
 ```
 
 ### Ejecutar Migraciones (en orden)

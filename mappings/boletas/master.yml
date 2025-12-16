@@ -10,3 +10,6 @@ terrenos: "terrenos.yaml"
 
 cultivos: "cultivos.yaml"
 forestales: "forestales.yaml"
+
+adjuntos: "adjuntos.yaml"
+poligonos_boleta: "poligonos_boleta.yaml"
