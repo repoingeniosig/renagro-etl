@@ -32,12 +32,12 @@ if ($WorkerGroups.Count -eq 0) {
             }
             default {
                 Write-Host "❌ Argumento inválido: $arg" -ForegroundColor Red
-                Write-Host ""
-                Write-Host "Uso:"
-                Write-Host "  .\run_all_workers.ps1 etl        - Solo workers ETL"
-                Write-Host "  .\run_all_workers.ps1 envio      - Solo workers Envío MAG"
-                Write-Host "  .\run_all_workers.ps1 etl envio  - Todos los workers"
-                Write-Host "  .\run_all_workers.ps1            - Todos los workers"
+                Write-Host ''
+                Write-Host 'Uso:'
+                Write-Host '  .\run_all_workers.ps1 etl        - Solo workers ETL'
+                Write-Host '  .\run_all_workers.ps1 envio      - Solo workers Envío MAG'
+                Write-Host '  .\run_all_workers.ps1 etl envio  - Todos los workers'
+                Write-Host '  .\run_all_workers.ps1            - Todos los workers'
                 exit 1
             }
         }
