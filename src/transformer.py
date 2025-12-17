@@ -167,7 +167,10 @@ class JSONTransformer:
             elif field_mapping.type == 'string':
                 if value is not None:
                     str_value = str(value)
-                    return str_value.upper()
+                    # Aplicar uppercase solo si apply_uppercase es True (default)
+                    if field_mapping.apply_uppercase:
+                        return str_value.upper()
+                    return str_value
                 return field_mapping.default
             
             elif field_mapping.type == 'email':

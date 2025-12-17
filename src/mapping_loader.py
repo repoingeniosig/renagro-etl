@@ -27,6 +27,7 @@ class FieldMapping:
     extract: Optional[str] = None  # Campo a extraer del repeat filtrado
     parent_key: Optional[str] = None  # Clave del padre para FKs
     func: Optional[str] = None  # Función a aplicar al valor (upper, lower, etc.)
+    apply_uppercase: bool = True  # Si True, aplica uppercase a strings (default: True)
     
 
 @dataclass
@@ -155,7 +156,8 @@ class MappingLoader:
                 repeat_filter=field_config.get('repeat_filter'),
                 extract=field_config.get('extract'),
                 parent_key=field_config.get('parent_key'),
-                func=func_value
+                func=func_value,
+                apply_uppercase=field_config.get('apply_uppercase', True)  # Default: True
             )
         
         entity_mapping = EntityMapping(
