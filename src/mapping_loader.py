@@ -283,7 +283,7 @@ class MappingLoader:
             # Grupo 2: Boletas (depende de los IDs del grupo 1)
             ['boletas'],
             # Grupo 3: Tablas que dependen de boletas (formulario completo)
-            ['miembros_hogar', 'terrenos'],
+            ['miembros_hogar', 'terrenos', 'adjuntos', 'poligonos_boleta'],
             # Grupo 4: Tablas que dependen de terrenos (formulario completo)
             ['cultivos', 'forestales'],
             # Grupo 5: Formulario simplificado - Tabla principal
