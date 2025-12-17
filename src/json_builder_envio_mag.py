@@ -294,11 +294,40 @@ class JSONBuilderEnvioMAG:
                         result[json_field_name] = field_mapping.default if field_mapping.default is not None else []
                         continue
                     
+                    # DEBUG: Log para diagnóstico de arrays vacíos
+                    if config.DEBUG_CLI:
+                        etl_logger.debug(
+                            f"[JSONBuilderEnvioMAG] Procesando array '{json_field_name}' de tabla '{table_name}': "
+                            f"parent_id_field='{parent_id_field}', parent_id={parent_id} (type={type(parent_id).__name__}), "
+                            f"fk_column='{fk_column}', table_data_count={len(table_data)}"
+                        )
+                        if len(table_data) > 0 and len(table_data) <= 3:
+                            # Mostrar todos los rows si son pocos
+                            for idx, row in enumerate(table_data):
+                                fk_value = row.get(fk_column)
+                                etl_logger.debug(
+                                    f"[JSONBuilderEnvioMAG]   Row {idx}: {fk_column}={fk_value} (type={type(fk_value).__name__}), match={fk_value == parent_id}"
+                                )
+                        elif len(table_data) > 0:
+                            # Mostrar solo el primer row si hay muchos
+                            sample_row = table_data[0]
+                            sample_fk = sample_row.get(fk_column)
+                            etl_logger.debug(
+                                f"[JSONBuilderEnvioMAG]   Sample row: {fk_column}={sample_fk} (type={type(sample_fk).__name__})"
+                            )
+                    
                     # Filtrar registros que pertenecen a este padre
                     filtered_rows = []
                     for row in table_data:
                         if row.get(fk_column) == parent_id:
                             filtered_rows.append(row)
+                    
+                    # DEBUG: Log resultado del filtrado
+                    if config.DEBUG_CLI and len(filtered_rows) == 0 and len(table_data) > 0:
+                        etl_logger.warning(
+                            f"[JSONBuilderEnvioMAG] ⚠️  Array '{json_field_name}' vacío: "
+                            f"No se encontró {fk_column}=={parent_id} en {len(table_data)} registros de '{table_name}'"
+                        )
                     
                     # Construir cada elemento del array recursivamente
                     array_result = []

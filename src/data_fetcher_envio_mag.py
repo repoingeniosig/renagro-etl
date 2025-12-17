@@ -204,7 +204,10 @@ class DataFetcherEnvioMAG:
                         f"[DataFetcherEnvioMAG] ⚠️  Tabla '{table_name}' usada por múltiples YAMLs: {yaml_files}"
                     )
         
-        # Nivel 1: Consultar tablas directamente relacionadas con la raíz
+        # Nivel 1: Consultar SOLO tablas directamente relacionadas con la raíz
+        # Una tabla es hija directa si su parent_id coincide con el database_id de la raíz
+        root_db_id = root_mapping.database_id
+        
         for table_name, mappings_list in table_to_mappings.items():
             # Verificar si esta tabla tiene una consulta basada en 'source'
             if table_name in source_based_queries:
@@ -233,10 +236,7 @@ class DataFetcherEnvioMAG:
             
             # Usar el primer mapping para obtener parent_id
             yaml_file, entity_mapping = mappings_list[0]
-            
-            # Las tablas relacionadas usan parent_id (ej: bol_id) directamente
-            # Los root_ids que recibimos YA son los bol_id extraídos de boletas
-            parent_fk_column = entity_mapping.parent_id or root_mapping.database_id
+            parent_fk_column = entity_mapping.parent_id
             
             if not parent_fk_column:
                 etl_logger.warning(
@@ -244,18 +244,27 @@ class DataFetcherEnvioMAG:
                 )
                 continue
             
+            # CRÍTICO: Solo consultar en Nivel 1 si el parent_id coincide con el database_id de la raíz
+            # Esto evita consultar cultivos (parent_id=ter_id) con bol_ids incorrectos
+            if parent_fk_column != root_db_id:
+                if config.DEBUG_CLI:
+                    etl_logger.debug(
+                        f"[DataFetcherEnvioMAG] Tabla {table_name} (parent_id={parent_fk_column}) NO es hija directa de {root_mapping.table} (database_id={root_db_id}), se consultará en Nivel 2+"
+                    )
+                continue  # Esta tabla será consultada en Nivel 2+
+            
             try:
-                # Intentar primero como hijo directo de la raíz
+                # Consultar como hijo directo de la raíz
                 data = self.fetch_table_data(
                     table_name,
                     root_ids,
                     parent_fk_column,
-                    use_cache=True  # Usar cache para evitar duplicados
+                    use_cache=True
                 )
                 all_data[table_name] = data
                 
                 etl_logger.info(
-                    f"[DataFetcherEnvioMAG] ✅ Tabla {table_name}: {len(data)} registros "
+                    f"[DataFetcherEnvioMAG] ✅ Nivel 1 - Tabla {table_name}: {len(data)} registros "
                     f"(consultado con {parent_fk_column} IN ({root_ids[:2]}...))"
                 )
             except Exception as e:
@@ -316,10 +325,10 @@ class DataFetcherEnvioMAG:
                         )
                         all_data[child_table] = child_data
                         
-                        if config.DEBUG_CLI:
-                            etl_logger.debug(
-                                f"[DataFetcherEnvioMAG] Tabla hija {child_table}: {len(child_data)} registros (FK: {child_fk_column})"
-                            )
+                        etl_logger.info(
+                            f"[DataFetcherEnvioMAG] ✅ Nivel 2+ - Tabla {child_table}: {len(child_data)} registros "
+                            f"(padre={parent_table}, consultado con {child_fk_column} IN ({parent_ids[:2]}...))"
+                        )
                     except Exception as e:
                         etl_logger.warning(
                             f"[DataFetcherEnvioMAG] Error consultando tabla hija {child_table}: {e}"
