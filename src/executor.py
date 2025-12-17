@@ -431,7 +431,9 @@ VALUES
             'pollos': 'pol_id',
             'pecuario_otros': 'peot_id',
             'personas': 'per_id',
-            'miembros_hogar': 'miho_id'
+            'miembros_hogar': 'miho_id',
+            'adjuntos': 'adj_id',
+            'poligonos_boleta': 'pobo_id'
         }
         
         # Intentar obtener desde el mapeo explícito
