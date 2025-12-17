@@ -108,6 +108,7 @@ class EnvioMagSenderWorker:
                         UPDATE "{config.DB_SCHEMA}".{control_table}
                         SET envio_datos_procesados = :status,
                             reintentable = FALSE,
+                            error_mensajes_envio = NULL,
                             updated_at = CURRENT_TIMESTAMP
                         WHERE {control_id_column} = :control_id
                     """
