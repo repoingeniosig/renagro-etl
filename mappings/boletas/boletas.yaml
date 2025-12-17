@@ -824,7 +824,7 @@ fields:
     default: null
 
   bol_sistema_agua_riego:
-    source: "capitulos_1_10_wrapper/cap6_group/agua_riego_group/fuente_agua_riego"
+    source: "capitulos_1_10_wrapper/cap6_group/agua_riego_group/sistema_agua_riego"
     type: string
     default: null
 

@@ -42,12 +42,12 @@ fields:
 
   numeroUPA:
     source: "bol_numero_UPA"
-    type: string
+    type: integer
     default: null
 
   codigoEncuestador:
     source: "bol_codigo_encuestador"
-    type: string
+    type: integer
     default: null
 
   numeroBoleta:
