@@ -180,14 +180,14 @@ class BatchProcessorEnvioMAG:
                 f"[BatchProcessorEnvioMAG] Consultando tablas relacionadas con {self.target_config.source_database_id} IN ({database_ids[:3]}...)"
             )
             
-            # Usar mappings precargados en lugar de cargarlos nuevamente
-            # Los mappings ya fueron cargados en API startup y están en memoria
-            all_mappings = mapping_loader_envio_mag.loaded_mappings
+            # IMPORTANTE: Cargar TODOS los mappings recursivamente (main.yml + referencias)
+            # No usar loaded_mappings porque puede no tener todos los YAMLs referenciados
+            all_mappings = mapping_loader_envio_mag.load_all_mappings_recursive('main.yml', use_redis_cache=True)
             
-            if not all_mappings:
-                # Fallback: cargar si no están precargados (no debería ocurrir)
-                envio_mag_logger.warning("[BatchProcessorEnvioMAG] Mappings no precargados, cargando ahora...")
-                all_mappings = mapping_loader_envio_mag.load_all_mappings_recursive('main.yml')
+            if config.DEBUG_CLI:
+                envio_mag_logger.debug(
+                    f"[BatchProcessorEnvioMAG] Mappings cargados: {len(all_mappings)} YAMLs - {list(all_mappings.keys())}"
+                )
             
             # Obtener todos los datos de tablas relacionadas
             # Usar database_ids (bol_id) para consultar tablas relacionadas
@@ -224,12 +224,37 @@ class BatchProcessorEnvioMAG:
         # Cargar mapeo principal
         main_mapping = mapping_loader_envio_mag.load_main_mapping()
         
+        # DEBUG: Log del estado antes de construir JSON
+        bol_id = main_row.get(self.target_config.source_database_id)
+        if config.DEBUG_CLI:
+            envio_mag_logger.debug(
+                f"[BatchProcessorEnvioMAG] Construyendo JSON para {self.target_config.source_database_id}={bol_id}"
+            )
+            envio_mag_logger.debug(
+                f"[BatchProcessorEnvioMAG] all_related_data keys: {list(all_related_data.keys())}"
+            )
+            for table_name, rows in all_related_data.items():
+                envio_mag_logger.debug(
+                    f"[BatchProcessorEnvioMAG]   {table_name}: {len(rows)} rows"
+                )
+        
         # Construir JSON usando el builder (ahora sin parámetros hardcodeados)
         json_result = JSONBuilderEnvioMAG.build_nested_structure(
             main_row,
             main_mapping,
             all_related_data
         )
+        
+        # DEBUG: Log del resultado de arrays críticos
+        if config.DEBUG_CLI:
+            terrenos_count = len(json_result.get('terrenos', []))
+            envio_mag_logger.debug(
+                f"[BatchProcessorEnvioMAG] JSON construido: terrenos={terrenos_count} elementos"
+            )
+            if terrenos_count == 0 and 'terrenos' in all_related_data and len(all_related_data['terrenos']) > 0:
+                envio_mag_logger.error(
+                    f"[BatchProcessorEnvioMAG] ⚠️ BUG: all_related_data tiene {len(all_related_data['terrenos'])} terrenos pero JSON tiene 0"
+                )
         
         return json_result
     
