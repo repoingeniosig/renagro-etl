@@ -35,12 +35,12 @@ from pathlib import Path
 from sqlalchemy import text, func
 from datetime import datetime
 
-# Agregar src al path
-sys.path.insert(0, str(Path(__file__).parent.parent / 'src'))
+# Agregar raíz del proyecto al path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from database import db
-from config import config
-from logger import etl_logger
+from src.database import db
+from src.config import config
+from src.logger import etl_logger
 
 
 class EstadoAprobadoUpdater:
