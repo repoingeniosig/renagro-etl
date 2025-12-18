@@ -40,7 +40,8 @@ class EnvioMagSenderWorker:
         control_id_column: str,
         control_id: int,
         status: str,
-        error_message: str = None
+        error_message: str = None,
+        boleta_id: int = None
     ):
         """
         Actualiza el estado de un registro en la tabla de control
@@ -102,16 +103,22 @@ class EnvioMagSenderWorker:
                     'control_id': control_id
                 }
             else:
-                # Si el status es ENVIADO, también actualizar reintentable a FALSE
+                # Si el status es ENVIADO, también actualizar reintentable a FALSE y guardar boleta_id
                 if status == 'ENVIADO':
                     update_query = f"""
                         UPDATE "{config.DB_SCHEMA}".{control_table}
                         SET envio_datos_procesados = :status,
                             reintentable = FALSE,
                             error_mensajes_envio = NULL,
+                            id_boleta_creada = :boleta_id,
                             updated_at = CURRENT_TIMESTAMP
                         WHERE {control_id_column} = :control_id
                     """
+                    params = {
+                        'status': status,
+                        'boleta_id': boleta_id,
+                        'control_id': control_id
+                    }
                 else:
                     update_query = f"""
                         UPDATE "{config.DB_SCHEMA}".{control_table}
@@ -119,10 +126,10 @@ class EnvioMagSenderWorker:
                             updated_at = CURRENT_TIMESTAMP
                         WHERE {control_id_column} = :control_id
                     """
-                params = {
-                    'status': status,
-                    'control_id': control_id
-                }
+                    params = {
+                        'status': status,
+                        'control_id': control_id
+                    }
             
             with db.get_session() as session:
                 session.execute(text(update_query), params)
@@ -169,7 +176,7 @@ class EnvioMagSenderWorker:
                 )
                 
                 # Enviar JSON a API remota (con reintentos internos)
-                success, status_code, error_msg = await api_sender_envio_mag.send_json(
+                success, status_code, error_msg, boleta_id = await api_sender_envio_mag.send_json(
                     json_data=json_data,
                     control_id=control_id,
                     record_id=record_id
@@ -177,12 +184,13 @@ class EnvioMagSenderWorker:
                 
                 # Actualizar estado según resultado
                 if success:
-                    # Envío exitoso (201)
+                    # Envío exitoso (200)
                     await self.update_control_status(
                         control_table=control_table,
                         control_id_column=control_id_column,
                         control_id=control_id,
-                        status='ENVIADO'
+                        status='ENVIADO',
+                        boleta_id=boleta_id
                     )
                     
                     self.stats['success'] += 1

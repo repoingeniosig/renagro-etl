@@ -114,13 +114,17 @@ class APISenderEnvioMAG:
                     ) as response:
                         last_status = response.status
                         
-                        # Éxito: 201 Created
-                        if response.status == 201:
+                        # Éxito: 200 OK
+                        if response.status == 200:
+                            # Extraer boletaId del body
+                            response_data = await response.json()
+                            boleta_id = response_data.get('boletaId')
+                            
                             envio_mag_logger.info(
                                 f"[APISenderEnvioMAG] ✅ Enviado exitosamente: "
-                                f"control_id={control_id}, status=201"
+                                f"control_id={control_id}, status=200, boletaId={boleta_id}"
                             )
-                            return True, 201, None
+                            return True, 200, None, boleta_id
                         
                         # Error 401: Token inválido o expirado - DETENER TODO
                         if response.status == 401:
@@ -135,7 +139,7 @@ class APISenderEnvioMAG:
                             # Notificar al auth manager y detener proceso
                             await auth_manager_mag.handle_unauthorized()
                             
-                            return False, 401, error_msg
+                            return False, 401, error_msg, None
                         
                         # Error 4xx (excepto 401): No reintentar (error del cliente)
                         if 400 <= response.status < 500:
@@ -148,7 +152,7 @@ class APISenderEnvioMAG:
                                 f"body={error_text[:500] if len(error_text) > 500 else error_text}"
                             )
                             
-                            return False, response.status, error_msg
+                            return False, response.status, error_msg, None
                         
                         # Error 5xx: Reintentar (error del servidor)
                         if response.status >= 500:
@@ -216,7 +220,7 @@ class APISenderEnvioMAG:
                     )
                     
                     # No reintentar errores inesperados
-                    return False, None, last_error
+                    return False, None, last_error, None
         
         # Agotados todos los reintentos
         final_error = last_error or "Reintentos agotados sin respuesta"
@@ -226,7 +230,7 @@ class APISenderEnvioMAG:
             f"last_status={last_status}, error_completo={final_error}"
         )
         
-        return False, last_status, final_error
+        return False, last_status, final_error, None
 
 
 # Instancia global
