@@ -1164,7 +1164,7 @@ fields:
   neo_uuid_boleta:
     source: "_uuid"
     type: uuid
-    uuid: false
+    uppercase: false
     default: null
 
   neo_is_upa:
