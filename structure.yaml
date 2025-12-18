@@ -21,7 +21,7 @@ target_data_to_send:
   # Se construye: WHERE {column} = {value} AND {column} = {value} ...
   control_table_filters:
     - column: 'estado_etl'
-      value: 'PROCESADO'
+      value: 'APROBADO'
       type: 'enum'
     - column: 'envio_datos_procesados'
       value: 'PENDIENTE'

@@ -39,7 +39,7 @@ class BatchProcessorEnvioMAG:
         Obtiene los IDs pendientes desde la tabla de control configurada en structure.yaml
         
         Condiciones:
-        - estado_etl = 'PROCESADO' (datos ya insertados en BD)
+        - estado_etl = 'APROBADO' (datos validados y aprobados para envío)
         - envio_datos_procesados = 'PENDIENTE' (nuevos registros)
         - O envio_datos_procesados = 'ERROR' AND reintentable = TRUE (errores 5xx reintenables)
         
