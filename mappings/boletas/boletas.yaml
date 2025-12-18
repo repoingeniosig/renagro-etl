@@ -166,7 +166,7 @@ fields:
 
   bol_codigo_encuestador:
     source: "pre_datos_upa_group/codigo_encuestador"
-    type: string
+    type: integer
     default: null
 
   bol_codigo_UPA:
@@ -966,7 +966,7 @@ fields:
 
   bol_numero_UPA:
     source: "pre_datos_upa_group/numero_upa"
-    type: string
+    type: integer
     default: null
 
   bol_manejo_res_animal_otro:
