@@ -17,6 +17,7 @@ class EstadoETLEnum(enum.Enum):
     PENDIENTE = "PENDIENTE"
     PROCESADO = "PROCESADO"
     APROBADO = "APROBADO"
+    RECHAZADO = "RECHAZADO"
 
 
 class EstadoEnvioEnum(enum.Enum):
