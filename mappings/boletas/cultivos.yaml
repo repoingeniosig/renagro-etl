@@ -1,6 +1,7 @@
 version: 1.0
 entity: cultivos
 table: cultivos
+pk_field: cul_id
 
 repeat:
   source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/cultivos_generales_group/cultivos_repeat"

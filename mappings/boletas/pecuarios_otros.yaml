@@ -1,6 +1,7 @@
 version: 1.0
 entity: pecuarios_otros
 table: pecuarios_otros
+pk_field: peot_id
 
 fields:
   peot_alpaca:

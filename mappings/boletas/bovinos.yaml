@@ -1,6 +1,7 @@
 version: 1.0
 entity: bovinos
 table: bovinos
+pk_field: bov_id
 
 fields:
   bov_capacidad_total_explo:

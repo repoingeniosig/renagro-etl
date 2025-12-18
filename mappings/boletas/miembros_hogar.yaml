@@ -1,6 +1,7 @@
 version: 1.0
 entity: miembros_hogar
 table: miembros_hogar
+pk_field: miho_id
 
 repeat:
   source: "capitulos_1_10_wrapper/cap8_group/miembros_hogar_group/miembros_repeat"

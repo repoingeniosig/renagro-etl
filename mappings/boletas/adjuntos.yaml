@@ -1,6 +1,7 @@
 version: 1.0
 entity: adjuntos
 table: adjuntos
+pk_field: adj_id
 
 repeat:
   source: "_attachments"

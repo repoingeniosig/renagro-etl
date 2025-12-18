@@ -1,6 +1,7 @@
 version: 1.0
 entity: personas
 table: personas
+pk_field: per_id
 
 fields:
   per_identificacion:

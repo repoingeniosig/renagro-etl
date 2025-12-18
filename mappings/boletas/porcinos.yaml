@@ -1,6 +1,7 @@
 version: 1.0
 entity: porcinos
 table: porcinos
+pk_field: por_id
 
 fields:
   por_capaci_explot_cerdo:

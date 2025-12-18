@@ -1,6 +1,7 @@
 version: 1.0
 entity: forestales
 table: forestales
+pk_field: for_id
 
 # si el campo no existe se omite ya que para existir, depende de condicionales del formulario
 repeat:

@@ -1,6 +1,7 @@
 version: 1.0
 entity: poligonos_boleta
 table: poligonos_boleta
+pk_field: pobo_id
 
 repeat:
   source: "group_nw2re05"

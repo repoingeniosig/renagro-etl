@@ -1,6 +1,7 @@
 version: 1.0
 entity: pollos
 table: pollos
+pk_field: pol_id
 
 fields:
   pol_explotacion_pollo:

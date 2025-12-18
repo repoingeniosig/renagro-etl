@@ -1,6 +1,7 @@
 version: 1.0
 entity: boletas
 table: boletas
+pk_field: bol_id
 
 # IDs de entidades padre (múltiples)
 parent_keys:

@@ -416,38 +416,49 @@ VALUES
     
     def _get_primary_key_field(self, entity_name: str) -> str:
         """
-        Obtiene el campo de clave primaria para una entidad
+        Obtiene el campo de clave primaria para una entidad desde el YAML
         """
-        # Mapeo explícito de entidades a sus PKs
-        pk_map = {
-            'boletas': 'bol_id',
-            'boletas-simplificada': 'bosi_id',
-            'terrenos': 'ter_id',
-            'terrenos_simplificado': 'tesi_id',
-            'cultivos': 'cul_id',
-            'forestales': 'for_id',
-            'bovinos': 'bov_id',
-            'porcinos': 'por_id',
-            'pollos': 'pol_id',
-            'pecuario_otros': 'peot_id',
-            'personas': 'per_id',
-            'miembros_hogar': 'miho_id',
-            'adjuntos': 'adj_id',
-            'poligonos_boleta': 'pobo_id'
-        }
+        # PASO 1: Intentar obtener pk_field directamente desde el YAML del mapping
+        from .mapping_loader import mapping_loader
+        entity_mapping = mapping_loader.entity_mappings.get(entity_name)
         
-        # Intentar obtener desde el mapeo explícito
-        if entity_name in pk_map:
-            return pk_map[entity_name]
+        if entity_mapping:
+            # Verificar si el YAML tiene el campo pk_field definido
+            raw = entity_mapping.raw_data if hasattr(entity_mapping, 'raw_data') and entity_mapping.raw_data else {}
+            pk_field = raw.get('pk_field')
+            
+            if pk_field:
+                return pk_field
         
-        # Intentar obtener desde el mapa construido
+        # PASO 2: Intentar obtener desde el mapa construido de parent_keys
         if entity_name in self._parent_child_map:
             return self._parent_child_map[entity_name]['pk_field']
         
-        # Fallback: usar prefijo de la entidad + _id
-        # Advertencia: esto puede fallar si el nombre no sigue la convención
-        etl_logger.warning(f"[Executor] PK no encontrada para '{entity_name}', usando fallback")
-        prefix = entity_name[:3] if len(entity_name) >= 3 else entity_name
+        # PASO 3: Fallback - generar desde el nombre de la entidad
+        etl_logger.warning(
+            f"[Executor] pk_field no definido en YAML para '{entity_name}', usando fallback"
+        )
+        
+        # Casos especiales para nombres compuestos conocidos
+        special_cases = {
+            'poligonos_boleta': 'pobo_id',
+            'poligono_boleta': 'pobo_id',
+            'miembros_hogar': 'miho_id',
+            'miembro_hogar': 'miho_id',
+            'pecuarios_otros': 'peot_id',
+            'pecuario_otros': 'peot_id',
+            'boletas_simplificada': 'bosi_id',
+            'boleta_simplificada': 'bosi_id',
+            'terrenos_simplificado': 'tesi_id',
+            'terreno_simplificado': 'tesi_id',
+        }
+        
+        if entity_name in special_cases:
+            return special_cases[entity_name]
+        
+        # Fallback genérico: primeros 3-4 caracteres del nombre + _id
+        # Usar 4 caracteres para evitar colisiones (pol/por, per/pec, etc)
+        prefix = entity_name[:4] if len(entity_name) >= 4 else entity_name[:3]
         return f"{prefix}_id"
     
     @staticmethod
