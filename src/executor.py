@@ -434,30 +434,13 @@ VALUES
         if entity_name in self._parent_child_map:
             return self._parent_child_map[entity_name]['pk_field']
         
-        # PASO 3: Fallback - generar desde el nombre de la entidad
-        etl_logger.warning(
-            f"[Executor] pk_field no definido en YAML para '{entity_name}', usando fallback"
+        # PASO 3: Fallback genérico - NO debería llegar aquí si los YAML están bien definidos
+        etl_logger.error(
+            f"[Executor] CONFIGURACIÓN INVÁLIDA: pk_field no definido en YAML para '{entity_name}'. "
+            f"Agregá 'pk_field: {entity_name[:4]}_id' al YAML correspondiente."
         )
         
-        # Casos especiales para nombres compuestos conocidos
-        special_cases = {
-            'poligonos_boleta': 'pobo_id',
-            'poligono_boleta': 'pobo_id',
-            'miembros_hogar': 'miho_id',
-            'miembro_hogar': 'miho_id',
-            'pecuarios_otros': 'peot_id',
-            'pecuario_otros': 'peot_id',
-            'boletas_simplificada': 'bosi_id',
-            'boleta_simplificada': 'bosi_id',
-            'terrenos_simplificado': 'tesi_id',
-            'terreno_simplificado': 'tesi_id',
-        }
-        
-        if entity_name in special_cases:
-            return special_cases[entity_name]
-        
-        # Fallback genérico: primeros 3-4 caracteres del nombre + _id
-        # Usar 4 caracteres para evitar colisiones (pol/por, per/pec, etc)
+        # Fallback de emergencia: primeros 4 caracteres del nombre + _id
         prefix = entity_name[:4] if len(entity_name) >= 4 else entity_name[:3]
         return f"{prefix}_id"
     
