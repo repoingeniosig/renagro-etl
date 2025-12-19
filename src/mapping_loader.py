@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FieldMapping:
     """Mapeo de un campo individual"""
-    source: Any  # Ruta en el JSON (dot notation) - puede ser str o List[str] para concatenación
+    source: Any  # Ruta en el JSON (dot notation) - puede ser str o List[str] para concatenación o dict con 'field' y 'when'
     type: str  # integer, decimal, boolean, string, email, uuid, datetime
     default: Any = None
     convert: Optional[Dict[str, Any]] = None
@@ -28,6 +28,7 @@ class FieldMapping:
     parent_key: Optional[str] = None  # Clave del padre para FKs
     func: Optional[str] = None  # Función a aplicar al valor (upper, lower, etc.)
     apply_uppercase: bool = True  # Si True, aplica uppercase a strings (default: True)
+    when: Optional[Dict[str, Any]] = None  # Condición para extraer el valor (field, convert, equals)
     
 
 @dataclass
@@ -143,10 +144,25 @@ class MappingLoader:
             source_config = field_config['source']
             source_value = source_config
             func_value = None
+            when_value = None
             
+            # Manejar source como dict con diferentes estructuras
             if isinstance(source_config, dict):
-                source_value = source_config.get('field')
-                func_value = source_config.get('func')
+                # Caso 1: Dict con 'field' y 'when' (condicional)
+                if 'when' in source_config:
+                    # Preservar toda la estructura dict para condicionales
+                    source_value = source_config
+                    when_value = source_config.get('when')
+                # Caso 2: Dict con 'field' y 'func' (función aplicada)
+                elif 'field' in source_config and 'func' in source_config:
+                    source_value = source_config.get('field')
+                    func_value = source_config.get('func')
+                # Caso 3: Dict con solo 'field'
+                elif 'field' in source_config:
+                    source_value = source_config.get('field')
+                # Caso 4: Otros casos (mantener el dict completo)
+                else:
+                    source_value = source_config
             
             fields[field_name] = FieldMapping(
                 source=source_value,
@@ -157,7 +173,8 @@ class MappingLoader:
                 extract=field_config.get('extract'),
                 parent_key=field_config.get('parent_key'),
                 func=func_value,
-                apply_uppercase=field_config.get('apply_uppercase', True)  # Default: True
+                apply_uppercase=field_config.get('apply_uppercase', True),  # Default: True
+                when=when_value
             )
         
         entity_mapping = EntityMapping(

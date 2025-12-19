@@ -13,6 +13,64 @@ class JSONTransformer:
     """Transformador de JSON a estructuras relacionales"""
     
     @staticmethod
+    def evaluate_condition(
+        json_data: Dict[str, Any],
+        condition: Dict[str, Any],
+        conversions: Dict = None
+    ) -> bool:
+        """
+        Evalúa una condición 'when' para determinar si se debe extraer un valor
+        
+        Args:
+            json_data: Datos JSON del formulario
+            condition: Diccionario con la condición (field, convert, equals)
+            conversions: Diccionario de conversiones disponibles
+        
+        Returns:
+            True si la condición se cumple, False en caso contrario
+        
+        Ejemplo condition:
+            {
+                'field': 'capitulos_1_10_wrapper/productos_pecuarios_group/ganado_bovino_group/existe_ganado_bovino',
+                'convert': 'yes_no_to_bool',
+                'equals': True
+            }
+        """
+        if not condition or 'field' not in condition:
+            return True  # Sin condición, siempre verdadero
+        
+        # Obtener el valor del campo de condición
+        condition_field = condition['field']
+        condition_value = JSONTransformer.get_value_by_path(json_data, condition_field)
+        
+        # Aplicar conversión si está especificada
+        if 'convert' in condition and condition_value is not None:
+            convert_name = condition['convert']
+            
+            # Aplicar conversión yes_no_to_bool
+            if convert_name == 'yes_no_to_bool':
+                if isinstance(condition_value, str):
+                    value_lower = condition_value.lower().strip()
+                    if value_lower in ('si', 'sí', 'yes', 'true', '1'):
+                        condition_value = True
+                    elif value_lower in ('no', 'false', '0'):
+                        condition_value = False
+            
+            # Aplicar otras conversiones desde el diccionario
+            elif conversions and convert_name in conversions:
+                conversion_map = conversions[convert_name]
+                if condition_value in conversion_map:
+                    condition_value = conversion_map[condition_value]
+        
+        # Comparar con el valor esperado
+        if 'equals' in condition:
+            expected_value = condition['equals']
+            return condition_value == expected_value
+        
+        # Si no hay 'equals', considerar verdadero si el valor no es None/False
+        return bool(condition_value)
+    
+    @staticmethod
     def get_value_by_path(data: Dict[str, Any], path: str) -> Any:
         """
         Obtiene un valor del JSON usando notación de punto y soporte para índices de array
@@ -269,6 +327,23 @@ class JSONTransformer:
             if field_mapping.source is None or \
                (isinstance(field_mapping.source, str) and field_mapping.source.strip() == ""):
                 value = None  # convert_value usará el default
+            # Si source es un dict con condicional 'when'
+            elif isinstance(field_mapping.source, dict) and 'when' in field_mapping.source:
+                # Evaluar condición
+                condition_met = JSONTransformer.evaluate_condition(
+                    json_data,
+                    field_mapping.source['when'],
+                    entity_mapping.conversions
+                )
+                
+                if condition_met:
+                    # Extraer el valor del campo especificado
+                    source_field = field_mapping.source.get('field')
+                    if source_field:
+                        value = JSONTransformer.get_value_by_path(json_data, source_field)
+                else:
+                    # Condición no cumplida, usar default
+                    value = None
             # Si source es una lista, concatenar todos los valores
             elif isinstance(field_mapping.source, list):
                 value = JSONTransformer.extract_and_concatenate_sources(json_data, field_mapping.source)
