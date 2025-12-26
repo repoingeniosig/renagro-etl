@@ -269,6 +269,8 @@ fields:
   bol_direccion_email:
     source: "capitulos_1_10_wrapper/datos_pp_group/comunicacion_group/correo_electronico_direccion"
     type: email
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   bol_distancia_al_domicilio:
@@ -1161,7 +1163,8 @@ fields:
   neo_uuid_boleta:
     source: "_uuid"
     type: uuid
-    uppercase: false
+    apply_uppercase: false
+    sanitize: false
     default: null
 
   neo_is_upa:

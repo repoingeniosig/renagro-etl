@@ -21,17 +21,20 @@ fields:
   adj_url_descarga:
     source: "download_url"
     type: string
+    sanitize: false
     apply_uppercase: false
     default: null
 
   adj_mimetype:
     source: "mimetype"
     type: string
+    sanitize: false
     apply_uppercase: false
     default: null
 
   adj_nombre:
     source: "media_file_basename"
     type: string
+    sanitize: false
     apply_uppercase: false
     default: null
