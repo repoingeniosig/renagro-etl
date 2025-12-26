@@ -171,7 +171,7 @@ fields:
     default: null
 
   bol_codigo_UPA:
-    source: "pre_datos_upa_group/codigo_upa_total""
+    source: "pre_datos_upa_group/codigo_upa_total"
     type: string
     default: null
 
@@ -1370,7 +1370,7 @@ fields:
     type: string
     default: null
 
-  neo_trazo_v3:s
+  neo_trazo_v3:
     source: "visita3_group/datos_visita_v3/trazo_v3c"
     type: string
     default: null
