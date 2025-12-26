@@ -13,6 +13,35 @@ class JSONTransformer:
     """Transformador de JSON a estructuras relacionales"""
     
     @staticmethod
+    def sanitize_string(value: str) -> str:
+        """
+        Elimina caracteres especiales de un string.
+        Solo permite: letras (incluyendo acentuadas y ñ), números (0-9), espacios y saltos de línea (\n, \r)
+        
+        Args:
+            value: String a sanitizar
+        
+        Returns:
+            String sanitizado sin caracteres especiales
+        """
+        import re
+        if not isinstance(value, str):
+            return value
+        
+        # Patrón: permitir letras (incluyendo acentuadas y ñ/Ñ), números, espacios, tabs y saltos de línea
+        # \w incluye letras, números y guión bajo en modo Unicode
+        # \s incluye espacios, tabs, newlines
+        # Se agrega ñÑ explícitamente por si acaso
+        # Se elimina todo lo que NO sea: letras (con acentos), números, o whitespace
+        # Usamos Unicode flag (re.UNICODE) para manejar correctamente caracteres especiales
+        sanitized = re.sub(r'[^\w\s]', '', value, flags=re.UNICODE)
+        
+        # Eliminar guiones bajos que incluye \w pero no queremos
+        sanitized = sanitized.replace('_', '')
+        
+        return sanitized
+    
+    @staticmethod
     def evaluate_condition(
         json_data: Dict[str, Any],
         condition: Dict[str, Any],
@@ -225,16 +254,24 @@ class JSONTransformer:
             elif field_mapping.type == 'string':
                 if value is not None:
                     str_value = str(value)
+                    # Aplicar sanitización si sanitize es True (default)
+                    if field_mapping.sanitize:
+                        str_value = JSONTransformer.sanitize_string(str_value)
                     # Aplicar uppercase solo si apply_uppercase es True (default)
                     if field_mapping.apply_uppercase:
-                        return str_value.upper()
+                        str_value = str_value.upper()
                     return str_value
                 return field_mapping.default
             
             elif field_mapping.type == 'email':
                 # Emails se tratan como strings pero NO se convierten a mayúsculas
                 if value is not None:
-                    return str(value)
+                    str_value = str(value)
+                    # Aplicar sanitización si sanitize es True (default)
+                    # NOTA: Para emails, sanitize debería ser False en el YAML
+                    if field_mapping.sanitize:
+                        str_value = JSONTransformer.sanitize_string(str_value)
+                    return str_value
                 return field_mapping.default
             
             elif field_mapping.type == 'uuid':

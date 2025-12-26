@@ -28,6 +28,7 @@ class FieldMapping:
     parent_key: Optional[str] = None  # Clave del padre para FKs
     func: Optional[str] = None  # Función a aplicar al valor (upper, lower, etc.)
     apply_uppercase: bool = True  # Si True, aplica uppercase a strings (default: True)
+    sanitize: bool = True  # Si True, elimina caracteres especiales de strings (default: True)
     when: Optional[Dict[str, Any]] = None  # Condición para extraer el valor (field, convert, equals)
     
 
@@ -174,6 +175,7 @@ class MappingLoader:
                 parent_key=field_config.get('parent_key'),
                 func=func_value,
                 apply_uppercase=field_config.get('apply_uppercase', True),  # Default: True
+                sanitize=field_config.get('sanitize', True),  # Default: True
                 when=when_value
             )
         
