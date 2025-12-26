@@ -171,11 +171,7 @@ fields:
     default: null
 
   bol_codigo_UPA:
-    source: 
-      - "pre_datos_upa_group/poligono_pre"
-      - "pre_datos_upa_group/numero_upa"
-      - "pre_datos_upa_group/codigo_encuestador"
-      - "pre_datos_upa_group/numero_boleta"
+    source: "pre_datos_upa_group/codigo_upa_total""
     type: string
     default: null
 
@@ -1175,6 +1171,11 @@ fields:
       yes_no_to_bool: true
     default: false
 
+  neo_punto_upa:
+    source: "punto_upa"
+    type: string
+    default: null
+
   neo_fecha_visita_no_upa:
     source: "visita_no_upa/fecha_visita_no_upa"
     type: datetime
@@ -1187,6 +1188,11 @@ fields:
 
   neo_poligono_no_upa:
     source: "visita_no_upa/poligono_no_upa"
+    type: string
+    default: null
+
+  neo_punto_no_upa:
+    source: "visita_no_upa/punto_no_upa"
     type: string
     default: null
 
@@ -1251,6 +1257,11 @@ fields:
     type: string
     default: null
 
+  neo_trazo_v1:
+    source: "visita1_group/datos_visita_v1c/trazo_v1c"
+    type: string
+    default: null
+
   neo_foto_v1:
     source: "visita1_group/datos_visita_v1c/foto_v1c"
     type: string
@@ -1307,6 +1318,11 @@ fields:
     type: string
     default: null
 
+  neo_trazo_v2:
+    source: "visita2_group/datos_visita_v2c/trazo_v2c"
+    type: string
+    default: null
+
   neo_foto_v2:
     source: "visita2_group/datos_visita_v2c/foto_v2c"
     type: string
@@ -1342,27 +1358,52 @@ fields:
     default: null
 
   neo_superficie_aprox_ha_v3:
-    source: "visita3_group/datos_visita_v3c/num_ha_v3c"
+    source: "visita3_group/datos_visita_v3/num_ha_v3"
     type: float
     default: null
 
   neo_coordenada_v3:
-    source: "visita3_group/datos_visita_v3c/coord_v3c"
+    source: "visita3_group/datos_visita_v3/coord_v3"
+    type: string
+    default: null
+
+  neo_trazo_v3:s
+    source: "visita3_group/datos_visita_v3/trazo_v3c"
     type: string
     default: null
 
   neo_foto_v3:
-    source: "visita3_group/datos_visita_v3c/foto_v3c"
+    source: "visita3_group/datos_visita_v3/group_trazo_UPA"
     type: string
     default: null
 
   neo_observacion_cierre_v3:
-    source: "visita3_group/datos_visita_v3c/notas_texto_no_informante_v3"
+    source: "visita3_group/datos_visita_v3/notas_texto_no_informante_v3"
+    type: string
+    default: null
+
+  neo_superficie_aprox_ha_v3_cierre:
+    source: "visita3_group/datos_visita_v3c/num_ha_v3c"
+    type: float
+    default: null
+
+  neo_coordenada_v3_cierre:
+    source: "visita3_group/datos_visita_v3c/coord_v3c"
+    type: string
+    default: null
+
+  neo_trazo_v3_cierre:
+    source: "visita3_group/datos_visita_v3c/trazo_v3c"
+    type: string
+    default: null
+
+  neo_foto_v3_cierre:
+    source: "visita3_group/datos_visita_v3/foto_v3c"
     type: string
     default: null
 
   neo_dpa_upa:
-    source: "pre_datos_upa_group/dpa_pre"
+    source: "pre_datos_upa_group/parroquia_dpa"
     type: string
     default: null
 
