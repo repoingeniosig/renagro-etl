@@ -7,4 +7,4 @@ ADD COLUMN "neo_trazo_v3" TEXT,
 ADD COLUMN "neo_superficie_aprox_ha_v3_cierre" TEXT,
 ADD COLUMN "neo_coordenada_v3_cierre" TEXT,
 ADD COLUMN "neo_trazo_v3_cierre" TEXT,
-ADD COLUMN "neo_foto_v3_cierre" TEXT,
+ADD COLUMN "neo_foto_v3_cierre" TEXT
