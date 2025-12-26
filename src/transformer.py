@@ -15,29 +15,49 @@ class JSONTransformer:
     @staticmethod
     def sanitize_string(value: str) -> str:
         """
-        Elimina caracteres especiales de un string.
-        Solo permite: letras (incluyendo acentuadas y ñ), números (0-9), espacios y saltos de línea (\n, \r)
+        Sanitiza un string siguiendo estas reglas:
+        1. Reemplaza vocales con tilde por su equivalente sin tilde (á→a, é→e, í→i, ó→o, ú→u)
+        2. Reemplaza ñ por n (tanto minúscula como mayúscula)
+        3. Elimina caracteres especiales, preservando solo: letras (a-z, A-Z), números (0-9) y espacios
+        4. Elimina saltos de línea y tabulaciones
         
         Args:
             value: String a sanitizar
         
         Returns:
-            String sanitizado sin caracteres especiales
+            String sanitizado
         """
         import re
         if not isinstance(value, str):
             return value
         
-        # Patrón: permitir letras (incluyendo acentuadas y ñ/Ñ), números, espacios, tabs y saltos de línea
-        # \w incluye letras, números y guión bajo en modo Unicode
-        # \s incluye espacios, tabs, newlines
-        # Se agrega ñÑ explícitamente por si acaso
-        # Se elimina todo lo que NO sea: letras (con acentos), números, o whitespace
-        # Usamos Unicode flag (re.UNICODE) para manejar correctamente caracteres especiales
-        sanitized = re.sub(r'[^\w\s]', '', value, flags=re.UNICODE)
+        # PASO 1: Reemplazar vocales con tilde por equivalente sin tilde
+        replacements = {
+            'á': 'a', 'é': 'e', 'í': 'i', 'ó': 'o', 'ú': 'u',
+            'Á': 'A', 'É': 'E', 'Í': 'I', 'Ó': 'O', 'Ú': 'U',
+            'à': 'a', 'è': 'e', 'ì': 'i', 'ò': 'o', 'ù': 'u',
+            'À': 'A', 'È': 'E', 'Ì': 'I', 'Ò': 'O', 'Ù': 'U',
+            'ä': 'a', 'ë': 'e', 'ï': 'i', 'ö': 'o', 'ü': 'u',
+            'Ä': 'A', 'Ë': 'E', 'Ï': 'I', 'Ö': 'O', 'Ü': 'U',
+            'â': 'a', 'ê': 'e', 'î': 'i', 'ô': 'o', 'û': 'u',
+            'Â': 'A', 'Ê': 'E', 'Î': 'I', 'Ô': 'O', 'Û': 'U',
+            'ñ': 'n', 'Ñ': 'N'
+        }
         
-        # Eliminar guiones bajos que incluye \w pero no queremos
-        sanitized = sanitized.replace('_', '')
+        for old_char, new_char in replacements.items():
+            value = value.replace(old_char, new_char)
+        
+        # PASO 2: Eliminar saltos de línea y tabulaciones
+        value = value.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+        
+        # PASO 3: Eliminar caracteres especiales (solo permitir letras a-z, A-Z, números 0-9 y espacios)
+        sanitized = re.sub(r'[^a-zA-Z0-9 ]', '', value)
+        
+        # PASO 4: Normalizar espacios múltiples a un solo espacio
+        sanitized = re.sub(r' +', ' ', sanitized)
+        
+        # PASO 5: Eliminar espacios al inicio y final
+        sanitized = sanitized.strip()
         
         return sanitized
     

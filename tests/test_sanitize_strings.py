@@ -22,13 +22,13 @@ def test_sanitize_string():
     test_cases = [
         {
             "input": "Juan Pérez @ Gmail.com",
-            "expected": "Juan Pérez  Gmailcom",
-            "description": "Email con @ y punto"
+            "expected": "Juan Perez Gmailcom",
+            "description": "Email con @ y punto, tilde removida"
         },
         {
             "input": "Teléfono: +593-099-123-4567",
-            "expected": "Teléfono 5930991234567",
-            "description": "Teléfono con símbolos"
+            "expected": "Telefono 5930991234567",
+            "description": "Teléfono con símbolos, tilde removida"
         },
         {
             "input": "Precio: $100.50 USD",
@@ -37,18 +37,18 @@ def test_sanitize_string():
         },
         {
             "input": "Dirección: Calle #25, Av. Principal",
-            "expected": "Dirección Calle 25 Av Principal",
-            "description": "Dirección con #, comas"
+            "expected": "Direccion Calle 25 Av Principal",
+            "description": "Dirección con #, comas, tilde removida"
         },
         {
             "input": "Comentario:\nLínea 1\nLínea 2\nLínea 3",
-            "expected": "Comentario\nLínea 1\nLínea 2\nLínea 3",
-            "description": "Texto con saltos de línea (deben preservarse)"
+            "expected": "Comentario Linea 1 Linea 2 Linea 3",
+            "description": "Texto con saltos de línea (convertidos a espacios)"
         },
         {
             "input": "Código: ABC-123_XYZ",
-            "expected": "Código ABC123XYZ",
-            "description": "Código con guiones y guión bajo (eliminados)"
+            "expected": "Codigo ABC123XYZ",
+            "description": "Código con guiones y guión bajo (eliminados), tilde removida"
         },
         {
             "input": "50%",
@@ -62,13 +62,18 @@ def test_sanitize_string():
         },
         {
             "input": "Áéíóú ÁÉÍÓÚ ñÑ",
-            "expected": "Áéíóú ÁÉÍÓÚ ñÑ",
-            "description": "Acentos y eñes (deben mantenerse)"
+            "expected": "Aeiou AEIOU nN",
+            "description": "Acentos removidos, ñ reemplazada por n"
         },
         {
             "input": "!@#$%^&*()[]{}|\\/<>?",
             "expected": "",
             "description": "Solo símbolos especiales (resultado vacío)"
+        },
+        {
+            "input": "   Espacios   múltiples   ",
+            "expected": "Espacios multiples",
+            "description": "Espacios múltiples normalizados"
         }
     ]
     
@@ -121,7 +126,7 @@ def test_sanitize_in_transform():
     
     value = "Juan Pérez @ #123"
     result = JSONTransformer.convert_value(value, field_mapping_sanitize, None)
-    expected = "JUAN PÉREZ  123"  # Sanitizado + uppercase (mantiene acentos)
+    expected = "JUAN PEREZ 123"  # Sanitizado + uppercase (tildes removidas)
     
     print(f"Input:    '{value}'")
     print(f"Expected: '{expected}'")
@@ -175,7 +180,7 @@ def test_sanitize_in_transform():
     
     value = "Texto con símbolos: $100 & más"
     result = JSONTransformer.convert_value(value, field_mapping_sanitize_no_upper, None)
-    expected = "Texto con símbolos 100  más"  # Sanitizado sin uppercase (mantiene acentos)
+    expected = "Texto con simbolos 100 mas"  # Sanitizado sin uppercase (tildes removidas)
     
     print(f"Input:    '{value}'")
     print(f"Expected: '{expected}'")
