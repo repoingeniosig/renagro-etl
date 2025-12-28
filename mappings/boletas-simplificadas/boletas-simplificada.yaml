@@ -1,6 +1,7 @@
 version: 1.0
 entity: boletas_simplificada
 table: boletas_simplificada
+pk_field: bosi_id
 
 fields:
   bosi_provincia:
@@ -121,6 +122,8 @@ fields:
   bosi_id_levanta:
     source: "_uuid"
     type: string
+    apply_uppercase: false
+    sanitize: false
     default: null
 
   bosi_estado:

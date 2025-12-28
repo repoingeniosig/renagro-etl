@@ -1,0 +1,142 @@
+version: 1.0
+entity: procesos
+table: procesos
+pk_field: ter_id
+
+fields:
+  pro_provincia:
+    source: "pre_datos_upa_group/provincia_pre"
+    type: string
+    default: null
+
+  pro_canton:
+    source: "pre_datos_upa_group/canton_pre"
+    type: string
+    default: null
+
+  pro_parroquia:
+    source: "pre_datos_upa_group/parroquia_pre"
+    type: string
+    default: null
+
+  pro_poligono:
+    source: "pre_datos_upa_group/poligono"
+    type: string
+    default: null
+
+  pro_segmento:
+    source: "pre_datos_upa_group/segmento"
+    type: string
+    default: null
+
+  pro_latitud:
+    source: "_geolocation[0]"
+    type: float
+    default: null
+
+  pro_longitud:
+    source: "_geolocation[1]"
+    type: float
+    default: null
+
+  pro_altitud:
+    source: ""
+    type: float
+    default: null
+
+  pro_precision_hdop:
+    source: ""
+    type: float
+    default: null
+
+  pro_fecha:
+    source: "pre_datos_upa_group/fecha"
+    type: datetime
+    default: null
+
+  pro_supervisor:
+    source: "pre_datos_upa_group/supervisior"
+    type: string
+    default: null
+
+  pro_equipo:
+    source: "pre_datos_upa_group/equipo"
+    type: string
+    default: null
+
+  pro_hora_inicio:
+    source: "pre_datos_upa_group/Hora_de_inicio"
+    type: string
+    default: null
+
+  pro_hora_finalizacion:
+    source: "pre_datos_upa_group/Hora_de_finalizaci_n"
+    type: string
+    default: null
+
+  pro_presentacion_personal:
+    source: "visita1_group/proceso1"
+    type: string
+    default: null
+
+  pro_intrumento_recoleccion:
+    source: "visita1_group/proceso2"
+    type: string
+    default: null
+
+  pro_aplicacion_guia:
+    source: "visita1_group/proceso3"
+    type: string
+    default: null
+
+  pro_interaccion_productores:
+    source: "visita1_group/proceso4"
+    type: string
+    default: null
+
+  pro_cumplimiento_procedimiento:
+    source: "visita1_group/proceso5"
+    type: string
+    default: null
+
+  pro_seguridad_campo:
+    source: "visita1_group/proceso6"
+    type: string
+    default: null
+
+  pro_observacion:
+    source: "notas_group/notas_texto"
+    type: string
+    default: null
+
+  pro_nombre_supervisor:
+    source: "notas_group/notas_texto_001"
+    type: string
+    default: null
+
+  pro_nombre_tecnico:
+    source: "notas_group/Nombre_del_T_cnico"
+    type: string
+    default: null
+
+  pro_id_levanta:
+    source: "_uuid"
+    type: string
+    apply_uppercase: false
+    sanitize: false
+    default: null
+
+  pro_estado:
+    source: ""
+    type: integer
+    default: 11
+
+  pro_reg_usu:
+    source: ""
+    type: integer
+    default: 999
+
+  pro_reg_fecha:
+    source: "_submission_time"
+    type: datetime
+    default: null

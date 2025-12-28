@@ -1,6 +1,7 @@
 version: 1.0
 entity: terrenos_simplificado
 table: terrenos_simplificado
+pk_field: tesi_id
 
 repeat:
   source: "begin_group_LTII89MFN/cobertura_repeat"

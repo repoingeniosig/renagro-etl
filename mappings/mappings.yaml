@@ -12,13 +12,13 @@ forms:
     target_control_table_field: uuid_boleta
     
   # Formulario de Procesos Productivos
-  # - uuid: "078cca4bd25b40bf87c42a7b2b3f8ff9"
-  #   name: "boletas-procesos"
-  #   description: "Formulario de procesos productivos"
-  #   control_table: "control_envios_boletas_procesos"
-  #   mapping_dir: "boletas-procesos"
-  #   source_form_uuid_field: _uuid
-  #   target_control_table_field: uuid_boleta
+  - uuid: "078cca4bd25b40bf87c42a7b2b3f8ff9"
+    name: "boletas-procesos"
+    description: "Formulario de procesos productivos"
+    control_table: "control_envios_boletas_procesos"
+    mapping_dir: "boletas-procesos"
+    source_form_uuid_field: _uuid
+    target_control_table_field: uuid_boleta
     
   # Formulario Simplificado
   - uuid: "8c6d5f403ffd4f568215e79a352416c4"
