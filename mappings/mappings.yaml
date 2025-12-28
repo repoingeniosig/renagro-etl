@@ -3,7 +3,8 @@
 
 forms:
   # Formulario Principal - Boletas Completas
-  - uuid: "00885ce6824041039a4e0218a0e8167f"
+  # 00885ce6824041039a4e0218a0e8167f
+  - uuid: "454d2b608872454286500aab9cc76fe3"
     name: "boletas"
     description: "Formulario principal de boletas agropecuarias"
     control_table: "control_envios_boletas"
