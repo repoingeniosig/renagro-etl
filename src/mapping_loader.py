@@ -296,22 +296,27 @@ class MappingLoader:
             Lista de listas, donde cada lista interna representa un grupo
             que puede ser procesado en paralelo
         """
-        # Orden definido según dependencias de FK
-        # IMPORTANTE: Asegurarse de que las entidades en master.yml estén incluidas aquí
-        return [
-            # Grupo 1: Tablas principales sin dependencias (formulario completo)
-            ['bovinos', 'pecuario_otros', 'pollos', 'porcinos', 'personas'],
-            # Grupo 2: Boletas (depende de los IDs del grupo 1)
-            ['boletas'],
-            # Grupo 3: Tablas que dependen de boletas (formulario completo)
-            ['miembros_hogar', 'terrenos', 'adjuntos', 'poligonos_boleta'],
-            # Grupo 4: Tablas que dependen de terrenos (formulario completo)
-            ['cultivos', 'forestales'],
-            # Grupo 5: Formulario simplificado - Tabla principal
-            ['boletas-simplificada'],
-            # Grupo 6: Formulario simplificado - Tablas dependientes
-            ['terrenos_simplificado']
-        ]
+        # Cargar master.yml si no está cargado
+        if not self.master_config:
+            self.load_master()
+        
+        # Leer el processing_order del master.yml
+        # Si no existe, generar un orden simple con todas las entidades en un solo grupo
+        if 'processing_order' in self.master_config:
+            return self.master_config['processing_order']
+        else:
+            # Auto-generar orden simple: todas las entidades en un solo grupo
+            # excepto 'processing_order' que es metadata
+            entities = [
+                entity_name 
+                for entity_name in self.master_config.keys() 
+                if entity_name != 'processing_order'
+            ]
+            etl_logger.warning(
+                f"No se encontró 'processing_order' en master.yml. "
+                f"Usando orden simple para {len(entities)} entidades"
+            )
+            return [entities] if entities else []
 
 
 # Instancia global del cargador

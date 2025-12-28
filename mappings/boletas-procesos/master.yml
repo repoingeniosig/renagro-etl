@@ -1,1 +1,5 @@
 procesos: "procesos.yaml"
+
+# Orden de procesamiento (una sola entidad)
+processing_order:
+  - - procesos

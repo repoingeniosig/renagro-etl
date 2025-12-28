@@ -1,2 +1,7 @@
 boletas-simplificada: "boletas-simplificada.yaml"
 terrenos_simplificado: "terrenos-simplificado.yaml"
+
+# Orden de procesamiento según dependencias de FK
+processing_order:
+  - - boletas-simplificada
+  - - terrenos_simplificado

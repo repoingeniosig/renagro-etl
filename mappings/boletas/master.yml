@@ -13,3 +13,18 @@ forestales: "forestales.yaml"
 
 adjuntos: "adjuntos.yaml"
 poligonos_boleta: "poligonos_boleta.yaml"
+
+# Orden de procesamiento según dependencias de FK
+processing_order:
+  - - bovinos
+    - pecuario_otros
+    - pollos
+    - porcinos
+    - personas
+  - - boletas
+  - - miembros_hogar
+    - terrenos
+    - adjuntos
+    - poligonos_boleta
+  - - cultivos
+    - forestales
