@@ -232,12 +232,12 @@ class EtlTransformWorker:
             etl_logger.info(f"[etl_transform] _id={_id} - Directorio de mappings: {mapping_dir}")
             
             # Configurar directorio y cargar mappings (desde Redis cache si existe, sino desde disco)
+            # set_mapping_dir limpia entity_mappings cuando cambia el directorio
             mapping_loader.set_mapping_dir(mapping_dir)
             
-            # Cargar mapeos solo si no están ya cargados para este formulario
-            if not mapping_loader.entity_mappings:
-                mapping_loader.load_master(mapping_dir=mapping_dir)
-                mapping_loader.load_all_mappings(force_reload=False, mapping_dir=mapping_dir)
+            # Siempre recargar mapeos después de cambiar directorio para evitar usar mapeos de otro formulario
+            mapping_loader.load_master(mapping_dir=mapping_dir)
+            mapping_loader.load_all_mappings(force_reload=False, mapping_dir=mapping_dir)
             
             # Log de mapeos cargados
             etl_logger.info(f"[etl_transform] _id={_id} - Mapeos disponibles: {list(mapping_loader.entity_mappings.keys())}")
@@ -414,17 +414,17 @@ class DbInsertWorker:
             # Obtener modelo de control dinámico
             ControlModel = get_control_table_model(control_table)
             
-            # Cargar mapeos si no están en memoria (workers son procesos separados)
+            # Cargar mapeos para este formulario específico
             from .mapping_loader import mapping_loader
             from pathlib import Path
             
             mapping_dir_path = Path(mapping_dir) if isinstance(mapping_dir, str) else mapping_dir
             
-            if not mapping_loader.entity_mappings:
-                etl_logger.warning(f"[db_insert] Cargando mapeos desde {mapping_dir_path}...")
-                mapping_loader.set_mapping_dir(mapping_dir_path)
-                mapping_loader.load_master(mapping_dir=mapping_dir_path)
-                mapping_loader.load_all_mappings(force_reload=False)
+            # Siempre configurar el directorio correcto y recargar para evitar usar mapeos de otro formulario
+            etl_logger.info(f"[db_insert] Configurando mapeos desde {mapping_dir_path}...")
+            mapping_loader.set_mapping_dir(mapping_dir_path)
+            mapping_loader.load_master(mapping_dir=mapping_dir_path)
+            mapping_loader.load_all_mappings(force_reload=False)
             
             # Crear instancia de executor con los mapeos
             executor = TransactionExecutor(entity_mappings=mapping_loader.entity_mappings)

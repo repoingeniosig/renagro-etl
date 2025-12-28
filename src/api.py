@@ -42,7 +42,7 @@ async def startup_event():
         
         # 2. Cargar todos los mappings de todos los formularios a Redis cache
         etl_logger.info("Precargando mappings de todos los formularios en Redis...")
-        total_mappings_loaded = 0
+        form_stats = []  # Lista para trackear stats por formulario
         for form_config in multi_form_loader.config.forms:
             try:
                 mapping_dir = config.MAPPINGS_BASE_DIR / form_config.mapping_dir
@@ -51,12 +51,14 @@ async def startup_event():
                 mapping_loader.load_master(mapping_dir=mapping_dir)
                 mapping_loader.load_all_mappings(force_reload=False, mapping_dir=mapping_dir)
                 
-                total_mappings_loaded += len(mapping_loader.entity_mappings)
-                etl_logger.info(f"    ✅ {len(mapping_loader.entity_mappings)} entidades cargadas para '{form_config.name}'")
+                num_entities = len(mapping_loader.entity_mappings)
+                form_stats.append({'name': form_config.name, 'entities': num_entities})
+                etl_logger.info(f"    ✅ {num_entities} entidades cargadas para '{form_config.name}'")
             except Exception as e:
                 etl_logger.error(f"    ❌ Error cargando mappings para '{form_config.name}': {e}")
         
-        etl_logger.info(f"✅ Total de mappings precargados en Redis: {total_mappings_loaded}")
+        total_mappings = sum(f['entities'] for f in form_stats)
+        etl_logger.info(f"✅ Total de mappings precargados en Redis: {total_mappings} entidades de {len(form_stats)} formularios")
         
         # 2.5. Cargar mappings de envio_mag a Redis
         etl_logger.info("Precargando mappings de envio_mag en Redis...")
@@ -75,7 +77,9 @@ async def startup_event():
         if config.DEBUG_CLI:
             from rich.console import Console
             console = Console()
-            console.print(f"\n[green]✅ Servidor iniciado - {len(mapping_loader.entity_mappings)} mapeos YAML cargados[/green]")
+            console.print(f"\n[green]✅ Servidor iniciado - {len(form_stats)} formularios cargados ({total_mappings} entidades totales)[/green]")
+            for stat in form_stats:
+                console.print(f"  • {stat['name']}: {stat['entities']} entidades")
             console.print(f"[cyan]Redis cache: {'Habilitado' if config.REDIS_ENABLED else 'Deshabilitado'}[/cyan]")
             console.print(f"[yellow]Mensajes recuperados: {recovered}[/yellow]\n")
     

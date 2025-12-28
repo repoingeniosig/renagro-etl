@@ -1,7 +1,7 @@
 version: 1.0
 entity: procesos
 table: procesos
-pk_field: ter_id
+pk_field: pro_id
 
 fields:
   pro_provincia:

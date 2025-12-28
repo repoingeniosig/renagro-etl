@@ -241,7 +241,10 @@ class MappingLoader:
         if not self.master_config:
             self.load_master()
         
+        # Filtrar processing_order que es metadata, no una entidad
         for entity_name, yaml_file in self.master_config.items():
+            if entity_name == 'processing_order':
+                continue
             self.entity_mappings[entity_name] = self.load_entity_mapping(yaml_file)
         
         etl_logger.info(f"{len(self.entity_mappings)} mapeos cargados desde disco")
