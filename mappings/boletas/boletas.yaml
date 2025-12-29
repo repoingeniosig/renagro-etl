@@ -1177,6 +1177,8 @@ fields:
   neo_punto_upa:
     source: "punto_upa"
     type: string
+    sanitize: false
+    apply_uppercase: false    
     default: null
 
   neo_fecha_visita_no_upa:
@@ -1197,6 +1199,8 @@ fields:
   neo_punto_no_upa:
     source: "visita_no_upa/punto_no_upa"
     type: string
+    sanitize: false
+    apply_uppercase: false    
     default: null
 
   neo_superficie_poligono_no_upa:
@@ -1207,6 +1211,8 @@ fields:
   neo_foto_no_upa:
     source: "visita_no_upa/foto_no_upa"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_observacion_no_upa:
@@ -1258,16 +1264,22 @@ fields:
   neo_coordenada_v1:
     source: "visita1_group/datos_visita_v1c/coord_v1c"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_trazo_v1:
     source: "visita1_group/datos_visita_v1c/trazo_v1c"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_foto_v1:
     source: "visita1_group/datos_visita_v1c/foto_v1c"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_observacion_cierre_v1:
@@ -1319,16 +1331,22 @@ fields:
   neo_coordenada_v2:
     source: "visita2_group/datos_visita_v2c/coord_v2c"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_trazo_v2:
     source: "visita2_group/datos_visita_v2c/trazo_v2c"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_foto_v2:
     source: "visita2_group/datos_visita_v2c/foto_v2c"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_observacion_cierre_v2:
@@ -1368,16 +1386,22 @@ fields:
   neo_coordenada_v3:
     source: "visita3_group/datos_visita_v3/coord_v3"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_trazo_v3:
     source: "visita3_group/datos_visita_v3/trazo_v3c"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_foto_v3:
     source: "visita3_group/datos_visita_v3/group_trazo_UPA"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_observacion_cierre_v3:
@@ -1393,16 +1417,22 @@ fields:
   neo_coordenada_v3_cierre:
     source: "visita3_group/datos_visita_v3c/coord_v3c"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_trazo_v3_cierre:
     source: "visita3_group/datos_visita_v3c/trazo_v3c"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_foto_v3_cierre:
     source: "visita3_group/datos_visita_v3/foto_v3c"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_dpa_upa:

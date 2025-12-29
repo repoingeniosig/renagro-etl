@@ -81,6 +81,8 @@ fields:
   neo_poligono_terreno:
     source: "capitulos_1_10_wrapper/ubi_pp_group/uso_suelo_group/terrenos_repeat/poligono_terreno"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_is_especie_forestal:
