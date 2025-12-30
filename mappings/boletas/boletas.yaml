@@ -1194,6 +1194,8 @@ fields:
   neo_poligono_no_upa:
     source: "visita_no_upa/poligono_no_upa"
     type: string
+    sanitize: false
+    apply_uppercase: false
     default: null
 
   neo_punto_no_upa:
