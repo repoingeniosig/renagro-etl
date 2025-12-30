@@ -1393,7 +1393,7 @@ fields:
     default: null
 
   neo_trazo_v3:
-    source: "visita3_group/datos_visita_v3/trazo_v3c"
+    source: "visita3_group/datos_visita_v3/trazo_v3"
     type: string
     sanitize: false
     apply_uppercase: false
