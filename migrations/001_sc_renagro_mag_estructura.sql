@@ -1239,3 +1239,126 @@ ADD COLUMN "neo_is_pago_efectivo_hombre" BOOLEAN DEFAULT FALSE,
 ADD COLUMN "neo_is_pago_efectivo_mujer" BOOLEAN DEFAULT FALSE,
 ADD COLUMN "neo_is_informante_productor" BOOLEAN DEFAULT FALSE;
 
+DROP SEQUENCE IF EXISTS "sc_renagro_mag"."seq_bosi_id";
+CREATE SEQUENCE "sc_renagro_mag"."seq_bosi_id" 
+INCREMENT 1
+MINVALUE  1
+MAXVALUE 9223372036854775807
+START 1
+CACHE 1;
+
+DROP TABLE IF EXISTS "sc_renagro_mag"."boletas_simplificada";
+CREATE TABLE "sc_renagro_mag"."boletas_simplificada" (
+  "bosi_id" int8 NOT NULL DEFAULT nextval('"sc_renagro_mag".seq_bosi_id'::regclass),
+  "bosi_provincia" varchar(255) COLLATE "pg_catalog"."default",
+  "bosi_canton" varchar(255) COLLATE "pg_catalog"."default",
+  "bosi_poligono" varchar(255) COLLATE "pg_catalog"."default",
+  "bosi_codigo_upa" varchar(255) COLLATE "pg_catalog"."default",
+  "bosi_codigo_encuestador" varchar(255) COLLATE "pg_catalog"."default",
+  "bosi_numero_boleta" varchar(255) COLLATE "pg_catalog"."default",
+  "bosi_superficie" float8,
+  "bosi_unidad" varchar(255) COLLATE "pg_catalog"."default",
+  "bosi_is_riego" bool,
+  "bosi_is_infraestructura" bool,
+  "bosi_is_bovino" bool,
+  "bosi_bovino_subtotal_macho" int4,
+  "bosi_bovino_subtotal_hembra" int4,
+  "bosi_bovino_subtotal_propio" int4,
+  "bosi_bovino_subtotal_ajeno" int4,
+  "bosi_is_porcino" bool,
+  "bosi_porcino_total_hembra" int4,
+  "bosi_porcino_total_macho" int4,
+  "bosi_is_pollo" bool,
+  "bosi_pollo_ave_traspatio" int4,
+  "bosi_pollo_broiler" int4,
+  "bosi_id_levanta" varchar(255) COLLATE "pg_catalog"."default",
+  "bosi_estado" int8 DEFAULT 11,
+  "bosi_reg_usu" int8 NOT NULL,
+  "bosi_reg_fecha" timestamp(6)
+	);
+
+DROP SEQUENCE IF EXISTS "sc_renagro_mag"."seq_tesi_id";
+CREATE SEQUENCE "sc_renagro_mag"."seq_tesi_id" 
+INCREMENT 1
+MINVALUE  1
+MAXVALUE 9223372036854775807
+START 1
+CACHE 1;
+
+-- ----------------------------
+-- Table structure for terrenos
+-- ----------------------------
+DROP TABLE IF EXISTS "sc_renagro_mag"."terrenos_simplificado";
+CREATE TABLE "sc_renagro_mag"."terrenos_simplificado" (
+  "tesi_id" int8 NOT NULL DEFAULT nextval('"sc_renagro_mag".seq_tesi_id'::regclass),
+  "tesi_cobertura_tierra" varchar(255) COLLATE "pg_catalog"."default",
+  "tesi_superficie" float8,
+  "tesi_superficie_unidad" varchar(255) COLLATE "pg_catalog"."default",
+  "bosi_id" int8,
+  "tesi_reg_usu" int8 NOT NULL,
+  "tesi_reg_fecha" timestamp(6),
+  "tesi_estado" int4 DEFAULT 11
+);
+
+
+-- ----------------------------
+-- Primary Key structure for table boletas simplificada
+-- ----------------------------
+ALTER TABLE "sc_renagro_mag"."boletas_simplificada" ADD CONSTRAINT "pk_boleta_simplificada" PRIMARY KEY ("bosi_id");
+
+-- ----------------------------
+-- Primary Key structure for table terrenos simplificado
+-- ----------------------------
+ALTER TABLE "sc_renagro_mag"."terrenos_simplificado" ADD CONSTRAINT "pk_terreno_simplificado" PRIMARY KEY ("tesi_id");
+
+-- ----------------------------
+-- Foreign Keys structure for table terrenos simplificado
+-- ----------------------------
+ALTER TABLE "sc_renagro_mag"."terrenos_simplificado" ADD CONSTRAINT "fk_terreno_boleta_simplificado" FOREIGN KEY ("bosi_id") REFERENCES "sc_renagro_mag"."boletas_simplificada" ("bosi_id") ON DELETE NO ACTION ON UPDATE NO ACTION;
+
+
+DROP SEQUENCE IF EXISTS "sc_renagro_mag"."seq_pro_id";
+CREATE SEQUENCE "sc_renagro_mag"."seq_pro_id" 
+INCREMENT 1
+MINVALUE  1
+MAXVALUE 9223372036854775807
+START 1
+CACHE 1;
+
+DROP TABLE IF EXISTS "sc_renagro_mag"."procesos";
+CREATE TABLE "sc_renagro_mag"."procesos" (
+  "pro_id" int8 NOT NULL DEFAULT nextval('"sc_renagro_mag".seq_pro_id'::regclass),
+  "pro_provincia" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_canton" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_parroquia" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_poligono" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_segmento" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_latitud" float8,
+  "pro_longitud" float8,
+  "pro_altitud" float8,
+  "pro_precision_hdop" float8,
+  "pro_fecha" timestamp(6),
+  "pro_supervisor" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_equipo" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_hora_inicio" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_hora_finalizacion" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_presentacion_personal" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_intrumento_recoleccion" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_aplicacion_guia" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_interaccion_productores" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_cumplimiento_procedimiento" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_seguridad_campo" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_observacion" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_nombre_supervisor" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_nombre_tecnico" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_id_levanta" varchar(255) COLLATE "pg_catalog"."default",
+  "pro_estado" int8 DEFAULT 11,
+  "pro_reg_usu" int8 NOT NULL,
+  "pro_reg_fecha" timestamp(6)
+
+);
+
+-- ----------------------------
+-- Primary Key structure for table procesos
+-- ----------------------------
+ALTER TABLE "sc_renagro_mag"."procesos" ADD CONSTRAINT "pk_procesos" PRIMARY KEY ("pro_id");
