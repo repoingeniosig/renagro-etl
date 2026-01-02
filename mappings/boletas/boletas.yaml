@@ -1442,6 +1442,11 @@ fields:
     type: string
     default: null
 
+  neo_superficie_ha_upa:
+    source: "captura_superficie1/superficie_valor_inicial_has"
+    type: float
+    default: null
+
 conversions:
   yes_no_to_bool:
     yes: true
