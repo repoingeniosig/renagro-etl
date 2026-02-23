@@ -69,7 +69,7 @@ fi
 
 # Activar virtualenv
 echo "🐍 Activando virtualenv..."
-source venv/bin/activate
+source venv/Scripts/activate
 
 # Arrays para PIDs y logs
 PIDS=()
