@@ -1,0 +1,19 @@
+version: 1
+entity: CreateTerrenoGeometriaDto
+table: terrenos_geometria
+
+database_id: tege_id
+
+fields:
+  geometria:
+    source: "tege_geojson"
+    type: geojson
+    default: null
+  descripcion:
+    source: "tege_descripcion"
+    type: string
+    default: null
+  terId:
+    source: "ter_id_mag"
+    type: integer
+    default: null

@@ -1,0 +1,19 @@
+version: 1
+entity: CreateBoletaGeometriaDto
+table: boletas_geometria
+
+database_id: boge_id
+
+fields:
+  geometria:
+    source: "boge_geojson"
+    type: geojson
+    default: null
+  descripcion:
+    source: "boge_descripcion"
+    type: string
+    default: null
+  bolId:
+    source: "bol_id_mag"
+    type: integer
+    default: null
