@@ -21,6 +21,17 @@ if [ -z "$WORKER_TYPE" ]; then
     echo "  json_save      - Guarda JSON en base de datos"
     echo "  etl_transform  - Procesa transformaciones"
     echo "  db_insert      - Ejecuta transacciones SQL"
+    echo "  envio_mag        - Construye JSONs para envío MAG"
+    echo "  envio_mag_sender - Envía JSONs a API remota"
+    echo "  envio_mag_geometria        - Construye JSONs de geometría (boleta + terreno)"
+    echo "  envio_mag_geometria_boleta - Construye JSONs de geometría de boleta"
+    echo "  envio_mag_geometria_terreno - Construye JSONs de geometría de terreno"
+    echo "  envio_mag_geometria_sender  - Envía JSONs de geometría a API remota"
+    echo "  envio_mag_adicional         - Construye JSONs adicionales (capacitacion + comunicacion + produccion)"
+    echo "  envio_mag_adicional_capacitacion  - Construye JSONs de capacitacion"
+    echo "  envio_mag_adicional_comunicacion  - Construye JSONs de comunicacion"
+    echo "  envio_mag_adicional_produccion    - Construye JSONs de produccion"
+    echo "  envio_mag_adicional_sender  - Envía JSONs adicionales a API remota"
     echo ""
     echo "Ejemplo:"
     echo "  ./scripts-dev/run_worker.sh json_save"
@@ -49,7 +60,9 @@ echo "🚀 Iniciando worker: $WORKER_TYPE"
 echo ""
 
 # Ejecutar worker
-if [[ "$WORKER_TYPE" == envio_mag_geometria* ]]; then
+if [[ "$WORKER_TYPE" == envio_mag_adicional* ]]; then
+    ENVIO_MAG_LOGGER_NAME="worker_envio_mag_adicional" python3 -m src.workers $WORKER_TYPE
+elif [[ "$WORKER_TYPE" == envio_mag_geometria* ]]; then
     ENVIO_MAG_LOGGER_NAME="worker_envio_mag_geometria" python3 -m src.workers $WORKER_TYPE
 elif [[ "$WORKER_TYPE" == envio_mag* ]]; then
     ENVIO_MAG_LOGGER_NAME="worker_envio_mag" python3 -m src.workers $WORKER_TYPE

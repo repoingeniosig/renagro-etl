@@ -1,0 +1,53 @@
+version: 1
+entity: CreateComunicacionDto
+table: comunicacion
+database_id: com_id
+fields:
+  provincia:
+    source: "com_provincia"
+    type: string
+    default: null
+  canton:
+    source: "com_canton"
+    type: string
+    default: null
+  parroquia:
+    source: "com_parroquia"
+    type: string
+    default: null
+  isSensibilizacionPlanificada:
+    source: "com_is_sensib_planificada"
+    type: boolean
+    default: null
+  isSocializacionPlanificada:
+    source: "com_is_socializ_planificada"
+    type: boolean
+    default: null
+  isAvanzadaPlanificada:
+    source: "com_is_avanzada_planificada"
+    type: boolean
+    default: null
+  numeroAsociaciones:
+    source: "com_numero_asociaciones"
+    type: integer
+    default: null
+  numeroActores:
+    source: "com_numero_actores"
+    type: integer
+    default: null
+  numeroPlanesLevantamiento:
+    source: "com_numero_plan_levantamiento"
+    type: integer
+    default: null
+  isSensibilizacionEjecutada:
+    source: "com_is_sensib_ejecutada"
+    type: boolean
+    default: null
+  isSocializacionEjecutada:
+    source: "com_is_socializ_ejecutada"
+    type: boolean
+    default: null
+  isAvanzadaEjecutada:
+    source: "com_is_avanzada_ejecutada"
+    type: boolean
+    default: null

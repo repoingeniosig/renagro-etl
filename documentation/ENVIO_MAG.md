@@ -9,6 +9,10 @@ Sistema **asíncrono** de dos fases **independientes** para enviar datos procesa
 - Worker `envio_mag_sender`: Consume cola y envía a API
 - Worker `envio_mag_geometria`: Construye JSONs de geometría (boleta + terreno) y publica a RabbitMQ
 - Worker `envio_mag_geometria_sender`: Consume cola de geometría y envía a API
+- Worker `envio_mag_adicional_capacitacion`: Construye JSONs de capacitación y publica a RabbitMQ
+- Worker `envio_mag_adicional_comunicacion`: Construye JSONs de comunicación y publica a RabbitMQ
+- Worker `envio_mag_adicional_produccion`: Construye JSONs de producción y publica a RabbitMQ
+- Worker `envio_mag_adicional_sender`: Consume cola adicional y envía a API
 - **NO se bloquean entre sí** - funcionan simultáneamente
 
 ## Arquitectura
@@ -73,6 +77,9 @@ Respuesta HTTP
 RENAGRO_ENDPOINT=https://api.renagro.gob.ec/v1/boletas
 RENAGRO_ENDPOINT_BOLETA_GEOMETRIA=https://api.renagro.gob.ec/v1/boletas/geometria
 RENAGRO_ENDPOINT_TERRENO_GEOMETRIA=https://api.renagro.gob.ec/v1/terrenos/geometria
+RENAGRO_ENDPOINT_CAPACITACION=http://10.10.1.105:3023/api-renagro/capacitacion/create
+RENAGRO_ENDPOINT_COMUNICACION=http://10.10.1.105:3023/api-renagro/comunicacion/create
+RENAGRO_ENDPOINT_PRODUCCION=http://10.10.1.105:3023/api-renagro/produccion/create
 RENAGRO_TOKEN=Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 # Configuración de envío
@@ -90,6 +97,11 @@ QUEUE_ENVIO_MAG_SEND_DLQ=renagro.envio.mag.send.dlq
 QUEUE_ENVIO_MAG_GEOMETRIA_SEND=renagro.envio.mag.geometria.send
 QUEUE_ENVIO_MAG_GEOMETRIA_SEND_RETRY=renagro.envio.mag.geometria.send.retry
 QUEUE_ENVIO_MAG_GEOMETRIA_SEND_DLQ=renagro.envio.mag.geometria.send.dlq
+
+# Colas dedicadas para adicional (capacitacion, comunicacion, produccion)
+QUEUE_ENVIO_MAG_ADICIONAL_SEND=renagro.envio.mag.adicional.send
+QUEUE_ENVIO_MAG_ADICIONAL_SEND_RETRY=renagro.envio.mag.adicional.send.retry
+QUEUE_ENVIO_MAG_ADICIONAL_SEND_DLQ=renagro.envio.mag.adicional.send.dlq
 ```
 
 ## Uso
@@ -109,6 +121,18 @@ python -m src.workers envio_mag_geometria
 # Terminal 4: Enviar JSONs de geometría a API (corre continuamente)
 python -m src.workers envio_mag_geometria_sender
 
+# Terminal 5: Construir JSONs de capacitacion (ejecución única)
+python -m src.workers envio_mag_adicional_capacitacion
+
+# Terminal 6: Construir JSONs de comunicacion (ejecución única)
+python -m src.workers envio_mag_adicional_comunicacion
+
+# Terminal 7: Construir JSONs de produccion (ejecución única)
+python -m src.workers envio_mag_adicional_produccion
+
+# Terminal 8: Enviar JSONs adicionales a API (corre continuamente)
+python -m src.workers envio_mag_adicional_sender
+
 # O con el script que inicia todos los workers:
 bash run_all_workers.sh
 ```
@@ -119,6 +143,8 @@ bash run_all_workers.sh
 - `envio_mag_sender` corre continuamente consumiendo la cola
 - `envio_mag_geometria` ejecuta UNA SOLA VEZ y termina
 - `envio_mag_geometria_sender` corre continuamente consumiendo la cola de geometría
+- `envio_mag_adicional_capacitacion`, `envio_mag_adicional_comunicacion`, `envio_mag_adicional_produccion` ejecutan UNA SOLA VEZ y terminan
+- `envio_mag_adicional_sender` corre continuamente consumiendo la cola adicional
 
 ### Ejecutar Workers (Windows)
 
@@ -132,7 +158,13 @@ bash run_all_workers.sh
 .\scripts-dev\run_worker.ps1 envio_mag_geometria_terreno
 .\scripts-dev\run_worker.ps1 envio_mag_geometria_sender
 
-# Todos los workers (normal + geometría)
+# Workers adicionales (construcción y envío)
+.\scripts-dev\run_worker.ps1 envio_mag_adicional_capacitacion
+.\scripts-dev\run_worker.ps1 envio_mag_adicional_comunicacion
+.\scripts-dev\run_worker.ps1 envio_mag_adicional_produccion
+.\scripts-dev\run_worker.ps1 envio_mag_adicional_sender
+
+# Todos los workers (normal + geometría + adicional)
 bash ./scripts-dev/run_all_workers_win.sh envio
 ```
 
@@ -184,6 +216,69 @@ sudo systemctl start renagro-worker-envio-mag.service
 # Ver logs en tiempo real
 sudo journalctl -u renagro-worker-envio-mag.service -f
 sudo journalctl -u renagro-worker-envio-mag-sender.service -f
+```
+
+## Flujo Adicional (Capacitación, Comunicación, Producción)
+
+### Targets soportados
+
+- `capacitacion`:
+  - Tabla datos: `capacitacion`
+  - Primary key: `cap_id`
+  - Estado de habilitación: `estado_addt='APROBADO'`
+  - Criterio de envío: `envio_datos_procesados='PENDIENTE'`
+  - Reintento automático de batch: `envio_datos_procesados='ERROR' AND reintentable=TRUE`
+  - Columna ID remoto de éxito: `id_capacitacion_creada`
+  - Endpoint: `RENAGRO_ENDPOINT_CAPACITACION`
+
+- `comunicacion`:
+  - Tabla datos: `comunicacion`
+  - Primary key: `com_id`
+  - Estado de habilitación: `estado_addt='APROBADO'`
+  - Criterio de envío: `envio_datos_procesados='PENDIENTE'`
+  - Reintento automático de batch: `envio_datos_procesados='ERROR' AND reintentable=TRUE`
+  - Columna ID remoto de éxito: `id_comunicacion_creada`
+  - Endpoint: `RENAGRO_ENDPOINT_COMUNICACION`
+
+- `produccion`:
+  - Tabla datos: `produccion`
+  - Primary key: `pro_id`
+  - Estado de habilitación: `estado_addt='APROBADO'`
+  - Criterio de envío: `envio_datos_procesados='PENDIENTE'`
+  - Reintento automático de batch: `envio_datos_procesados='ERROR' AND reintentable=TRUE`
+  - Columna ID remoto de éxito: `id_produccion_creada`
+  - Endpoint: `RENAGRO_ENDPOINT_PRODUCCION`
+
+### Estados de envío adicional
+
+El flujo de estados es el mismo que boletas normales:
+
+`PENDIENTE -> PROCESANDO -> ENTREGANDO -> ENVIADO/ERROR`
+
+Reglas:
+- Error 4xx: marca `ERROR` y `reintentable=FALSE`
+- Error 5xx / red: marca `ERROR` y `reintentable=TRUE`
+
+### Logs adicionales
+
+Para adicional se usan exactamente tres archivos de log (misma lógica del flujo principal):
+
+- `logs/worker_envio_mag_adicional.log` (log funcional del procesamiento)
+- `logs/worker_envio_mag_adicional_errors.log` (solo errores)
+- `logs/worker_envio_mag_adicional_sender.log` (salida operativa del sender)
+
+### Ejecución por target (scripts)
+
+```bash
+# Linux - un target a la vez
+./run_all_workers.sh envio adicional capacitacion
+./run_all_workers.sh envio adicional comunicacion
+./run_all_workers.sh envio adicional produccion
+
+# Windows - un target a la vez
+bash ./scripts-dev/run_all_workers_win.sh envio adicional capacitacion
+bash ./scripts-dev/run_all_workers_win.sh envio adicional comunicacion
+bash ./scripts-dev/run_all_workers_win.sh envio adicional produccion
 ```
 
 ## Estados de Control

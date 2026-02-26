@@ -35,6 +35,9 @@ def setup_logger(name: str = 'renagro_etl') -> logging.Logger:
     if name == 'worker_envio_mag_geometria':
         log_file = log_dir / 'worker_envio_mag_geometria.log'
         error_log_file = log_dir / 'worker_envio_mag_geometria_errors.log'
+    elif name == 'worker_envio_mag_adicional':
+        log_file = log_dir / 'worker_envio_mag_adicional.log'
+        error_log_file = log_dir / 'worker_envio_mag_adicional_errors.log'
     elif name.startswith('worker_envio_mag'):
         log_file = log_dir / f'{name}.log'
         error_log_file = log_dir / f'{name}_errors.log'

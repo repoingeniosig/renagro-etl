@@ -1,0 +1,145 @@
+version: 1
+entity: CreateProduccionDto
+table: produccion
+database_id: pro_id
+fields:
+  provincia:
+    source: "pro_provincia"
+    type: string
+    default: null
+  canton:
+    source: "pro_canton"
+    type: string
+    default: null
+  parroquia:
+    source: "pro_parroquia"
+    type: string
+    default: null
+  poligono:
+    source: "pro_poligono"
+    type: string
+    default: null
+  poligonoEstado:
+    source: "pro_pol_estado"
+    type: string
+    default: null
+  upaPlanificada:
+    source: "pro_upa_planificada"
+    type: integer
+    default: null
+  upaLevantada:
+    source: "pro_upa_levantada"
+    type: integer
+    default: null
+  personaProductoraPlanificada:
+    source: "pro_per_productora_planificada"
+    type: integer
+    default: null
+  personaProductoraLevantada:
+    source: "pro_per_productora_levantada"
+    type: integer
+    default: null
+  poligonoAreaPlanificada:
+    source: "pro_pol_area_planificada"
+    type: float
+    default: null
+  poligonoAreaLevantada:
+    source: "pro_pol_area_levantada"
+    type: float
+    default: null
+  poligonoControlCalidad:
+    source: "pro_pol_control_calidad"
+    type: string
+    default: null
+  muestraPlanificada:
+    source: "pro_muestra_planificada"
+    type: integer
+    default: null
+  muestraEjecutada:
+    source: "pro_muestra_ejecutada"
+    type: integer
+    default: null
+  boletaUpaPlanificada:
+    source: "pro_boleta_upa_planificada"
+    type: integer
+    default: null
+  boletaUpaEjecutada:
+    source: "pro_boleta_upa_ejecutada"
+    type: integer
+    default: null
+  controlCalidad:
+    source: "pro_control_calidad"
+    type: string
+    default: null
+  boletaControlCalidad:
+    source: "pro_boleta_control_calidad"
+    type: string
+    default: null
+  previoFase1:
+    source: "pro_previo_fase_1"
+    type: integer
+    default: null
+  previoFase2:
+    source: "pro_previo_fase_2"
+    type: integer
+    default: null
+  procesoTotal:
+    source: "pro_proceso_total"
+    type: integer
+    default: null
+  prelevantaPlanificado:
+    source: "pro_prelevanta_planificado"
+    type: integer
+    default: null
+  prelevantaLevantado:
+    source: "pro_prelevanta_levantado"
+    type: integer
+    default: null
+  poligonoPlanificado:
+    source: "pro_pol_planificado"
+    type: integer
+    default: null
+  poligonoEjecutado:
+    source: "pro_pol_ejecutado"
+    type: integer
+    default: null
+  poligonoAreaAgropecuariaPlanificada:
+    source: "pro_pol_area_agrop_planificada"
+    type: float
+    default: null
+  poligonoAreaAgropecuariapEjecutada:
+    source: "pro_pol_area_agrop_ejecutada"
+    type: float
+    default: null
+  poligonoAreaForestalPlanificada:
+    source: "pro_pol_area_fores_planificada"
+    type: float
+    default: null
+  poligonoAreaForestalEjecutada:
+    source: "pro_pol_area_fores_ejecutada"
+    type: float
+    default: null
+  boletaNoupaPlanificada:
+    source: "pro_boleta_noupa_planificada"
+    type: integer
+    default: null
+  boletaNoupaEjecutada:
+    source: "pro_boleta_noupa_ejecutada"
+    type: integer
+    default: null
+  equipo:
+    source: "pro_equipo"
+    type: string
+    default: null
+  encuestador:
+    source: "pro_encuestador"
+    type: string
+    default: null
+  unidadNumeracion:
+    source: "pro_unidad_numeracion"
+    type: string
+    default: null
+  unidadEstandar:
+    source: "pro_unidad_estandar"
+    type: string
+    default: null

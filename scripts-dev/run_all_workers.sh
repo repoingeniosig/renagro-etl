@@ -9,6 +9,9 @@
 #   ./run_all_workers.sh envio      - Solo workers Envío MAG actual (envio_mag + envio_mag_sender)
 #   ./run_all_workers.sh envio geometria boleta   - Solo geometría boleta
 #   ./run_all_workers.sh envio geometria terreno  - Solo geometría terreno
+#   ./run_all_workers.sh envio adicional capacitacion  - Solo adicional capacitacion
+#   ./run_all_workers.sh envio adicional comunicacion  - Solo adicional comunicacion
+#   ./run_all_workers.sh envio adicional produccion    - Solo adicional produccion
 #   ./run_all_workers.sh etl envio  - Todos los workers
 #   ./run_all_workers.sh            - Todos los workers (sin argumentos)
 
@@ -18,6 +21,10 @@ START_ENVIO_NORMAL=false
 START_ENVIO_GEOM_BOLETA=false
 START_ENVIO_GEOM_TERRENO=false
 START_ENVIO_GEOM_SENDER=false
+START_ENVIO_ADDT_CAPACITACION=false
+START_ENVIO_ADDT_COMUNICACION=false
+START_ENVIO_ADDT_PRODUCCION=false
+START_ENVIO_ADDT_SENDER=false
 
 if [ $# -eq 0 ]; then
     # Sin argumentos: iniciar todos
@@ -26,6 +33,10 @@ if [ $# -eq 0 ]; then
     START_ENVIO_GEOM_BOLETA=true
     START_ENVIO_GEOM_TERRENO=true
     START_ENVIO_GEOM_SENDER=true
+    START_ENVIO_ADDT_CAPACITACION=true
+    START_ENVIO_ADDT_COMUNICACION=true
+    START_ENVIO_ADDT_PRODUCCION=true
+    START_ENVIO_ADDT_SENDER=true
 else
     while [ $# -gt 0 ]; do
         case "$1" in
@@ -63,16 +74,50 @@ else
 
                 shift 2
                 ;;
+            adicional)
+                if [ $# -lt 2 ]; then
+                    echo "❌ Falta especificar target adicional: capacitacion | comunicacion | produccion"
+                    exit 1
+                fi
+
+                case "$2" in
+                    capacitacion)
+                        START_ENVIO_NORMAL=false
+                        START_ENVIO_ADDT_CAPACITACION=true
+                        START_ENVIO_ADDT_SENDER=true
+                        ;;
+                    comunicacion)
+                        START_ENVIO_NORMAL=false
+                        START_ENVIO_ADDT_COMUNICACION=true
+                        START_ENVIO_ADDT_SENDER=true
+                        ;;
+                    produccion)
+                        START_ENVIO_NORMAL=false
+                        START_ENVIO_ADDT_PRODUCCION=true
+                        START_ENVIO_ADDT_SENDER=true
+                        ;;
+                    *)
+                        echo "❌ Target adicional inválido: $2"
+                        echo "Usa: capacitacion | comunicacion | produccion"
+                        exit 1
+                        ;;
+                esac
+
+                shift 2
+                ;;
             *)
                 echo "❌ Argumento inválido: $1"
                 echo ""
                 echo "Uso:"
-                echo "  ./run_all_workers.sh etl                          - Solo workers ETL"
-                echo "  ./run_all_workers.sh envio                        - Solo workers Envío MAG actual"
-                echo "  ./run_all_workers.sh envio geometria boleta       - Solo geometría boleta"
-                echo "  ./run_all_workers.sh envio geometria terreno      - Solo geometría terreno"
-                echo "  ./run_all_workers.sh etl envio                    - ETL + envío actual"
-                echo "  ./run_all_workers.sh                              - Todos los workers"
+                echo "  ./run_all_workers.sh etl                                - Solo workers ETL"
+                echo "  ./run_all_workers.sh envio                              - Solo workers Envío MAG actual"
+                echo "  ./run_all_workers.sh envio geometria boleta             - Solo geometría boleta"
+                echo "  ./run_all_workers.sh envio geometria terreno            - Solo geometría terreno"
+                echo "  ./run_all_workers.sh envio adicional capacitacion       - Solo adicional capacitacion"
+                echo "  ./run_all_workers.sh envio adicional comunicacion       - Solo adicional comunicacion"
+                echo "  ./run_all_workers.sh envio adicional produccion         - Solo adicional produccion"
+                echo "  ./run_all_workers.sh etl envio                          - ETL + envío actual"
+                echo "  ./run_all_workers.sh                                    - Todos los workers"
                 exit 1
                 ;;
         esac
@@ -185,6 +230,45 @@ if [ "$START_ENVIO_GEOM_BOLETA" = true ] || [ "$START_ENVIO_GEOM_TERRENO" = true
         PIDS+=($!)
         WORKER_NAMES+=("envio_mag_geometria_sender")
         LOG_FILES+=("logs/worker_envio_mag_geometria_sender.log")
+    fi
+
+fi
+
+if [ "$START_ENVIO_ADDT_CAPACITACION" = true ] || [ "$START_ENVIO_ADDT_COMUNICACION" = true ] || [ "$START_ENVIO_ADDT_PRODUCCION" = true ] || [ "$START_ENVIO_ADDT_SENDER" = true ]; then
+    echo ""
+    echo "📋 Iniciando Workers Envío MAG Adicional..."
+    echo "--------------------------------------------"
+
+    if [ "$START_ENVIO_ADDT_CAPACITACION" = true ]; then
+        echo "📋 Iniciando worker envio_mag_adicional_capacitacion..."
+        ENVIO_MAG_LOGGER_NAME=worker_envio_mag_adicional python3 -m src.workers envio_mag_adicional_capacitacion >> logs/worker_envio_mag_adicional.log 2>&1 &
+        PIDS+=($!)
+        WORKER_NAMES+=("envio_mag_adicional_capacitacion")
+        LOG_FILES+=("logs/worker_envio_mag_adicional.log")
+    fi
+
+    if [ "$START_ENVIO_ADDT_COMUNICACION" = true ]; then
+        echo "📋 Iniciando worker envio_mag_adicional_comunicacion..."
+        ENVIO_MAG_LOGGER_NAME=worker_envio_mag_adicional python3 -m src.workers envio_mag_adicional_comunicacion >> logs/worker_envio_mag_adicional.log 2>&1 &
+        PIDS+=($!)
+        WORKER_NAMES+=("envio_mag_adicional_comunicacion")
+        LOG_FILES+=("logs/worker_envio_mag_adicional.log")
+    fi
+
+    if [ "$START_ENVIO_ADDT_PRODUCCION" = true ]; then
+        echo "📋 Iniciando worker envio_mag_adicional_produccion..."
+        ENVIO_MAG_LOGGER_NAME=worker_envio_mag_adicional python3 -m src.workers envio_mag_adicional_produccion >> logs/worker_envio_mag_adicional.log 2>&1 &
+        PIDS+=($!)
+        WORKER_NAMES+=("envio_mag_adicional_produccion")
+        LOG_FILES+=("logs/worker_envio_mag_adicional.log")
+    fi
+
+    if [ "$START_ENVIO_ADDT_SENDER" = true ] || [ "$START_ENVIO_ADDT_CAPACITACION" = true ] || [ "$START_ENVIO_ADDT_COMUNICACION" = true ] || [ "$START_ENVIO_ADDT_PRODUCCION" = true ]; then
+        echo "🛰️ Iniciando worker envio_mag_adicional_sender..."
+        ENVIO_MAG_LOGGER_NAME=worker_envio_mag_adicional python3 -m src.workers envio_mag_adicional_sender > logs/worker_envio_mag_adicional_sender.log 2>&1 &
+        PIDS+=($!)
+        WORKER_NAMES+=("envio_mag_adicional_sender")
+        LOG_FILES+=("logs/worker_envio_mag_adicional_sender.log")
     fi
 
 fi

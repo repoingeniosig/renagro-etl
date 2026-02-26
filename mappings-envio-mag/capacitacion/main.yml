@@ -1,0 +1,45 @@
+version: 1
+entity: CreateCapacitacionDto
+table: capacitacion
+database_id: cap_id
+fields:
+  provincia:
+    source: "cap_provincia"
+    type: string
+    default: null
+  canton:
+    source: "cap_canton"
+    type: string
+    default: null
+  parroquia:
+    source: "cap_parroquia"
+    type: string
+    default: null
+  evento:
+    source: "cap_evento"
+    type: string
+    default: null
+  primerNombre:
+    source: "cap_primer_nombre"
+    type: string
+    default: null
+  primerApellido:
+    source: "cap_primer_apellido"
+    type: string
+    default: null
+  tipoCapacitacion:
+    source: "cap_tipo"
+    type: string
+    default: null
+  isRecapacitacion:
+    source: "cap_is_recapacitacion"
+    type: boolean
+    default: null
+  estadoCapacitacion:
+    source: "cap_estado_capacitacion"
+    type: string
+    default: null
+  tipoFuncion:
+    source: "cap_funcion"
+    type: string
+    default: null

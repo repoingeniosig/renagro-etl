@@ -645,6 +645,109 @@ class EnvioMagGeometriaTerrenoWorker:
             raise
 
 
+class EnvioMagAdicionalWorker:
+    """
+    Worker para procesamiento de envío MAG Adicional.
+    Procesa capacitacion, comunicacion y produccion en ejecución única.
+    """
+
+    @staticmethod
+    async def process_message(data: Dict[str, Any]):
+        from .logger import envio_mag_logger
+        from .batch_processor_envio_mag_adicional import process_all_additional_targets
+
+        try:
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG ADICIONAL - INICIANDO")
+            envio_mag_logger.info("=" * 80)
+
+            total_processed = await process_all_additional_targets()
+
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG ADICIONAL - FINALIZADO")
+            envio_mag_logger.info(f"Total de registros procesados: {total_processed}")
+            envio_mag_logger.info("=" * 80)
+
+        except Exception as e:
+            envio_mag_logger.error(f"Error en worker envio_mag_adicional: {e}", exc_info=True)
+            raise
+
+
+class EnvioMagCapacitacionWorker:
+    """Worker para procesar únicamente capacitacion"""
+
+    @staticmethod
+    async def process_message(data: Dict[str, Any]):
+        from .logger import envio_mag_logger
+        from .batch_processor_envio_mag_adicional import process_additional_target
+
+        try:
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG ADICIONAL CAPACITACIÓN - INICIANDO")
+            envio_mag_logger.info("=" * 80)
+
+            total_processed = await process_additional_target('capacitacion')
+
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG ADICIONAL CAPACITACIÓN - FINALIZADO")
+            envio_mag_logger.info(f"Total de registros procesados: {total_processed}")
+            envio_mag_logger.info("=" * 80)
+
+        except Exception as e:
+            envio_mag_logger.error(f"Error en worker envio_mag_adicional_capacitacion: {e}", exc_info=True)
+            raise
+
+
+class EnvioMagComunicacionWorker:
+    """Worker para procesar únicamente comunicacion"""
+
+    @staticmethod
+    async def process_message(data: Dict[str, Any]):
+        from .logger import envio_mag_logger
+        from .batch_processor_envio_mag_adicional import process_additional_target
+
+        try:
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG ADICIONAL COMUNICACIÓN - INICIANDO")
+            envio_mag_logger.info("=" * 80)
+
+            total_processed = await process_additional_target('comunicacion')
+
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG ADICIONAL COMUNICACIÓN - FINALIZADO")
+            envio_mag_logger.info(f"Total de registros procesados: {total_processed}")
+            envio_mag_logger.info("=" * 80)
+
+        except Exception as e:
+            envio_mag_logger.error(f"Error en worker envio_mag_adicional_comunicacion: {e}", exc_info=True)
+            raise
+
+
+class EnvioMagProduccionWorker:
+    """Worker para procesar únicamente produccion"""
+
+    @staticmethod
+    async def process_message(data: Dict[str, Any]):
+        from .logger import envio_mag_logger
+        from .batch_processor_envio_mag_adicional import process_additional_target
+
+        try:
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG ADICIONAL PRODUCCIÓN - INICIANDO")
+            envio_mag_logger.info("=" * 80)
+
+            total_processed = await process_additional_target('produccion')
+
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG ADICIONAL PRODUCCIÓN - FINALIZADO")
+            envio_mag_logger.info(f"Total de registros procesados: {total_processed}")
+            envio_mag_logger.info("=" * 80)
+
+        except Exception as e:
+            envio_mag_logger.error(f"Error en worker envio_mag_adicional_produccion: {e}", exc_info=True)
+            raise
+
+
 # Función principal para ejecutar un worker específico
 async def run_worker(worker_type: str):
     """
@@ -706,14 +809,67 @@ async def run_worker(worker_type: str):
             envio_mag_logger.error(f"Error en worker envio_mag_geometria_terreno: {e}", exc_info=True)
             raise
         return
-    
+
+    # Worker especial envio_mag_adicional (no usa colas) - las 3 entidades
+    if worker_type == 'envio_mag_adicional':
+        try:
+            await EnvioMagAdicionalWorker.process_message({})
+        except KeyboardInterrupt:
+            from .logger import envio_mag_logger
+            envio_mag_logger.info("Worker envio_mag_adicional detenido por usuario")
+        except Exception as e:
+            from .logger import envio_mag_logger
+            envio_mag_logger.error(f"Error en worker envio_mag_adicional: {e}", exc_info=True)
+            raise
+        return
+
+    # Worker especial envio_mag_adicional_capacitacion (no usa colas)
+    if worker_type == 'envio_mag_adicional_capacitacion':
+        try:
+            await EnvioMagCapacitacionWorker.process_message({})
+        except KeyboardInterrupt:
+            from .logger import envio_mag_logger
+            envio_mag_logger.info("Worker envio_mag_adicional_capacitacion detenido por usuario")
+        except Exception as e:
+            from .logger import envio_mag_logger
+            envio_mag_logger.error(f"Error en worker envio_mag_adicional_capacitacion: {e}", exc_info=True)
+            raise
+        return
+
+    # Worker especial envio_mag_adicional_comunicacion (no usa colas)
+    if worker_type == 'envio_mag_adicional_comunicacion':
+        try:
+            await EnvioMagComunicacionWorker.process_message({})
+        except KeyboardInterrupt:
+            from .logger import envio_mag_logger
+            envio_mag_logger.info("Worker envio_mag_adicional_comunicacion detenido por usuario")
+        except Exception as e:
+            from .logger import envio_mag_logger
+            envio_mag_logger.error(f"Error en worker envio_mag_adicional_comunicacion: {e}", exc_info=True)
+            raise
+        return
+
+    # Worker especial envio_mag_adicional_produccion (no usa colas)
+    if worker_type == 'envio_mag_adicional_produccion':
+        try:
+            await EnvioMagProduccionWorker.process_message({})
+        except KeyboardInterrupt:
+            from .logger import envio_mag_logger
+            envio_mag_logger.info("Worker envio_mag_adicional_produccion detenido por usuario")
+        except Exception as e:
+            from .logger import envio_mag_logger
+            envio_mag_logger.error(f"Error en worker envio_mag_adicional_produccion: {e}", exc_info=True)
+            raise
+        return
+
     # Mapeo de workers normales (basados en colas)
     workers = {
         'json_save': (config.QUEUE_JSON_SAVE, JsonSaveWorker.process_message),
         'etl_transform': (config.QUEUE_ETL_TRANSFORM, EtlTransformWorker.process_message),
         'db_insert': (config.QUEUE_DB_INSERT, DbInsertWorker.process_message),
         'envio_mag_sender': (config.QUEUE_ENVIO_MAG_SEND, None),  # Configurado abajo
-        'envio_mag_geometria_sender': (config.QUEUE_ENVIO_MAG_GEOMETRIA_SEND, None)  # Configurado abajo
+        'envio_mag_geometria_sender': (config.QUEUE_ENVIO_MAG_GEOMETRIA_SEND, None),  # Configurado abajo
+        'envio_mag_adicional_sender': (config.QUEUE_ENVIO_MAG_ADICIONAL_SEND, None)  # Configurado abajo
     }
     
     # Configuración especial para envio_mag_sender
@@ -766,7 +922,33 @@ async def run_worker(worker_type: str):
             await rabbitmq_client.close()
 
         return
-    
+
+    # Configuración especial para envio_mag_adicional_sender
+    if worker_type == 'envio_mag_adicional_sender':
+        from .envio_mag_sender_worker_adicional import envio_mag_sender_worker_adicional
+
+        try:
+            etl_logger.info(
+                f"Iniciando worker envio_mag_adicional_sender (paralelo: {config.PARALLEL_REQUESTS_SEND_MAG})"
+            )
+
+            await rabbitmq_client.consume_queue(
+                queue_name=config.QUEUE_ENVIO_MAG_ADICIONAL_SEND,
+                callback=envio_mag_sender_worker_adicional.process_message,
+                prefetch_count=config.PARALLEL_REQUESTS_SEND_MAG
+            )
+        except KeyboardInterrupt:
+            etl_logger.info("Worker envio_mag_adicional_sender detenido por usuario")
+            envio_mag_sender_worker_adicional.print_stats()
+        except Exception as e:
+            etl_logger.error(f"Error en worker envio_mag_adicional_sender: {e}", exc_info=True)
+            raise
+        finally:
+            envio_mag_sender_worker_adicional.print_stats()
+            await rabbitmq_client.close()
+
+        return
+
     if worker_type not in workers:
         raise ValueError(f"Worker desconocido: {worker_type}")
     
@@ -794,7 +976,10 @@ if __name__ == '__main__':
         print(
             "Worker types: json_save, etl_transform, db_insert, "
             "envio_mag, envio_mag_sender, envio_mag_geometria, "
-            "envio_mag_geometria_boleta, envio_mag_geometria_terreno, envio_mag_geometria_sender"
+            "envio_mag_geometria_boleta, envio_mag_geometria_terreno, envio_mag_geometria_sender, "
+            "envio_mag_adicional, envio_mag_adicional_capacitacion, "
+            "envio_mag_adicional_comunicacion, envio_mag_adicional_produccion, "
+            "envio_mag_adicional_sender"
         )
         sys.exit(1)
     

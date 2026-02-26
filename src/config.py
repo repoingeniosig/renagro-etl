@@ -125,7 +125,17 @@ class Config:
     # API Remota RENAGRO Geometría (endpoints dedicados)
     RENAGRO_ENDPOINT_BOLETA_GEOMETRIA = os.getenv('RENAGRO_ENDPOINT_BOLETA_GEOMETRIA', '')
     RENAGRO_ENDPOINT_TERRENO_GEOMETRIA = os.getenv('RENAGRO_ENDPOINT_TERRENO_GEOMETRIA', '')
-    
+
+    # Colas de envío MAG Adicional (capacitacion, comunicacion, produccion)
+    QUEUE_ENVIO_MAG_ADICIONAL_SEND = os.getenv('QUEUE_ENVIO_MAG_ADICIONAL_SEND', 'renagro.envio.mag.adicional.send')
+    QUEUE_ENVIO_MAG_ADICIONAL_SEND_RETRY = os.getenv('QUEUE_ENVIO_MAG_ADICIONAL_SEND_RETRY', 'renagro.envio.mag.adicional.send.retry')
+    QUEUE_ENVIO_MAG_ADICIONAL_SEND_DLQ = os.getenv('QUEUE_ENVIO_MAG_ADICIONAL_SEND_DLQ', 'renagro.envio.mag.adicional.send.dlq')
+
+    # API Remota RENAGRO Adicional (endpoints dedicados)
+    RENAGRO_ENDPOINT_CAPACITACION = os.getenv('RENAGRO_ENDPOINT_CAPACITACION', 'http://10.10.1.105:3023/api-renagro/capacitacion/create')
+    RENAGRO_ENDPOINT_COMUNICACION = os.getenv('RENAGRO_ENDPOINT_COMUNICACION', 'http://10.10.1.105:3023/api-renagro/comunicacion/create')
+    RENAGRO_ENDPOINT_PRODUCCION = os.getenv('RENAGRO_ENDPOINT_PRODUCCION', 'http://10.10.1.105:3023/api-renagro/produccion/create')
+
 
 # Instancia global de configuración
 config = Config()

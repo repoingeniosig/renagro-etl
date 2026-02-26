@@ -66,3 +66,51 @@ targets_data_to_send:
     source_reference_file: main.yml
     source_reference_field: tege_id
     source_database_id: tege_id
+
+  capacitacion:
+    mapping: mappings-envio-mag/capacitacion
+    control_table: capacitacion
+    control_table_id: cap_id
+    control_table_primary_key: cap_id
+    control_table_filters:
+      - column: 'estado_addt'
+        value: 'APROBADO'
+        type: 'enum'
+      - column: 'envio_datos_procesados'
+        value: 'PENDIENTE'
+        type: 'enum'
+    source_reference_file: main.yml
+    source_reference_field: cap_id
+    source_database_id: cap_id
+
+  comunicacion:
+    mapping: mappings-envio-mag/comunicacion
+    control_table: comunicacion
+    control_table_id: com_id
+    control_table_primary_key: com_id
+    control_table_filters:
+      - column: 'estado_addt'
+        value: 'APROBADO'
+        type: 'enum'
+      - column: 'envio_datos_procesados'
+        value: 'PENDIENTE'
+        type: 'enum'
+    source_reference_file: main.yml
+    source_reference_field: com_id
+    source_database_id: com_id
+
+  produccion:
+    mapping: mappings-envio-mag/produccion
+    control_table: produccion
+    control_table_id: pro_id
+    control_table_primary_key: pro_id
+    control_table_filters:
+      - column: 'estado_addt'
+        value: 'APROBADO'
+        type: 'enum'
+      - column: 'envio_datos_procesados'
+        value: 'PENDIENTE'
+        type: 'enum'
+    source_reference_file: main.yml
+    source_reference_field: pro_id
+    source_database_id: pro_id
