@@ -27,12 +27,19 @@ class BatchProcessorEnvioMAG:
         
         # Cargar configuración desde structure.yaml
         self.target_config = structure_loader.get_target_data_to_send()
+        self._configure_mapping_context()
         
         # Crear directorio temporal si DEBUG_JSON_OUTPUT está activo
         if self.debug_json_output:
             self.temp_output_dir.mkdir(exist_ok=True, parents=True)
             if config.DEBUG_CLI:
                 envio_mag_logger.debug(f"[BatchProcessorEnvioMAG] Directorio debug creado: {self.temp_output_dir}")
+
+    def _configure_mapping_context(self):
+        mapping_loader_envio_mag.configure_mapping_context(
+            mapping_path=self.target_config.mapping,
+            main_mapping_file=self.target_config.source_reference_file
+        )
     
     def get_pending_boletas_ids(self) -> List[Tuple[int, Any]]:
         """
@@ -134,6 +141,8 @@ class BatchProcessorEnvioMAG:
         """
         with db.get_session() as session:
             fetcher = DataFetcherEnvioMAG(session)
+
+            self._configure_mapping_context()
             
             # Cargar mapeo principal para obtener tabla
             main_mapping = mapping_loader_envio_mag.load_main_mapping()
@@ -182,7 +191,10 @@ class BatchProcessorEnvioMAG:
             
             # IMPORTANTE: Cargar TODOS los mappings recursivamente (main.yml + referencias)
             # No usar loaded_mappings porque puede no tener todos los YAMLs referenciados
-            all_mappings = mapping_loader_envio_mag.load_all_mappings_recursive('main.yml', use_redis_cache=True)
+            all_mappings = mapping_loader_envio_mag.load_all_mappings_recursive(
+                self.target_config.source_reference_file,
+                use_redis_cache=True
+            )
             
             if config.DEBUG_CLI:
                 envio_mag_logger.debug(
@@ -222,6 +234,7 @@ class BatchProcessorEnvioMAG:
             JSON construido según main.yml
         """
         # Cargar mapeo principal
+        self._configure_mapping_context()
         main_mapping = mapping_loader_envio_mag.load_main_mapping()
         
         # DEBUG: Log del estado antes de construir JSON
@@ -270,6 +283,7 @@ class BatchProcessorEnvioMAG:
             return
         
         # Usar nombre genérico basado en la tabla principal
+        self._configure_mapping_context()
         main_mapping = mapping_loader_envio_mag.load_main_mapping()
         entity_name = main_mapping.entity.replace('Dto', '').replace('Create', '').lower()
         
@@ -425,6 +439,7 @@ class BatchProcessorEnvioMAG:
         
         try:
             # Cargar mapeo principal para obtener database_id
+            self._configure_mapping_context()
             main_mapping = mapping_loader_envio_mag.load_main_mapping()
             db_id_field = main_mapping.database_id
             

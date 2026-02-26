@@ -2,9 +2,9 @@
 Configuración del sistema de logging con rotación semanal
 """
 import logging
+import os
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
-from datetime import datetime
 
 from .config import config
 
@@ -32,9 +32,12 @@ def setup_logger(name: str = 'renagro_etl') -> logging.Logger:
         return logger
     
     # Determinar nombre de archivo según el logger
-    if name == 'worker_envio_mag':
-        log_file = log_dir / 'worker_envio_mag.log'
-        error_log_file = log_dir / 'worker_envio_mag_errors.log'
+    if name == 'worker_envio_mag_geometria':
+        log_file = log_dir / 'worker_envio_mag_geometria.log'
+        error_log_file = log_dir / 'worker_envio_mag_geometria_errors.log'
+    elif name.startswith('worker_envio_mag'):
+        log_file = log_dir / f'{name}.log'
+        error_log_file = log_dir / f'{name}_errors.log'
     else:
         log_file = log_dir / 'etl_process.log'
         error_log_file = log_dir / 'etl_errors.log'
@@ -80,4 +83,4 @@ def setup_logger(name: str = 'renagro_etl') -> logging.Logger:
 etl_logger = setup_logger('renagro_etl')
 
 # Logger para worker de envío a MAG
-envio_mag_logger = setup_logger('worker_envio_mag')
+envio_mag_logger = setup_logger(os.getenv('ENVIO_MAG_LOGGER_NAME', 'worker_envio_mag'))

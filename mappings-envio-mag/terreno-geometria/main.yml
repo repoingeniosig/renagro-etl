@@ -1,6 +1,6 @@
 version: 1
 entity: CreateTerrenoGeometriaDto
-table: terrenos_geometria
+table: terrenos_geometria_mag
 
 database_id: tege_id
 

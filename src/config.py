@@ -116,6 +116,15 @@ class Config:
     QUEUE_ENVIO_MAG_SEND = os.getenv('QUEUE_ENVIO_MAG_SEND', 'renagro.envio.mag.send')
     QUEUE_ENVIO_MAG_SEND_RETRY = os.getenv('QUEUE_ENVIO_MAG_SEND_RETRY', 'renagro.envio.mag.send.retry')
     QUEUE_ENVIO_MAG_SEND_DLQ = os.getenv('QUEUE_ENVIO_MAG_SEND_DLQ', 'renagro.envio.mag.send.dlq')
+
+    # Colas de envío MAG Geometría
+    QUEUE_ENVIO_MAG_GEOMETRIA_SEND = os.getenv('QUEUE_ENVIO_MAG_GEOMETRIA_SEND', 'renagro.envio.mag.geometria.send')
+    QUEUE_ENVIO_MAG_GEOMETRIA_SEND_RETRY = os.getenv('QUEUE_ENVIO_MAG_GEOMETRIA_SEND_RETRY', 'renagro.envio.mag.geometria.send.retry')
+    QUEUE_ENVIO_MAG_GEOMETRIA_SEND_DLQ = os.getenv('QUEUE_ENVIO_MAG_GEOMETRIA_SEND_DLQ', 'renagro.envio.mag.geometria.send.dlq')
+
+    # API Remota RENAGRO Geometría (endpoints dedicados)
+    RENAGRO_ENDPOINT_BOLETA_GEOMETRIA = os.getenv('RENAGRO_ENDPOINT_BOLETA_GEOMETRIA', '')
+    RENAGRO_ENDPOINT_TERRENO_GEOMETRIA = os.getenv('RENAGRO_ENDPOINT_TERRENO_GEOMETRIA', '')
     
 
 # Instancia global de configuración

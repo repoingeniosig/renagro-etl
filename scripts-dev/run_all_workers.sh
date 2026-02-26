@@ -6,36 +6,73 @@
 # Script para iniciar workers en paralelo (DESARROLLO)
 # Uso:
 #   ./run_all_workers.sh etl        - Solo workers ETL (json_save, etl_transform, db_insert)
-#   ./run_all_workers.sh envio      - Solo workers Envío MAG (envio_mag, envio_mag_sender)
+#   ./run_all_workers.sh envio      - Solo workers Envío MAG actual (envio_mag + envio_mag_sender)
+#   ./run_all_workers.sh envio geometria boleta   - Solo geometría boleta
+#   ./run_all_workers.sh envio geometria terreno  - Solo geometría terreno
 #   ./run_all_workers.sh etl envio  - Todos los workers
 #   ./run_all_workers.sh            - Todos los workers (sin argumentos)
 
 # Parsear argumentos
 START_ETL=false
-START_ENVIO=false
+START_ENVIO_NORMAL=false
+START_ENVIO_GEOM_BOLETA=false
+START_ENVIO_GEOM_TERRENO=false
+START_ENVIO_GEOM_SENDER=false
 
 if [ $# -eq 0 ]; then
     # Sin argumentos: iniciar todos
     START_ETL=true
-    START_ENVIO=true
+    START_ENVIO_NORMAL=true
+    START_ENVIO_GEOM_BOLETA=true
+    START_ENVIO_GEOM_TERRENO=true
+    START_ENVIO_GEOM_SENDER=true
 else
-    # Con argumentos: iniciar según lo especificado
-    for arg in "$@"; do
-        case $arg in
+    while [ $# -gt 0 ]; do
+        case "$1" in
             etl)
                 START_ETL=true
+                shift
                 ;;
             envio)
-                START_ENVIO=true
+                START_ENVIO_NORMAL=true
+                shift
+                ;;
+            geometria)
+                if [ $# -lt 2 ]; then
+                    echo "❌ Falta especificar target de geometría: boleta | terreno"
+                    exit 1
+                fi
+
+                case "$2" in
+                    boleta)
+                        START_ENVIO_NORMAL=false
+                        START_ENVIO_GEOM_BOLETA=true
+                        START_ENVIO_GEOM_SENDER=true
+                        ;;
+                    terreno)
+                        START_ENVIO_NORMAL=false
+                        START_ENVIO_GEOM_TERRENO=true
+                        START_ENVIO_GEOM_SENDER=true
+                        ;;
+                    *)
+                        echo "❌ Target de geometría inválido: $2"
+                        echo "Usa: boleta | terreno"
+                        exit 1
+                        ;;
+                esac
+
+                shift 2
                 ;;
             *)
-                echo "❌ Argumento inválido: $arg"
+                echo "❌ Argumento inválido: $1"
                 echo ""
                 echo "Uso:"
-                echo "  ./run_all_workers.sh etl        - Solo workers ETL"
-                echo "  ./run_all_workers.sh envio      - Solo workers Envío MAG"
-                echo "  ./run_all_workers.sh etl envio  - Todos los workers"
-                echo "  ./run_all_workers.sh            - Todos los workers"
+                echo "  ./run_all_workers.sh etl                          - Solo workers ETL"
+                echo "  ./run_all_workers.sh envio                        - Solo workers Envío MAG actual"
+                echo "  ./run_all_workers.sh envio geometria boleta       - Solo geometría boleta"
+                echo "  ./run_all_workers.sh envio geometria terreno      - Solo geometría terreno"
+                echo "  ./run_all_workers.sh etl envio                    - ETL + envío actual"
+                echo "  ./run_all_workers.sh                              - Todos los workers"
                 exit 1
                 ;;
         esac
@@ -102,22 +139,54 @@ if [ "$START_ETL" = true ]; then
 fi
 
 # Iniciar workers Envío MAG
-if [ "$START_ENVIO" = true ]; then
+if [ "$START_ENVIO_NORMAL" = true ]; then
     echo ""
-    echo "📤 Iniciando Workers Envío MAG..."
-    echo "---------------------------------"
+    echo "📤 Iniciando Workers Envío MAG (actual)..."
+    echo "------------------------------------------"
     
     echo "📤 Iniciando worker envio_mag..."
-    python3 -m src.workers envio_mag > logs/worker_envio_mag.log 2>&1 &
+    ENVIO_MAG_LOGGER_NAME=worker_envio_mag python3 -m src.workers envio_mag > logs/worker_envio_mag.log 2>&1 &
     PIDS+=($!)
     WORKER_NAMES+=("envio_mag")
     LOG_FILES+=("logs/worker_envio_mag.log")
     
     echo "🚀 Iniciando worker envio_mag_sender..."
-    python3 -m src.workers envio_mag_sender > logs/worker_envio_mag_sender.log 2>&1 &
+    ENVIO_MAG_LOGGER_NAME=worker_envio_mag_sender python3 -m src.workers envio_mag_sender > logs/worker_envio_mag_sender.log 2>&1 &
     PIDS+=($!)
     WORKER_NAMES+=("envio_mag_sender")
     LOG_FILES+=("logs/worker_envio_mag_sender.log")
+
+fi
+
+if [ "$START_ENVIO_GEOM_BOLETA" = true ] || [ "$START_ENVIO_GEOM_TERRENO" = true ] || [ "$START_ENVIO_GEOM_SENDER" = true ]; then
+    echo ""
+    echo "🗺️ Iniciando Workers Envío MAG Geometría..."
+    echo "-------------------------------------------"
+
+    if [ "$START_ENVIO_GEOM_BOLETA" = true ]; then
+        echo "🗺️ Iniciando worker envio_mag_geometria_boleta..."
+        ENVIO_MAG_LOGGER_NAME=worker_envio_mag_geometria python3 -m src.workers envio_mag_geometria_boleta >> logs/worker_envio_mag_geometria.log 2>&1 &
+        PIDS+=($!)
+        WORKER_NAMES+=("envio_mag_geometria_boleta")
+        LOG_FILES+=("logs/worker_envio_mag_geometria.log")
+    fi
+
+    if [ "$START_ENVIO_GEOM_TERRENO" = true ]; then
+        echo "🗺️ Iniciando worker envio_mag_geometria_terreno..."
+        ENVIO_MAG_LOGGER_NAME=worker_envio_mag_geometria python3 -m src.workers envio_mag_geometria_terreno >> logs/worker_envio_mag_geometria.log 2>&1 &
+        PIDS+=($!)
+        WORKER_NAMES+=("envio_mag_geometria_terreno")
+        LOG_FILES+=("logs/worker_envio_mag_geometria.log")
+    fi
+
+    if [ "$START_ENVIO_GEOM_SENDER" = true ] || [ "$START_ENVIO_GEOM_BOLETA" = true ] || [ "$START_ENVIO_GEOM_TERRENO" = true ]; then
+        echo "🛰️ Iniciando worker envio_mag_geometria_sender..."
+        ENVIO_MAG_LOGGER_NAME=worker_envio_mag_geometria python3 -m src.workers envio_mag_geometria_sender > logs/worker_envio_mag_geometria_sender.log 2>&1 &
+        PIDS+=($!)
+        WORKER_NAMES+=("envio_mag_geometria_sender")
+        LOG_FILES+=("logs/worker_envio_mag_geometria_sender.log")
+    fi
+
 fi
 
 # Mostrar resumen

@@ -38,9 +38,34 @@ class MappingLoaderEnvioMAG:
     
     def __init__(self, mapping_dir: Path = None):
         self.mapping_dir = mapping_dir or config.MAPPING_ENVIO_MAG_DIR
+        self.main_mapping_file = 'main.yml'
         self.loaded_mappings: Dict[str, EntityMappingEnvioMAG] = {}
         self.cache_prefix = "envio_mag"
         self._mappings_preloaded = False  # Flag para saber si ya se precargaron
+
+    def configure_mapping_context(self, mapping_path: str, main_mapping_file: str = 'main.yml'):
+        """
+        Configura el directorio de mappings y archivo principal para un target específico
+
+        Args:
+            mapping_path: Ruta absoluta o relativa al workspace con mappings
+            main_mapping_file: Archivo inicial de referencia
+        """
+        resolved_mapping_dir = Path(mapping_path)
+        if not resolved_mapping_dir.is_absolute():
+            resolved_mapping_dir = config.BASE_DIR / mapping_path
+
+        if resolved_mapping_dir != self.mapping_dir or self.main_mapping_file != main_mapping_file:
+            self.mapping_dir = resolved_mapping_dir
+            self.main_mapping_file = main_mapping_file
+            self.loaded_mappings = {}
+            self._mappings_preloaded = False
+
+            if config.DEBUG_CLI:
+                etl_logger.debug(
+                    f"[MappingLoaderEnvioMAG] Contexto actualizado: "
+                    f"mapping_dir={self.mapping_dir}, main_file={self.main_mapping_file}"
+                )
     
     def preload_all_mappings_to_redis(self) -> int:
         """
@@ -126,7 +151,7 @@ class MappingLoaderEnvioMAG:
         Returns:
             EntityMappingEnvioMAG del archivo main.yml
         """
-        return self.load_yaml_file('main.yml')
+        return self.load_yaml_file(self.main_mapping_file)
     
     def get_referenced_mappings(self, entity_mapping: EntityMappingEnvioMAG) -> List[str]:
         """

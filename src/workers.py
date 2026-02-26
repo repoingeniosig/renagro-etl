@@ -567,13 +567,91 @@ class EnvioMagWorker:
             raise
 
 
+class EnvioMagGeometriaWorker:
+    """
+    Worker para procesamiento de envío MAG Geometría
+    Procesa boleta_geometria y terreno_geometria en ejecución única.
+    """
+
+    @staticmethod
+    async def process_message(data: Dict[str, Any]):
+        from .logger import envio_mag_logger
+        from .batch_processor_envio_mag_geometria import process_all_geometry_targets
+
+        try:
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG GEOMETRÍA - INICIANDO")
+            envio_mag_logger.info("=" * 80)
+
+            total_processed = await process_all_geometry_targets()
+
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG GEOMETRÍA - FINALIZADO")
+            envio_mag_logger.info(f"Total de registros procesados: {total_processed}")
+            envio_mag_logger.info("=" * 80)
+
+        except Exception as e:
+            envio_mag_logger.error(f"Error en worker envio_mag_geometria: {e}", exc_info=True)
+            raise
+
+
+class EnvioMagGeometriaBoletaWorker:
+    """Worker para procesar únicamente boleta_geometria"""
+
+    @staticmethod
+    async def process_message(data: Dict[str, Any]):
+        from .logger import envio_mag_logger
+        from .batch_processor_envio_mag_geometria import process_geometry_target
+
+        try:
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG GEOMETRÍA BOLETA - INICIANDO")
+            envio_mag_logger.info("=" * 80)
+
+            total_processed = await process_geometry_target('boleta_geometria')
+
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG GEOMETRÍA BOLETA - FINALIZADO")
+            envio_mag_logger.info(f"Total de registros procesados: {total_processed}")
+            envio_mag_logger.info("=" * 80)
+
+        except Exception as e:
+            envio_mag_logger.error(f"Error en worker envio_mag_geometria_boleta: {e}", exc_info=True)
+            raise
+
+
+class EnvioMagGeometriaTerrenoWorker:
+    """Worker para procesar únicamente terreno_geometria"""
+
+    @staticmethod
+    async def process_message(data: Dict[str, Any]):
+        from .logger import envio_mag_logger
+        from .batch_processor_envio_mag_geometria import process_geometry_target
+
+        try:
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG GEOMETRÍA TERRENO - INICIANDO")
+            envio_mag_logger.info("=" * 80)
+
+            total_processed = await process_geometry_target('terreno_geometria')
+
+            envio_mag_logger.info("=" * 80)
+            envio_mag_logger.info("WORKER ENVIO MAG GEOMETRÍA TERRENO - FINALIZADO")
+            envio_mag_logger.info(f"Total de registros procesados: {total_processed}")
+            envio_mag_logger.info("=" * 80)
+
+        except Exception as e:
+            envio_mag_logger.error(f"Error en worker envio_mag_geometria_terreno: {e}", exc_info=True)
+            raise
+
+
 # Función principal para ejecutar un worker específico
 async def run_worker(worker_type: str):
     """
     Ejecuta un worker específico
     
     Args:
-        worker_type: Tipo de worker (json_save, etl_transform, db_insert, envio_mag)
+        worker_type: Tipo de worker (json_save, etl_transform, db_insert, envio_mag, envio_mag_geometria)
     """
     etl_logger.info(f"Iniciando worker: {worker_type}")
     
@@ -589,13 +667,53 @@ async def run_worker(worker_type: str):
             envio_mag_logger.error(f"Error en worker envio_mag: {e}", exc_info=True)
             raise
         return
+
+    # Worker especial envio_mag_geometria (no usa colas)
+    if worker_type == 'envio_mag_geometria':
+        try:
+            await EnvioMagGeometriaWorker.process_message({})
+        except KeyboardInterrupt:
+            from .logger import envio_mag_logger
+            envio_mag_logger.info("Worker envio_mag_geometria detenido por usuario")
+        except Exception as e:
+            from .logger import envio_mag_logger
+            envio_mag_logger.error(f"Error en worker envio_mag_geometria: {e}", exc_info=True)
+            raise
+        return
+
+    # Worker especial envio_mag_geometria_boleta (no usa colas)
+    if worker_type == 'envio_mag_geometria_boleta':
+        try:
+            await EnvioMagGeometriaBoletaWorker.process_message({})
+        except KeyboardInterrupt:
+            from .logger import envio_mag_logger
+            envio_mag_logger.info("Worker envio_mag_geometria_boleta detenido por usuario")
+        except Exception as e:
+            from .logger import envio_mag_logger
+            envio_mag_logger.error(f"Error en worker envio_mag_geometria_boleta: {e}", exc_info=True)
+            raise
+        return
+
+    # Worker especial envio_mag_geometria_terreno (no usa colas)
+    if worker_type == 'envio_mag_geometria_terreno':
+        try:
+            await EnvioMagGeometriaTerrenoWorker.process_message({})
+        except KeyboardInterrupt:
+            from .logger import envio_mag_logger
+            envio_mag_logger.info("Worker envio_mag_geometria_terreno detenido por usuario")
+        except Exception as e:
+            from .logger import envio_mag_logger
+            envio_mag_logger.error(f"Error en worker envio_mag_geometria_terreno: {e}", exc_info=True)
+            raise
+        return
     
     # Mapeo de workers normales (basados en colas)
     workers = {
         'json_save': (config.QUEUE_JSON_SAVE, JsonSaveWorker.process_message),
         'etl_transform': (config.QUEUE_ETL_TRANSFORM, EtlTransformWorker.process_message),
         'db_insert': (config.QUEUE_DB_INSERT, DbInsertWorker.process_message),
-        'envio_mag_sender': (config.QUEUE_ENVIO_MAG_SEND, None)  # Configurado abajo
+        'envio_mag_sender': (config.QUEUE_ENVIO_MAG_SEND, None),  # Configurado abajo
+        'envio_mag_geometria_sender': (config.QUEUE_ENVIO_MAG_GEOMETRIA_SEND, None)  # Configurado abajo
     }
     
     # Configuración especial para envio_mag_sender
@@ -622,6 +740,32 @@ async def run_worker(worker_type: str):
             await rabbitmq_client.close()
         
         return
+
+    # Configuración especial para envio_mag_geometria_sender
+    if worker_type == 'envio_mag_geometria_sender':
+        from .envio_mag_sender_worker_geometria import envio_mag_sender_worker_geometria
+
+        try:
+            etl_logger.info(
+                f"Iniciando worker envio_mag_geometria_sender (paralelo: {config.PARALLEL_REQUESTS_SEND_MAG})"
+            )
+
+            await rabbitmq_client.consume_queue(
+                queue_name=config.QUEUE_ENVIO_MAG_GEOMETRIA_SEND,
+                callback=envio_mag_sender_worker_geometria.process_message,
+                prefetch_count=config.PARALLEL_REQUESTS_SEND_MAG
+            )
+        except KeyboardInterrupt:
+            etl_logger.info("Worker envio_mag_geometria_sender detenido por usuario")
+            envio_mag_sender_worker_geometria.print_stats()
+        except Exception as e:
+            etl_logger.error(f"Error en worker envio_mag_geometria_sender: {e}", exc_info=True)
+            raise
+        finally:
+            envio_mag_sender_worker_geometria.print_stats()
+            await rabbitmq_client.close()
+
+        return
     
     if worker_type not in workers:
         raise ValueError(f"Worker desconocido: {worker_type}")
@@ -647,7 +791,11 @@ async def run_worker(worker_type: str):
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         print("Uso: python -m src.workers <worker_type>")
-        print("Worker types: json_save, etl_transform, db_insert, envio_mag, envio_mag_sender")
+        print(
+            "Worker types: json_save, etl_transform, db_insert, "
+            "envio_mag, envio_mag_sender, envio_mag_geometria, "
+            "envio_mag_geometria_boleta, envio_mag_geometria_terreno, envio_mag_geometria_sender"
+        )
         sys.exit(1)
     
     worker_type = sys.argv[1]

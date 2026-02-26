@@ -32,3 +32,37 @@ target_data_to_send:
   source_reference_field: bol_id_levanta
 
   source_database_id: bol_id
+
+# Targets adicionales para envío MAG (ejecuciones dedicadas)
+targets_data_to_send:
+  boleta_geometria:
+    mapping: mappings-envio-mag/boleta-geometria
+    control_table: boletas_geometria_mag
+    control_table_id: boge_id
+    control_table_primary_key: boge_id
+    control_table_filters:
+      - column: 'estado_geom'
+        value: 'APROBADO'
+        type: 'enum'
+      - column: 'envio_datos_procesados'
+        value: 'PENDIENTE'
+        type: 'enum'
+    source_reference_file: main.yml
+    source_reference_field: boge_id
+    source_database_id: boge_id
+
+  terreno_geometria:
+    mapping: mappings-envio-mag/terreno-geometria
+    control_table: terrenos_geometria_mag
+    control_table_id: tege_id
+    control_table_primary_key: tege_id
+    control_table_filters:
+      - column: 'estado_geom'
+        value: 'APROBADO'
+        type: 'enum'
+      - column: 'envio_datos_procesados'
+        value: 'PENDIENTE'
+        type: 'enum'
+    source_reference_file: main.yml
+    source_reference_field: tege_id
+    source_database_id: tege_id

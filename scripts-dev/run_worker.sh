@@ -49,4 +49,10 @@ echo "🚀 Iniciando worker: $WORKER_TYPE"
 echo ""
 
 # Ejecutar worker
-python3 -m src.workers $WORKER_TYPE
+if [[ "$WORKER_TYPE" == envio_mag_geometria* ]]; then
+    ENVIO_MAG_LOGGER_NAME="worker_envio_mag_geometria" python3 -m src.workers $WORKER_TYPE
+elif [[ "$WORKER_TYPE" == envio_mag* ]]; then
+    ENVIO_MAG_LOGGER_NAME="worker_envio_mag" python3 -m src.workers $WORKER_TYPE
+else
+    python3 -m src.workers $WORKER_TYPE
+fi

@@ -1,6 +1,6 @@
 version: 1
 entity: CreateBoletaGeometriaDto
-table: boletas_geometria
+table: boletas_geometria_mag
 
 database_id: boge_id
 

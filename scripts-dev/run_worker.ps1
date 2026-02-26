@@ -23,6 +23,10 @@ if (-not $WorkerType) {
     Write-Host '  db_insert        - Ejecuta transacciones SQL'
     Write-Host '  envio_mag        - Construye JSONs para envío MAG'
     Write-Host '  envio_mag_sender - Envía JSONs a API remota'
+    Write-Host '  envio_mag_geometria        - Construye JSONs de geometría (boleta + terreno)'
+    Write-Host '  envio_mag_geometria_boleta - Construye JSONs de geometría de boleta'
+    Write-Host '  envio_mag_geometria_terreno - Construye JSONs de geometría de terreno'
+    Write-Host '  envio_mag_geometria_sender - Envía JSONs de geometría a API remota'
     Write-Host ''
     Write-Host 'Ejemplo:'
     Write-Host '  .\scripts-dev\run_worker.ps1 json_save'
@@ -53,4 +57,10 @@ Write-Host "🚀 Iniciando worker: $WorkerType" -ForegroundColor Cyan
 Write-Host ''
 
 # Ejecutar worker
+if ($WorkerType -like 'envio_mag_geometria*') {
+    $env:ENVIO_MAG_LOGGER_NAME = 'worker_envio_mag_geometria'
+} elseif ($WorkerType -like 'envio_mag*') {
+    $env:ENVIO_MAG_LOGGER_NAME = 'worker_envio_mag'
+}
+
 python -m src.workers $WorkerType

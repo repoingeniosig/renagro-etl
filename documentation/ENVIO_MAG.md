@@ -7,6 +7,8 @@ Sistema **asíncrono** de dos fases **independientes** para enviar datos procesa
 **Importante:** Los workers funcionan en **paralelo**, no secuencialmente:
 - Worker `envio_mag`: Construye JSONs y publica a RabbitMQ
 - Worker `envio_mag_sender`: Consume cola y envía a API
+- Worker `envio_mag_geometria`: Construye JSONs de geometría (boleta + terreno) y publica a RabbitMQ
+- Worker `envio_mag_geometria_sender`: Consume cola de geometría y envía a API
 - **NO se bloquean entre sí** - funcionan simultáneamente
 
 ## Arquitectura
@@ -69,6 +71,8 @@ Respuesta HTTP
 ```bash
 # API Remota
 RENAGRO_ENDPOINT=https://api.renagro.gob.ec/v1/boletas
+RENAGRO_ENDPOINT_BOLETA_GEOMETRIA=https://api.renagro.gob.ec/v1/boletas/geometria
+RENAGRO_ENDPOINT_TERRENO_GEOMETRIA=https://api.renagro.gob.ec/v1/terrenos/geometria
 RENAGRO_TOKEN=Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 # Configuración de envío
@@ -81,6 +85,11 @@ DEBUG_JSON_OUTPUT=false           # Guardar JSONs en temp_json_output/
 QUEUE_ENVIO_MAG_SEND=renagro.envio.mag.send
 QUEUE_ENVIO_MAG_SEND_RETRY=renagro.envio.mag.send.retry
 QUEUE_ENVIO_MAG_SEND_DLQ=renagro.envio.mag.send.dlq
+
+# Colas dedicados para geometría
+QUEUE_ENVIO_MAG_GEOMETRIA_SEND=renagro.envio.mag.geometria.send
+QUEUE_ENVIO_MAG_GEOMETRIA_SEND_RETRY=renagro.envio.mag.geometria.send.retry
+QUEUE_ENVIO_MAG_GEOMETRIA_SEND_DLQ=renagro.envio.mag.geometria.send.dlq
 ```
 
 ## Uso
@@ -94,6 +103,12 @@ python -m src.workers envio_mag
 # Terminal 2: Enviar JSONs a API (corre continuamente)
 python -m src.workers envio_mag_sender
 
+# Terminal 3: Construir JSONs de geometría (boleta + terreno, ejecución única)
+python -m src.workers envio_mag_geometria
+
+# Terminal 4: Enviar JSONs de geometría a API (corre continuamente)
+python -m src.workers envio_mag_geometria_sender
+
 # O con el script que inicia todos los workers:
 bash run_all_workers.sh
 ```
@@ -102,6 +117,60 @@ bash run_all_workers.sh
 - `envio_mag` ejecuta UNA SOLA VEZ y termina
 - Para reprocesar nuevos registros, ejecutarlo manualmente de nuevo
 - `envio_mag_sender` corre continuamente consumiendo la cola
+- `envio_mag_geometria` ejecuta UNA SOLA VEZ y termina
+- `envio_mag_geometria_sender` corre continuamente consumiendo la cola de geometría
+
+### Ejecutar Workers (Windows)
+
+```powershell
+# Worker normal (construcción y envío)
+.\scripts-dev\run_worker.ps1 envio_mag
+.\scripts-dev\run_worker.ps1 envio_mag_sender
+
+# Worker geometría (construcción y envío)
+.\scripts-dev\run_worker.ps1 envio_mag_geometria_boleta
+.\scripts-dev\run_worker.ps1 envio_mag_geometria_terreno
+.\scripts-dev\run_worker.ps1 envio_mag_geometria_sender
+
+# Todos los workers (normal + geometría)
+bash ./scripts-dev/run_all_workers_win.sh envio
+```
+
+## Flujo Geometría
+
+### Targets soportados
+
+- `boleta_geometria`:
+  - Tabla control: `boletas_geometria_mag`
+  - Estado de habilitación: `estado_geom='APROBADO'`
+  - Criterio de envío: `envio_datos_procesados='PENDIENTE'`
+  - Reintento automático de batch: `envio_datos_procesados='ERROR' AND reintentable=TRUE`
+  - Columna ID remoto de éxito: `id_boleta_geometria_creada`
+
+- `terreno_geometria`:
+  - Tabla control: `terrenos_geometria_mag`
+  - Estado de habilitación: `estado_geom='APROBADO'`
+  - Criterio de envío: `envio_datos_procesados='PENDIENTE'`
+  - Reintento automático de batch: `envio_datos_procesados='ERROR' AND reintentable=TRUE`
+  - Columna ID remoto de éxito: `id_terreno_geometria_creada`
+
+### Estados de envío en geometría
+
+El flujo de estados es el mismo que boletas normales:
+
+`PENDIENTE -> PROCESANDO -> ENTREGANDO -> ENVIADO/ERROR`
+
+Reglas:
+- Error 4xx: marca `ERROR` y `reintentable=FALSE`
+- Error 5xx / red: marca `ERROR` y `reintentable=TRUE`
+
+### Logs de geometría
+
+Para geometría se usan exactamente tres archivos de log (misma lógica del flujo principal):
+
+- `logs/worker_envio_mag_geometria.log` (log funcional del procesamiento)
+- `logs/worker_envio_mag_geometria_errors.log` (solo errores)
+- `logs/worker_envio_mag_geometria_sender.log` (salida operativa del sender)
 
 ### Producción (systemd)
 
