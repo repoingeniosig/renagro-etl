@@ -7,7 +7,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: renagro
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./docker/data-db:/var/lib/postgresql/data
 
@@ -29,4 +29,19 @@ services:
     container_name: renagro-etl-redis
     ports:
       - "6379:6379"
+
+  renagro-etl-postgrest:
+    image: postgrest/postgrest:v12.2.3
+    container_name: renagro-etl-postgrest
+    depends_on:
+      - renagro-etl-db
+    ports:
+      - "3000:3000"
+    environment:
+      PGRST_DB_URI: postgres://authenticator:authenticator_pass@renagro-etl-db:5432/renagro
+      PGRST_DB_SCHEMAS: api
+      PGRST_DB_ANON_ROLE: web_anon
+      PGRST_JWT_SECRET: ${POSTGREST_JWT_SECRET:-0478718218e466bd993b3e17344c48c5}
+      PGRST_DB_MAX_ROWS: 100
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:3000
 

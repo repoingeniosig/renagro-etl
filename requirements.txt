@@ -24,3 +24,6 @@ aio-pika==9.3.1
 
 # HTTP client
 aiohttp==3.9.1
+
+# JWT token generation
+PyJWT==2.8.0
