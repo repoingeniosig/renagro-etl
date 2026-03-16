@@ -9,8 +9,12 @@ fields:
     source: "boge_geojson"
     type: geojson
     default: null
-  descripcion:
-    source: "boge_descripcion"
+  categoria:
+    source: "boge_categoria"
+    type: string
+    default: null
+  codigoUpa:
+    source: "boge_codigo_upa"
     type: string
     default: null
   bolId:

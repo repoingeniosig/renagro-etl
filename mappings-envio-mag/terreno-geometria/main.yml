@@ -9,8 +9,28 @@ fields:
     source: "tege_geojson"
     type: geojson
     default: null
-  descripcion:
-    source: "tege_descripcion"
+  codigoUpa:
+    source: "tege_codigo_upa"
+    type: string
+    default: null
+  cobertura:
+    source: "tege_cobertura"
+    type: string
+    default: null
+  coberturaNombre:
+    source: "tege_cobertura_nombre"
+    type: string
+    default: null
+  cultivo:
+    source: "tege_cultivo"
+    type: string
+    default: null
+  cultivoNombre:
+    source: "tege_cultivo_nombre"
+    type: string
+    default: null
+  codigoTerreno:
+    source: "tege_codigo_terreno"
     type: string
     default: null
   terId:
